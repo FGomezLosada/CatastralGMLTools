@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>CatastralGMLToolsDockWidgetBase</class>
+ <widget class="QDockWidget" name="CatastralGMLToolsDockWidgetBase">
+  <property name="geometry"><rect><x>0</x><y>0</y><width>400</width><height>640</height></rect></property>
+  <property name="windowTitle"><string>Catastral GML Tools</string></property>
+  <widget class="QWidget" name="dockWidgetContents">
+   <layout class="QVBoxLayout" name="mainLayout">
+    <property name="leftMargin"><number>4</number></property>
+    <property name="topMargin"><number>4</number></property>
+    <property name="rightMargin"><number>4</number></property>
+    <property name="bottomMargin"><number>4</number></property>
+    <item>
+     <layout class="QHBoxLayout" name="headerLayout">
+      <item>
+       <widget class="QLabel" name="legalLabel">
+        <property name="wordWrap"><bool>true</bool></property>
+        <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Preferred"><horstretch>1</horstretch><verstretch>0</verstretch></sizepolicy></property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="currentIndex"><number>0</number></property>
+      <widget class="QWidget" name="tabParcela">
+       <attribute name="title"><string>Parcela</string></attribute>
+       <layout class="QVBoxLayout" name="tabParcelaLayout">
+        <item>
+         <widget class="QLabel" name="tabParcelaInfo">
+          <property name="text"><string>Crear el GML de parcela (INSPIRE CadastralParcels 4.0) a partir de una capa de polígonos.</string></property>
+          <property name="wordWrap"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="tabParcelaPendiente">
+          <property name="text"><string>&lt;i&gt;Disponible en próximas versiones.&lt;/i&gt;</string></property>
+          <property name="enabled"><bool>false</bool></property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="tabParcelaSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tabEdificio">
+       <attribute name="title"><string>Edificio</string></attribute>
+       <layout class="QVBoxLayout" name="tabEdificioLayout">
+        <item>
+         <widget class="QLabel" name="tabEdificioInfo">
+          <property name="text"><string>Crear el GML de edificio y otras construcciones (INSPIRE BuildingExtended2D) para el ICUC.</string></property>
+          <property name="wordWrap"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="tabEdificioPendiente">
+          <property name="text"><string>&lt;i&gt;Disponible en próximas versiones.&lt;/i&gt;</string></property>
+          <property name="enabled"><bool>false</bool></property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="tabEdificioSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tabValidar">
+       <attribute name="title"><string>Validar</string></attribute>
+       <layout class="QVBoxLayout" name="tabValidarLayout">
+        <item>
+         <widget class="QLabel" name="tabValidarInfo">
+          <property name="text"><string>Abrir un GML y comprobarlo antes de subirlo a la Sede Electrónica del Catastro.</string></property>
+          <property name="wordWrap"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="tabValidarPendiente">
+          <property name="text"><string>&lt;i&gt;Disponible en próximas versiones.&lt;/i&gt;</string></property>
+          <property name="enabled"><bool>false</bool></property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="tabValidarSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tabDescargar">
+       <attribute name="title"><string>Descargar</string></attribute>
+       <layout class="QVBoxLayout" name="tabDescargarLayout">
+        <item>
+         <widget class="QLabel" name="tabDescargarInfo">
+          <property name="text"><string>Descargar una parcela, sus colindantes y sus construcciones por referencia catastral.</string></property>
+          <property name="wordWrap"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="tabDescargarPendiente">
+          <property name="text"><string>&lt;i&gt;Disponible en próximas versiones.&lt;/i&gt;</string></property>
+          <property name="enabled"><bool>false</bool></property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="tabDescargarSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tabDividir">
+       <attribute name="title"><string>Dividir</string></attribute>
+       <layout class="QVBoxLayout" name="tabDividirLayout">
+        <item>
+         <widget class="QLabel" name="tabDividirInfo">
+          <property name="text"><string>Dividir una parcela por superficie, en partes iguales, por porcentaje o por franjas.</string></property>
+          <property name="wordWrap"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="tabDividirPendiente">
+          <property name="text"><string>&lt;i&gt;Disponible en próximas versiones.&lt;/i&gt;</string></property>
+          <property name="enabled"><bool>false</bool></property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="tabDividirSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tabUtilidades">
+       <attribute name="title"><string>Utilidades</string></attribute>
+       <layout class="QVBoxLayout" name="tabUtilidadesLayout">
+        <item>
+         <widget class="QLabel" name="tabUtilidadesInfo">
+          <property name="text"><string>Unir varios GML, convertir del esquema 3.0 al 4.0 e informes de superficies y coordenadas.</string></property>
+          <property name="wordWrap"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="tabUtilidadesPendiente">
+          <property name="text"><string>&lt;i&gt;Disponible en próximas versiones.&lt;/i&gt;</string></property>
+          <property name="enabled"><bool>false</bool></property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="tabUtilidadesSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="sourceLabel">
+      <property name="wordWrap"><bool>true</bool></property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

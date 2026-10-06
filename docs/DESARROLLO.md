@@ -1,0 +1,164 @@
+# Catastral GML Tools · Plan de desarrollo
+
+> Repositorio `FGomezLosada/CatastralGMLTools` · carpeta local `C:\Users\Usuario\Documents\dev\CatastralGMLTools` · carpeta del plugin en QGIS `catastral_gml_tools`.
+> Herramientas para preparar, revisar y validar ficheros GML de parcela y de edificio para la Sede Electrónica del Catastro.
+> Licencia: GPL-2.0-or-later. Compatibilidad: QGIS 3.34+ y 4.x (Qt5/Qt6).
+> Herramienta **no oficial**: el resultado debe validarse siempre en la Sede Electrónica del Catastro.
+
+Datos técnicos y licencias de terceros: ver [`INVESTIGACION.md`](INVESTIGACION.md).
+
+---
+
+## 1. Alcance
+
+**Dentro**
+- Crear GML de parcela (CP 4.0) desde una capa: una o varias parcelas por fichero, con localId/namespace según la alteración.
+- Crear GML de edificio (BU ext2D 2.0): edificios y otras construcciones (piscinas).
+- Abrir y revisar GML (v3, v4 y edificio) en QGIS.
+- Validar un GML antes de subirlo: estructura, esquema, geometría y reglas conocidas de la SEC.
+- Convertir GML de parcela 3.0 → 4.0 y reparar errores habituales.
+- Unir varios GML de parcela en uno (multiparcela) y disolver parcelas (unión para agregación/agrupación).
+- Descarga **puntual** por referencia catastral: la parcela, sus colindantes y sus construcciones. RC por clic en el mapa.
+- Dividir parcelas: superficie objetivo, partes iguales, porcentaje, franja paralela, pivote.
+- Asistente de alteraciones (segregación, división, agregación, agrupación, subsanación) que propone identificadores y comprueba NPO/NPP.
+- Informe de superficies y coordenadas (HTML/CSV).
+- Algoritmos de Processing para usar las herramientas en modelos y por lotes.
+
+**Fuera**
+- Descarga masiva (ATOM/municipio): ya la cubre *Spanish Inspire Catastral Downloader*.
+- Datos protegidos (titulares, valores).
+- Territorios con catastro propio: **Navarra** se estudia aparte (mejora 30) y se incorporará lo que su catastro admita; **País Vasco**, solo detección y aviso (mejora 31).
+- Envío a la Sede: el plugin prepara el fichero; el trámite se hace en la Sede.
+
+---
+
+## 2. Arquitectura
+
+```
+CatastralGMLTools/                       (raíz del repositorio = carpeta del plugin)
+├── __init__.py
+├── metadata.txt                         (descripción en inglés, supportsQt6=True)
+├── catastral_gml_tools.py               (initGui/unload, botón, menú Vectorial, proveedor Processing)
+├── catastral_gml_tools_dockwidget.py / _base.ui  (panel: Parcela · Edificio · Validar · Descargar · Dividir · Utilidades)
+├── icon.svg / icon.png
+├── core/                                (sin interfaz; probado de forma aislada)
+│   ├── info.py                          (nombre, versión, aviso legal, fuente, territorios forales)
+│   ├── refcat.py                (formato y dígitos de control de la RC)
+│   ├── geometria.py             (cierre, orientación, redondeo a 2 decimales, punto interior, área, limpieza)
+│   ├── gml_parcela.py           (escritor CP 4.0)
+│   ├── gml_edificio.py          (escritor BU ext2D 2.0)
+│   ├── gml_lector.py            (lector CP 3.0/4.0 y BU → objetos propios → capa QGIS)
+│   ├── conversor.py             (3.0 → 4.0 y reparaciones)
+│   ├── validador.py             (reglas → lista de incidencias con nivel, código y mensaje)
+│   ├── alteraciones.py          (NPO/NPP/namespace → alteraciones posibles; propuesta de localId)
+│   ├── division.py              (algoritmos de división)
+│   ├── servicios.py             (WFS CP/BU, Consulta_RCCOOR, Consulta_CPMRC; red de QGIS)
+│   └── informe.py               (informe HTML/CSV)
+├── processing/                  (proveedor y algoritmos que llaman a core/)
+├── tareas.py                    (QgsTask para descargas, validación y división)
+├── i18n/                        (es, en)
+├── help/                        (ayuda HTML local)
+├── tests/   tools/   docs/
+└── .github/                     (Action de publicación y plantillas de issues)
+```
+
+Decisiones técnicas:
+- **XML con `xml.etree.ElementTree`** (biblioteca estándar) para escribir y leer; validación XSD con `lxml` solo si está disponible y con los esquemas descargados bajo demanda a una caché del usuario (no se empaquetan). Sin `lxml`, la validación estructural propia sigue funcionando.
+- **Red con `QgsBlockingNetworkRequest`** dentro de `QgsTask`: respeta el proxy y la autenticación configurados en QGIS.
+- **Geometría con `QgsGeometry`**: orientación con `forceRHR()`/inversión controlada, punto interior con `pointOnSurface()`, validez con `isGeosValid()`.
+- Todos los mensajes al usuario en una `QgsMessageBar` dentro del panel; nada de `QMessageBox`.
+
+---
+
+## 3. Fases
+
+| Fase | Contenido | Estado |
+|---|---|---|
+| 0 | Investigación, licencias, alcance, nombre y arquitectura | ✅ |
+| 1 | Esqueleto: estructura, metadata, panel vacío, icono, ayuda, infraestructura de pruebas, empaquetado, plantillas de GitHub | ✅ (0.1.0) |
+| 2 | Núcleo: RC y geometría | — |
+| 3 | GML de parcela (crear) | — |
+| 4 | Lector y visor de GML | — |
+| 5 | Validador e informe | — |
+| 6 | Servicios: descarga por RC y RC por clic; Navarra y territorios forales | — |
+| 7 | Alteraciones: asistente, multiparcela y unión | — |
+| 8 | GML de edificio y comprobaciones ICUC | — |
+| 9 | Conversor 3.0 → 4.0 y reparación | — |
+| 10 | División de parcelas | — |
+| 11 | Informe de superficies y coordenadas | — |
+| 12 | Processing | — |
+| 13 | Documentación, capturas, traducción, ZIP para compañeros y publicación estable | — |
+
+---
+
+## 4. Mejoras
+
+| Nº | Mejora | Motivo | Hecha |
+|---|---|---|---|
+| 1 | Estructura del repositorio, LICENSE, README bilingüe, CHANGELOG, CREDITS, .gitattributes, .gitignore | Base del proyecto | ✅ |
+| 2 | `metadata.txt`, carga/descarga limpia del plugin, panel con pestañas, barra de mensajes, aviso legal, ayuda local e icono propio | Esqueleto que funcione en 3.40 y 4.x | ✅ |
+| 3 | `tools/run_tests.py`, `tools/probar.bat`, `tools/package.py` | Pruebas en las dos versiones y ZIP limpio | ✅ |
+| 4 | Action de publicación por etiqueta y plantillas de issues (`para_github/` si hace falta) | Publicación reproducible | ✅ |
+| 5 | `core/refcat.py`: validar RC de 14/18/20 caracteres y dígitos de control | Evitar RC mal escritas | |
+| 6 | `core/geometria.py`: cierre, orientación, 2 decimales, vértices duplicados, punto interior, área redondeada, curvas densificadas con flecha < 2 cm, huso propuesto según la provincia | Reglas de geometría del Catastro | |
+| 7 | Escritor GML de parcela CP 4.0 (una o varias parcelas, un recinto por parcela) | Función central | |
+| 8 | Pestaña Parcela: elegir capa, campos de RC/localId/label, namespace por fila, fecha, SRC, destino | Generar el GML desde una capa dibujada | |
+| 9 | Lector de GML (CP 3.0/4.0, BU) y carga como capa con estilo | Revisar ficheros propios o ajenos | |
+| 10 | Validador: estructura, esquema, coherencia de ids, `count`, `areaValue`, orientación, cierre, solapes, multiparte, SRC | Detectar errores antes de subir | |
+| 11 | Informe de validación en el panel con botón para abrir el informe HTML y el fichero | Resultado claro | |
+| 12 | Descarga por RC: parcela, colindantes y construcciones (WFS) con atribución a la DGC | Partir de la cartografía vigente | |
+| 13 | RC por clic en el mapa (Consulta_RCCOOR) | Comodidad | |
+| 14 | Comparación con la parcela de origen: parcelas sin cambios, contorno total (tolerancia ±1 cm en vértices), NPO | Simular comprobaciones de la SEC | |
+| 15 | Asistente de alteraciones: tabla NPO/NPP/namespace y propuesta de localId (`Seg_`, `Div_`, `Agrupa_`) | Evitar errores de identificadores | |
+| 16 | Multiparcela: unir varios GML en uno | Equivalente a "multiparcela" | |
+| 17 | Unión/disolución de parcelas seleccionadas en una sola | Agregación y agrupación | |
+| 18 | Escritor GML de edificio (Building y OtherConstruction) | GML para el ICUC | |
+| 19 | Pestaña Edificio: capa de huellas, tipo, plantas, estado, RC de parcela | Generar el GML de edificio | |
+| 20 | Comprobaciones ICUC: dentro de la parcela, ≤100 m, sin solapes, ids, nº de ficheros | Simular el ICUC | |
+| 21 | Conversor 3.0 → 4.0 y reparaciones (cierre, orientación, `count`, `areaValue`, srsName) | Aprovechar ficheros antiguos | |
+| 22 | División: superficie objetivo, partes iguales, porcentaje | Segregaciones y divisiones | |
+| 23 | División: franja de ancho fijo, línea paralela/perpendicular a un lado, pivote | Casos reales de campo | |
+| 24 | Ajuste de lindero entre dos parcelas colindantes manteniendo el contorno | Subsanaciones | |
+| 25 | Informe de superficies y coordenadas (HTML/CSV), con superficie gráfica y diferencia con la catastral | Documentación técnica | |
+| 26 | Proveedor de Processing con los algoritmos principales | Modelos y lotes | |
+| 27 | Traducción al inglés (Qt Linguist) | Publicación internacional | |
+| 28 | Ayuda local HTML con ejemplos y avisos legales | Uso sin conexión | |
+| 29 | README con capturas reales, ZIP de prueba y publicación estable (`experimental=False` en 1.0.0) | Cierre | |
+| 30 | Navarra: investigar el formato y los servicios del Registro de la Riqueza Territorial (IDENA) e incorporar lo que admita (descarga y GML) | El plugin es para toda España | |
+| 31 | Detección de territorios con catastro propio (Navarra, Álava/Araba, Gipuzkoa, Bizkaia) con aviso antes de generar GML para la Sede de la DGC | Evitar ficheros que no sirven | |
+
+---
+
+## 5. Entorno de pruebas
+
+- **Windows** (tu PC) con QGIS 3.40.13 LTR (`C:\Program Files\QGIS 3.40.13`) y QGIS 4.2.2 (`C:\Program Files\QGIS 4.2.2`).
+- `tools/run_tests.py`: cada prueba en un proceso propio, QGIS sin ventana (`qgis.testing.start_app`, iface simulada, `QT_QPA_PLATFORM=offscreen`).
+- `tools/probar.bat`: lanza las pruebas con las dos versiones; con `PB_SIN_PAUSA` definida no hace pausa. Resultados en `tests/resultados_qgis<versión>.txt`.
+- `tests/data/`: GML de ejemplo **propios y sintéticos** (válidos e inválidos: anillo abierto, orientación invertida, `count` erróneo, multiparte, esquema 3.0, SRC no admitido, ids repetidos…). Nada copiado de terceros ni descargado del Catastro.
+- Las pruebas de red (WFS) se marcan aparte y se pueden saltar sin conexión.
+- Si QGIS está abierto con el complemento MCP, se lanzan pruebas también desde ahí.
+- En mi espacio de trabajo (Linux) las pruebas se lanzan además con **QGIS 3.34** (la versión mínima), sin ventana. QGIS 4 solo se prueba en tu PC.
+
+---
+
+## 6. Errores conocidos y puntos por confirmar
+
+| Nº | Descripción | Estado |
+|---|---|---|
+| E-01 | Los servicios del Catastro se publican en `http://`; comprobar si responden por `https://` y usarlo si es así | Por confirmar (fase 6) |
+| E-02 | Los WFS no ofrecen EPSG:32628 (Canarias): pedir en EPSG:4258 y transformar | Por resolver (fase 6) |
+| E-03 | Confirmar si la SEC acepta EPSG:4083 (REGCAN95 UTM 28) además de 32628 | Por confirmar |
+| E-04 | El GML de parcela usa UTF-8 y el de edificio ISO-8859-1 según los documentos oficiales; mantener cada uno | Decisión |
+| E-05 | El esquema BU de la DGC es un borrador modificado localmente; la validación XSD de edificios debe usar la copia de la DGC | Por resolver (fase 8) |
+| E-06 | Las reglas de la SEC no están publicadas de forma completa: el validador avisa de lo conocido y siempre remite a la Sede | Limitación asumida |
+| E-07 | `metadata.txt` lleva `experimental=True` durante el desarrollo; se cambia a `False` en la 1.0.0, que será la primera que se suba a plugins.qgis.org | Decisión |
+| E-09 | QGIS 4.2.2 no abría el panel: el uic de PyQt6 genera `QSpacerItem(Policy, Policy)` para los espaciadores del .ui sin `sizeHint`. Todos los espaciadores llevan ahora `sizeHint` y `package_test.py` lo comprueba en cualquier versión | Resuelto (0.1.0) |
+| E-08 | El icono `mActionCheckGeometry.svg` no existe en QGIS 3.34: la pestaña Validar usa `algorithms/mAlgorithmCheckGeometry.svg` | Resuelto (0.1.0) |
+
+---
+
+## 7. Método
+
+- Una mejora cada vez. Tras cada cambio: pruebas en 3.40 y 4.x, CHANGELOG y esta tabla actualizados, y mensaje de commit en español.
+- Solo rama `main`. Comandos git para CMD, uno por bloque, empezando por `cd /d <carpeta>`.
+- Reglas de estabilidad (lecciones de ProjectBuilder y de este plugin): todo espaciador de un .ui lleva `sizeHint` (PyQt6); señales a métodos (no lambdas); QTimer hijos del panel y comprobación `sip.isdeleted(self)`; todo widget con padre o referencia; sin `QTreeWidgetItemIterator`; enums con nombre completo y comparación explícita.

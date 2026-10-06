@@ -1,0 +1,10 @@
+Datos de prueba de Catastral GML Tools
+======================================
+
+Todos los ficheros de esta carpeta son PROPIOS y SINTÉTICOS: coordenadas inventadas y referencias
+catastrales ficticias creadas para las pruebas. No contienen datos descargados del Catastro ni copiados
+de otros plugins o webs.
+
+Se irán añadiendo GML válidos e inválidos (anillo abierto, orientación invertida, count erróneo,
+parcela multiparte, esquema 3.0, SRC no admitido, identificadores repetidos...) a medida que se
+implementen las funciones que los usan.
