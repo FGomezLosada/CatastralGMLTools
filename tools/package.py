@@ -18,7 +18,7 @@ CARPETA = 'catastral_gml_tools'  #Nombre de la carpeta del plugin dentro de QGIS
 FICHEROS = ['__init__.py', 'catastral_gml_tools.py', 'catastral_gml_tools_dockwidget.py',
             'catastral_gml_tools_dockwidget_base.ui', 'metadata.txt', 'icon.png', 'icon.svg', 'LICENSE', 'README.md',
             'CREDITS.md']
-CARPETAS = {'core': ('.py',), 'help': ('.html', '.png', '.svg', '.css')}  #Subcarpetas incluidas y extensiones admitidas
+CARPETAS = {'core': ('.py',), 'gui': ('.py',), 'help': ('.html', '.png', '.svg', '.css')}  #Subcarpetas incluidas y extensiones admitidas
 OBLIGATORIOS = ['name', 'qgisMinimumVersion', 'description', 'about', 'version', 'author', 'email', 'repository']
 LIMITE_MB = 25
 
