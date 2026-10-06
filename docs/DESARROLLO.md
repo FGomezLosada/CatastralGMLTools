@@ -109,7 +109,7 @@ Decisiones técnicas:
 | 12 | Descarga por RC: parcela, colindantes y construcciones (WFS) con atribución a la DGC | Partir de la cartografía vigente | |
 | 13 | RC por clic en el mapa (Consulta_RCCOOR) | Comodidad | |
 | 14 | Comparación con la parcela de origen: parcelas sin cambios, contorno total (tolerancia ±1 cm en vértices), NPO | Simular comprobaciones de la SEC | |
-| 15 | Asistente de alteraciones: tabla NPO/NPP/namespace y propuesta de localId (`Seg_`, `Div_`, `Agrupa_`) | Evitar errores de identificadores | |
+| 15 | Asistente de alteraciones: desplegable «Tipo de alteración» (segregación, división, agregación, agrupación, subsanación) que pone identificadores (`Seg_`, `Div_`, `Agrupa_`) y namespaces y comprueba la tabla NPO/NPP/namespace de la Sede. Mientras tanto, las parcelas nuevas se proponen como `Nueva_N` | Evitar errores de identificadores sin presuponer la alteración | |
 | 16 | Multiparcela: unir varios GML en uno | Equivalente a "multiparcela" | |
 | 17 | Unión/disolución de parcelas seleccionadas en una sola | Agregación y agrupación | |
 | 18 | Escritor GML de edificio (Building y OtherConstruction) | GML para el ICUC | |

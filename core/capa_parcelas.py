@@ -63,21 +63,22 @@ def leer_capa(capa, solo_seleccion=False, campo_id='', campo_label=''):
         leidas.append([entidad.id(), local_id or f"Parcela_{n}", label, geometria])
 
     #Identificadores repetidos (lo normal tras dividir una parcela: todos los trozos copian su referencia).
-    #Si es una referencia catastral, la conserva el trozo mayor (el resto de la finca matriz) y los demás se proponen
-    #como parcelas segregadas Seg_1, Seg_2…; si no, se numeran id_2, id_3… El usuario puede cambiarlos en la tabla.
+    #Si es una referencia catastral, la conserva el trozo mayor y los demás se proponen como parcelas nuevas con un nombre
+    #neutro (Nueva_1, Nueva_2…): no se presupone el tipo de alteración (segregación, división…), que decide el usuario
+    #y, para la Sede, el número de parcelas y sus namespaces. Si no es una RC, se numeran id_2, id_3…
     grupos = {}
     for fila in leidas:
         grupos.setdefault(fila[1], []).append(fila)
     usados = {fila[1] for fila in leidas}
-    segregadas = 0
+    nuevas = 0
     for local_id, grupo in grupos.items():
         if len(grupo) < 2:
             continue
         grupo.sort(key=lambda f: f[3].area() if not f[3].isNull() else 0, reverse=True)
         for k, fila in enumerate(grupo[1:], start=2):
             if refcat.es_rc_parcela(local_id):
-                segregadas += 1
-                nuevo = f"Seg_{segregadas}"
+                nuevas += 1
+                nuevo = f"Nueva_{nuevas}"
             else:
                 nuevo = f"{local_id}_{k}"
             while nuevo in usados:
