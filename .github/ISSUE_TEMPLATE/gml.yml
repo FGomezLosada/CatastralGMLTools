@@ -1,0 +1,37 @@
+name: "GML rechazado por la Sede / GML rejected by the Sede"
+description: "Un GML creado o comprobado con el plugin que la Sede Electrónica del Catastro no acepta / A GML file the Sede rejects"
+labels: ["gml"]
+body:
+  - type: markdown
+    attributes:
+      value: "No adjuntes datos personales (titulares, NIF, direcciones particulares). / Do not attach personal data."
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: "Tipo de GML / GML type"
+      options: ["Parcela (IVGA)", "Edificio (ICUC)", "Otro / Other"]
+    validations:
+      required: true
+  - type: textarea
+    id: mensaje
+    attributes:
+      label: "Mensaje de error de la Sede / Error message from the Sede"
+      description: "Copia el texto exacto. / Copy the exact text."
+    validations:
+      required: true
+  - type: textarea
+    id: comprobacion
+    attributes:
+      label: "Resultado de la pestaña Validar del plugin / Plugin check result"
+  - type: input
+    id: versiones
+    attributes:
+      label: "Versiones de QGIS y del plugin / QGIS and plugin versions"
+      placeholder: "p. ej. QGIS 3.40.13 · Catastral GML Tools 0.3.0"
+    validations:
+      required: true
+  - type: textarea
+    id: fichero
+    attributes:
+      label: "Fichero GML (opcional) / GML file (optional)"
+      description: "Arrastra aquí el .gml comprimido en .zip si puedes compartirlo. / Drop the .gml zipped here if you can share it."

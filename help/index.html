@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catastral GML Tools · Ayuda</title>
+<style>
+  :root { --c: #1f6f78; --fondo: #ffffff; --texto: #1d2327; --suave: #eef6f5; --aviso: #fff4e0; --borde: #f2a541; }
+  @media (prefers-color-scheme: dark) { :root { --fondo: #15191b; --texto: #e6eaeb; --suave: #1e2a2b; --aviso: #3a2c12; } }
+  body { font-family: "Segoe UI", Arial, sans-serif; max-width: 860px; margin: 0 auto; padding: 16px; line-height: 1.5;
+         background: var(--fondo); color: var(--texto); }
+  h1 { color: var(--c); margin-bottom: 0; }
+  h2 { color: var(--c); border-bottom: 2px solid var(--suave); padding-bottom: 4px; margin-top: 32px; }
+  .aviso { background: var(--aviso); border-left: 4px solid var(--borde); padding: 10px 14px; margin: 16px 0; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--suave); vertical-align: top; }
+  th { background: var(--suave); }
+  small { opacity: .8; }
+</style>
+</head>
+<body>
+<h1>Catastral GML Tools</h1>
+<p><small>Plugin de QGIS · GPL-2.0-or-later · © 2026 Francisco Gómez Losada</small></p>
+
+<div class="aviso"><strong>Herramienta no oficial.</strong> Catastral GML Tools no pertenece ni está avalada por la
+Dirección General del Catastro. Valide siempre el resultado en la Sede Electrónica del Catastro antes de usarlo
+en cualquier trámite.</div>
+
+<h2>Para qué sirve</h2>
+<p>Prepara los ficheros GML que pide la Sede Electrónica del Catastro: el GML de parcela (INSPIRE CadastralParcels 4.0)
+para el informe de validación gráfica y el GML de edificio (INSPIRE BuildingExtended2D) para el informe de ubicación de
+construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p>
+
+<h2>Pestañas del panel</h2>
+<table>
+  <tr><th>Pestaña</th><th>Qué hace</th></tr>
+  <tr><td>Parcela</td><td>Crea el GML de una o varias parcelas a partir de una capa de polígonos.</td></tr>
+  <tr><td>Edificio</td><td>Crea el GML de edificios y otras construcciones (piscinas).</td></tr>
+  <tr><td>Validar</td><td>Abre un GML y lo comprueba: estructura, identificadores, geometría y sistema de referencia.</td></tr>
+  <tr><td>Descargar</td><td>Descarga una parcela concreta, sus colindantes y sus construcciones por referencia catastral.</td></tr>
+  <tr><td>Dividir</td><td>Divide una parcela por superficie, en partes iguales, por porcentaje o por franjas.</td></tr>
+  <tr><td>Utilidades</td><td>Une varios GML, convierte del esquema 3.0 al 4.0 y genera informes de superficies y coordenadas.</td></tr>
+</table>
+<p><small>Las funciones se irán activando versión a versión; las que aún no están disponibles lo indican en su pestaña.</small></p>
+
+<h2>Ámbito territorial</h2>
+<p>El plugin trabaja con el territorio gestionado por la Dirección General del Catastro. Navarra y los territorios
+forales del País Vasco (Álava/Araba, Gipuzkoa y Bizkaia) tienen catastros propios, con sus propios servicios y
+procedimientos: el plugin los detecta y lo indica.</p>
+
+<h2>Datos</h2>
+<p>Los datos descargados proceden de los servicios públicos de la <strong>Dirección General del Catastro</strong> y se
+citan siempre con esa fuente y la fecha de descarga. El plugin no usa ni muestra datos protegidos (titulares ni
+valores catastrales) y no incluye datos del Catastro en su instalación.</p>
+
+<h2>English</h2>
+<p>Catastral GML Tools creates, checks and converts the cadastral parcel and building GML files required by the Spanish
+Cadastre electronic office. It is <strong>not an official tool</strong>: always validate the result in the Sede
+Electrónica del Catastro. Cadastral data: Dirección General del Catastro.</p>
+</body>
+</html>

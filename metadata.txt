@@ -1,0 +1,25 @@
+[general]
+name=Catastral GML Tools
+qgisMinimumVersion=3.34
+qgisMaximumVersion=4.99
+supportsQt6=True
+description=Create, check and convert cadastral parcel and building GML files for the Spanish Cadastre electronic office (Sede Electrónica del Catastro)
+about=Tools to prepare the GML files required by the Spanish Cadastre electronic office: cadastral parcel GML (INSPIRE CadastralParcels 4.0) for graphic validation reports and building GML (INSPIRE BuildingExtended2D) for construction location reports. Create GML files from your own layers (one or several parcels), open and review existing files, check them before uploading (structure, identifiers, ring orientation, area, overlaps, reference systems), convert old 3.0 files to 4.0, merge and divide parcels, download a single parcel, its neighbours and its buildings by cadastral reference, and produce area and coordinate reports. Covers the territory managed by the Spanish Directorate General for Cadastre; the foral cadastres (Navarre and the Basque Country) are detected and handled separately. This is NOT an official tool: always validate the result in the Sede Electrónica del Catastro. Cadastral data: Dirección General del Catastro. User interface in Spanish.
+version=0.1.0
+author=Francisco Gómez Losada
+email=pgomezlosada@gmail.com
+
+tracker=https://github.com/FGomezLosada/CatastralGMLTools/issues
+repository=https://github.com/FGomezLosada/CatastralGMLTools
+homepage=https://github.com/FGomezLosada/CatastralGMLTools
+
+changelog=
+    0.1.0 - Esqueleto del plugin: panel con pestañas, avisos dentro del panel, aviso legal, ayuda local, icono propio, pruebas automáticas y empaquetado.
+
+tags=cadastre, catastro, cadastral, gml, inspire, parcel, building, spain, españa, ivga, icuc, sede electronica
+category=Vector
+icon=icon.png
+experimental=True
+deprecated=False
+hasProcessingProvider=no
+server=False
