@@ -187,7 +187,7 @@ auto_seleccion = pt.soloSeleccion.isChecked() and pt.tabla.rowCount() == 2
 grande.selectByIds(ids_grande[:3])  #Al seleccionar en el mapa, la tabla se actualiza sola
 sigue_seleccion = pt.tabla.rowCount() == 3
 
-# 8. Parcela dividida: los dos trozos copian la misma RC → el mayor la conserva y el otro se propone como Seg_1
+# 8. Parcela dividida: los dos trozos copian la misma RC → el mayor la conserva y el otro se propone como Nueva_1
 dividida = capa_parcelas('Parcela dividida — prueba', 'EPSG:25830', [
     (rect(X0, Y0 + 400, 10, 30), '1907401VK4810H', None),
     (rect(X0 + 10, Y0 + 400, 20, 30), '1907401VK4810H', None),
@@ -199,7 +199,7 @@ pt.capaCombo.setLayer(dividida)
 ids_div = [pt.tabla.item(i, pp.COL_ID).text() for i in range(pt.tabla.rowCount())]
 nss_div = [pt.namespace_fila(i) for i in range(pt.tabla.rowCount())]
 labels_div = [pt.tabla.item(i, pp.COL_LABEL).text() for i in range(pt.tabla.rowCount())]
-division_ok = ids_div == ['Seg_1', '1907401VK4810H'] and nss_div == ['LOCAL', 'SDGC'] and labels_div == ['Seg_1', '01']
+division_ok = ids_div == ['Nueva_1', '1907401VK4810H'] and nss_div == ['LOCAL', 'SDGC'] and labels_div == ['Nueva_1', '01']
 fichero_propuesto = os.path.basename(pt.destino.filePath()) == 'Parcela_dividida_prueba.gml'
 pt.capaCombo.setLayer(segregacion)
 sigue_capa = os.path.basename(pt.destino.filePath()) == 'segregacion.gml'
@@ -232,7 +232,7 @@ checks = {
     "al cambiar de capa la tabla se calcula una sola vez": una_vez,
     "capa grande con selección: usa la selección automáticamente": auto_seleccion,
     "la tabla sigue la selección del mapa": sigue_seleccion,
-    "parcela dividida: el trozo mayor conserva la RC y el otro se propone como Seg_1": division_ok,
+    "parcela dividida: el trozo mayor conserva la RC y el otro se propone como Nueva_1 (sin presuponer la alteración)": division_ok,
     "fichero propuesto con el nombre de la capa, sin espacios ni símbolos": fichero_propuesto,
     "el fichero propuesto cambia con la capa": sigue_capa,
     "el fichero elegido por el usuario se respeta": respeta_mio,
