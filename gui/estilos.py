@@ -33,8 +33,10 @@ def simbolo(color):
 
 
 def aplicar(capa):
-    """Simbología por tipo (parcela, edificio, otra construcción) y etiqueta con el localId."""
-    categorias = [QgsRendererCategory(tipo, simbolo(color), tipo.capitalize()) for tipo, color in COLORES.items()]
+    """Simbología por tipo (solo los tipos que hay en la capa, para que la leyenda no muestre los demás) y etiqueta."""
+    presentes = {f['tipo'] for f in capa.getFeatures()}
+    categorias = [QgsRendererCategory(tipo, simbolo(color), tipo.capitalize())
+                  for tipo, color in COLORES.items() if tipo in presentes]
     capa.setRenderer(QgsCategorizedSymbolRenderer('tipo', categorias))
 
     formato = QgsTextFormat()

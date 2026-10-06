@@ -8,7 +8,7 @@ license   : GNU GPL v2 or later
 """
 import os
 
-from qgis.core import Qgis, QgsApplication, QgsProject
+from qgis.core import Qgis, QgsApplication, QgsMimeDataUtils, QgsProject
 from qgis.gui import QgsFileWidget
 from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (
@@ -29,6 +29,7 @@ from ..core.incidencias import AVISO, ERROR
 from . import estilos
 
 CABECERAS = ['Tipo', 'Identificador (localId)', 'Namespace', 'Sup. GML m²', 'Sup. calculada m²']
+PROPIEDAD_GML = 'catastral_gml_tools/gml'  #Propiedad de las capas que carga el plugin: ruta del GML del que salen
 
 
 class PestanaValidar(QWidget):
@@ -79,11 +80,29 @@ class PestanaValidar(QWidget):
 
     @staticmethod
     def rutas_gml(mime):
-        """Ficheros .gml o .xml locales que vienen en lo arrastrado."""
-        if mime is None or not mime.hasUrls():
+        """
+        Ficheros .gml o .xml que vienen en lo arrastrado:
+          - desde el Explorador de Windows: rutas de ficheros;
+          - desde el panel de Capas o el Navegador de QGIS: capas. De una capa cargada por el plugin se toma el GML del
+            que salió (propiedad PROPIEDAD_GML); de una capa abierta desde un .gml, su fichero de origen.
+        """
+        if mime is None:
             return []
-        return [u.toLocalFile() for u in mime.urls()
-                if u.isLocalFile() and u.toLocalFile().lower().endswith(('.gml', '.xml'))]
+        rutas = []
+        if mime.hasUrls():
+            rutas += [u.toLocalFile() for u in mime.urls() if u.isLocalFile()]
+        if QgsMimeDataUtils.isUriList(mime):
+            for uri in QgsMimeDataUtils.decodeUriList(mime):
+                capa = QgsProject.instance().mapLayer(uri.layerId) if uri.layerId else None
+                if capa is not None and capa.customProperty(PROPIEDAD_GML):
+                    rutas.append(capa.customProperty(PROPIEDAD_GML))
+                else:
+                    rutas.append((capa.source() if capa is not None else uri.uri).split('|')[0])
+        vistas = []
+        for ruta in rutas:
+            if ruta and ruta.lower().endswith(('.gml', '.xml')) and os.path.isfile(ruta) and ruta not in vistas:
+                vistas.append(ruta)
+        return vistas
 
     def dragEnterEvent(self, event):  # noqa: N802 (nombre impuesto por Qt)
         if self.rutas_gml(event.mimeData()):
@@ -160,6 +179,7 @@ class PestanaValidar(QWidget):
 def cargar(resultado, ruta, iface=None):
     """Capa con estilo a partir de un resultado de lectura, añadida al proyecto (sin crear ficheros .gfs)."""
     capa = estilos.aplicar(gl.capa(resultado, os.path.splitext(os.path.basename(ruta))[0]))
+    capa.setCustomProperty(PROPIEDAD_GML, ruta)  #Para poder arrastrar la capa a la pestaña Validar
     QgsProject.instance().addMapLayer(capa)
     if iface is not None and hasattr(iface, 'mapCanvas'):
         try:

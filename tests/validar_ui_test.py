@@ -104,6 +104,17 @@ mime_txt = QMimeData()
 mime_txt.setUrls([QUrl.fromLocalFile(os.path.join(carpeta, 'otro.txt'))])
 ignora_otros = pv.rutas_gml(mime_txt) == []
 
+# 7b. Arrastrar la capa cargada desde el panel de Capas: se abre su GML
+from qgis.core import QgsMimeDataUtils  # noqa: E402
+
+pv.fichero.setFilePath(alterado)
+mime_capa = QgsMimeDataUtils.encodeUriList([QgsMimeDataUtils.Uri(capa)])
+desde_capas = pv.rutas_gml(mime_capa) == [ruta]
+pv.dropEvent(QDropEvent(QPointF(10, 10), Qt.DropAction.CopyAction, mime_capa, Qt.MouseButton.LeftButton,
+                        Qt.KeyboardModifier.NoModifier))
+desde_capas = desde_capas and os.path.normpath(pv.fichero.filePath()) == os.path.normpath(ruta)
+leyenda = [c.label() for c in capa.renderer().categories()] == ['Parcela']
+
 # 8. Estilo: relleno naranja casi transparente (no morado opaco)
 categorias = capa.renderer().categories() if capa is not None else []  #Se guarda la lista: el símbolo es de la categoría
 color = QColor(categorias[0].symbol().color()) if categorias else None
@@ -124,6 +135,8 @@ checks = {
     "GML de edificio: edificio y otra construcción": edificio_ok,
     "GML mal formado: error y nada que cargar": mal,
     "arrastrar un GML a la pestaña lo abre (solo .gml/.xml)": solo_gml and soltado and ignora_otros,
+    "arrastrar la capa cargada desde el panel de Capas abre su GML": desde_capas,
+    "la leyenda solo muestra los tipos presentes": leyenda,
     "estilo: relleno naranja casi transparente": estilo_ok,
     "ninguna ventana emergente": not ventanas,
 }
