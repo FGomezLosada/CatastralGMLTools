@@ -29,6 +29,9 @@ NS_CP = 'http://inspire.ec.europa.eu/schemas/cp/4.0'
 NS_BASE = 'http://inspire.ec.europa.eu/schemas/base/3.3'
 NS_XSI = 'http://www.w3.org/2001/XMLSchema-instance'
 NS_GMD = 'http://www.isotc211.org/2005/gmd'
+#La Sede rechaza el fichero («no cumple el esquema Inspire GML») si la raíz no declara xlink, aunque no se use.
+#Comprobado el 06/10/2026 con ficheros de control subidos a la Sede (ver docs/DESARROLLO.md, E-11).
+NS_XLINK = 'http://www.w3.org/1999/xlink'
 SCHEMA_LOCATION = (f'{NS_WFS} http://schemas.opengis.net/wfs/2.0/wfs.xsd '
                    f'{NS_CP} http://inspire.ec.europa.eu/schemas/cp/4.0/CadastralParcels.xsd')
 NIL_UNPOPULATED = 'http://inspire.ec.europa.eu/codelist/VoidReasonValue/Unpopulated'
@@ -183,7 +186,8 @@ def construir(parcelas, epsg, fecha=None, ahora=None):
         '<?xml version="1.0" encoding="utf-8"?>\n'
         f'<!-- Generado con {NOMBRE} {version()} (herramienta no oficial). '
         'Valide el fichero en la Sede Electrónica del Catastro. -->\n'
-        f'<FeatureCollection xmlns:xsi="{NS_XSI}" xmlns:gml="{NS_GML}" xmlns:cp="{NS_CP}" xmlns:gmd="{NS_GMD}" '
+        f'<FeatureCollection xmlns:xsi="{NS_XSI}" xmlns:gml="{NS_GML}" xmlns:xlink="{NS_XLINK}" xmlns:cp="{NS_CP}" '
+        f'xmlns:gmd="{NS_GMD}" '
         f'xsi:schemaLocation="{SCHEMA_LOCATION}" xmlns="{NS_WFS}" '
         f'timeStamp="{ahora.strftime("%Y-%m-%dT%H:%M:%S")}" numberMatched="{len(parcelas)}" numberReturned="{len(parcelas)}">\n'
         f'{cuerpo}'

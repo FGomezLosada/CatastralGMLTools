@@ -54,20 +54,41 @@ def leer_capa(capa, solo_seleccion=False, campo_id='', campo_label=''):
     if not es_capa_poligonos(capa):
         return filas
     entidades = capa.getSelectedFeatures() if solo_seleccion else capa.getFeatures()
-    usados = set()
+    leidas = []
     for n, entidad in enumerate(entidades, start=1):
         geometria = QgsGeometry(entidad.geometry())
         valor = _texto(entidad[campo_id]) if campo_id else ''
         local_id = refcat.limpiar(valor) if refcat.es_rc_parcela(valor) else valor.replace(' ', '_')
-        if not local_id:
-            local_id = f"Parcela_{n}"
-        while local_id in usados:  #Evita repetidos al proponer (el usuario puede cambiarlos)
-            local_id += '_b'
-        usados.add(local_id)
-        namespace = namespace_propuesto(local_id)
         label = _texto(entidad[campo_label]) if campo_label else ''
+        leidas.append([entidad.id(), local_id or f"Parcela_{n}", label, geometria])
+
+    #Identificadores repetidos (lo normal tras dividir una parcela: todos los trozos copian su referencia).
+    #Si es una referencia catastral, la conserva el trozo mayor (el resto de la finca matriz) y los demás se proponen
+    #como parcelas segregadas Seg_1, Seg_2…; si no, se numeran id_2, id_3… El usuario puede cambiarlos en la tabla.
+    grupos = {}
+    for fila in leidas:
+        grupos.setdefault(fila[1], []).append(fila)
+    usados = {fila[1] for fila in leidas}
+    segregadas = 0
+    for local_id, grupo in grupos.items():
+        if len(grupo) < 2:
+            continue
+        grupo.sort(key=lambda f: f[3].area() if not f[3].isNull() else 0, reverse=True)
+        for k, fila in enumerate(grupo[1:], start=2):
+            if refcat.es_rc_parcela(local_id):
+                segregadas += 1
+                nuevo = f"Seg_{segregadas}"
+            else:
+                nuevo = f"{local_id}_{k}"
+            while nuevo in usados:
+                nuevo += '_b'
+            usados.add(nuevo)
+            fila[1] = nuevo
+
+    for fid, local_id, label, geometria in leidas:
+        namespace = namespace_propuesto(local_id)
         partes = 0 if geometria.isNull() else len(geometria.asGeometryCollection()) if geometria.isMultipart() else 1
-        filas.append(FilaParcela(entidad.id(), local_id, namespace, label or label_por_defecto(local_id, namespace),
+        filas.append(FilaParcela(fid, local_id, namespace, label or label_por_defecto(local_id, namespace),
                                  geometria, partes))
     return filas
 

@@ -7,10 +7,13 @@ parcela, donde se pueden cambiar identificador, namespace y número → fecha, S
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
+import contextlib
 import os
+import re
 
 from qgis.core import Qgis, QgsApplication, QgsProject, QgsVectorLayer
 from qgis.gui import QgsFieldComboBox, QgsFileWidget, QgsMapLayerComboBox
+from qgis.PyQt import sip
 from qgis.PyQt.QtCore import QDate, Qt
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
@@ -36,6 +39,9 @@ from ..core.incidencias import AVISO, ERROR
 COL_N, COL_ID, COL_NS, COL_LABEL, COL_AREA, COL_ESTADO = range(6)
 CABECERAS = ['Nº', 'Identificador (localId)', 'Namespace', 'Nº parcela', 'Sup. m²', 'Estado']
 AUTOMATICO = 0  #Dato del combo de SRC para «automático»
+#Máximo de parcelas que se cargan en la tabla. La Sede admite como mucho 30 parcelas resultantes por operación;
+#con una capa grande (p. ej. un municipio entero) hay que seleccionar las parcelas: cargarla entera bloqueaba QGIS.
+MAX_FILAS = 100
 
 
 def miles(numero):
@@ -50,9 +56,15 @@ class PestanaParcela(QWidget):
         super().__init__(parent)
         self.dock = dock
         self.filas = []
+        self.demasiadas = False
         self.labels_auto = []  #Por fila: True si el nº de parcela lo ha puesto el plugin (se recalcula al cambiar el id)
         self.ultimo_gml = ''
+        self.capa_conectada = None
+        self.destino_automatico = ''  #Último nombre de fichero propuesto (si el usuario no lo cambia, sigue a la capa)  #Capa cuya selección se sigue (para desconectarla al cambiar)
         self.construir()
+        activa = self.dock.iface.activeLayer() if self.dock.iface is not None else None
+        if cp.es_capa_poligonos(activa):
+            self.capaCombo.setLayer(activa)  #Se empieza por la capa activa, no por la primera del proyecto
         self.conectar()
         self.cambiar_capa()  #La capa que el combo ya muestra al abrir el panel (sin esto no se proponen los campos)
 
@@ -150,6 +162,10 @@ class PestanaParcela(QWidget):
 
     def cambiar_capa(self, *args):
         capa = self.capa()
+        self.seguir_seleccion(capa)
+        #Sin señales mientras se rellenan los campos: si no, la tabla se recalculaba 3 o 4 veces seguidas
+        for widget in (self.campoId, self.campoLabel, self.soloSeleccion):
+            widget.blockSignals(True)
         self.campoId.setLayer(capa)
         self.campoLabel.setLayer(capa)
         if capa is not None:
@@ -158,15 +174,52 @@ class PestanaParcela(QWidget):
                 if capa.fields().indexOf(nombre) >= 0:
                     self.campoId.setField(nombre)
                     break
-            if not self.destino.filePath():
-                carpeta = QgsProject.instance().homePath() or os.path.expanduser('~')
-                self.destino.setFilePath(os.path.join(carpeta, f"{capa.name()}.gml"))
+            #En una capa grande con parcelas seleccionadas, se trabaja con la selección
+            if capa.featureCount() > MAX_FILAS and capa.selectedFeatureCount() > 0:
+                self.soloSeleccion.setChecked(True)
+            self.proponer_fichero(capa)
+        for widget in (self.campoId, self.campoLabel, self.soloSeleccion):
+            widget.blockSignals(False)
         self.recargar()
+
+    def proponer_fichero(self, capa):
+        """
+        Propone el fichero de salida con el nombre de la capa (sin espacios ni símbolos), en la carpeta que ya hubiera
+        elegida o en la del proyecto. Si el usuario ha escrito su propio fichero, no se toca.
+        """
+        actual = self.destino.filePath().strip()
+        if actual and actual != self.destino_automatico:
+            return
+        carpeta = os.path.dirname(actual) if actual else (QgsProject.instance().homePath() or os.path.expanduser('~'))
+        nombre = re.sub(r'[^0-9A-Za-z_.-]+', '_', capa.name()).strip('._') or 'parcelas'
+        self.destino_automatico = os.path.join(carpeta, f"{nombre}.gml")
+        self.destino.setFilePath(self.destino_automatico)
+
+    def seguir_seleccion(self, capa):
+        """Con «Solo los elementos seleccionados», la tabla se actualiza al seleccionar parcelas en el mapa."""
+        anterior = self.capa_conectada
+        if anterior is not None and not sip.isdeleted(anterior):
+            with contextlib.suppress(TypeError, RuntimeError):  #Ya desconectada
+                anterior.selectionChanged.disconnect(self.seleccion_cambiada)
+        self.capa_conectada = capa
+        if capa is not None:
+            capa.selectionChanged.connect(self.seleccion_cambiada)
+
+    def seleccion_cambiada(self, *args):
+        if not sip.isdeleted(self) and self.soloSeleccion.isChecked():
+            self.recargar()
+
+    def numero_parcelas(self, capa):
+        return capa.selectedFeatureCount() if self.soloSeleccion.isChecked() else capa.featureCount()
 
     def recargar(self, *args):
         capa = self.capa()
-        self.filas = cp.leer_capa(capa, self.soloSeleccion.isChecked(), self.campoId.currentField(),
-                                  self.campoLabel.currentField()) if capa is not None else []
+        self.demasiadas = capa is not None and self.numero_parcelas(capa) > MAX_FILAS
+        if self.demasiadas:
+            self.filas = []  #No se lee la capa entera: bloquearía QGIS
+        else:
+            self.filas = cp.leer_capa(capa, self.soloSeleccion.isChecked(), self.campoId.currentField(),
+                                      self.campoLabel.currentField()) if capa is not None else []
         #Automático = el que propone el plugin (no viene del campo elegido o el campo estaba vacío)
         self.labels_auto = [f.label == gp.label_por_defecto(f.local_id, f.namespace) for f in self.filas]
         self.tabla.blockSignals(True)
@@ -210,8 +263,14 @@ class PestanaParcela(QWidget):
             self.tabla.item(i, COL_AREA).setText('' if area is None else miles(area))
             total += area or 0
         if not self.filas:
-            self.resumen.setText("<i>Elija una capa de polígonos con las parcelas.</i>" if capa is None
-                                 else "<i>La capa no tiene polígonos (o no hay ninguno seleccionado).</i>")
+            if capa is None:
+                texto = "<i>Elija una capa de polígonos con las parcelas.</i>"
+            elif self.demasiadas:
+                texto = (f"<i>La capa tiene {miles(self.numero_parcelas(capa))} parcelas: seleccione en el mapa las que "
+                         f"quiera incluir (máximo {MAX_FILAS}) y marque «Solo los elementos seleccionados».</i>")
+            else:
+                texto = "<i>La capa no tiene polígonos (o no hay ninguno seleccionado).</i>"
+            self.resumen.setText(texto)
             return
         sdgc = sum(1 for i in range(len(self.filas)) if self.namespace_fila(i) == gp.SDGC)
         n = len(self.filas)
@@ -306,7 +365,11 @@ class PestanaParcela(QWidget):
             self.dock.warn("Elija una capa de polígonos")
             return
         if not self.filas:
-            self.dock.warn("No hay parcelas: la capa está vacía o no hay elementos seleccionados")
+            if self.demasiadas:
+                self.dock.warn(f"Demasiadas parcelas: seleccione en el mapa las que quiera incluir (máximo {MAX_FILAS}) "
+                               "y marque «Solo los elementos seleccionados»")
+            else:
+                self.dock.warn("No hay parcelas: la capa está vacía o no hay elementos seleccionados")
             return
         ruta = self.destino.filePath().strip()
         if not ruta:
