@@ -162,6 +162,52 @@ multi.selectByIds([list(multi.allFeatureIds())[1]])
 pt.recargar()
 con_seleccion = pt.tabla.rowCount() == 1
 
+# 7. Capa grande (un municipio entero): no se carga entera ni bloquea; se trabaja con la selección
+import time  # noqa: E402
+
+grande = capa_parcelas('municipio', 'EPSG:25830', [(rect(X0 + (i % 20) * 12, Y0 + 200 + (i // 20) * 12, 10, 10), None, None)
+                                                   for i in range(400)])
+pt.soloSeleccion.setChecked(False)
+llamadas = []
+_recargar = pp.PestanaParcela.recargar
+pp.PestanaParcela.recargar = lambda self, *a: (llamadas.append(1), _recargar(self, *a))[1]
+inicio = time.time()
+pt.capaCombo.setLayer(grande)
+segundos = time.time() - inicio
+una_vez = len(llamadas) == 1
+pp.PestanaParcela.recargar = _recargar
+grande_ok = (pt.tabla.rowCount() == 0 and 'tiene 400 parcelas' in pt.resumen.text() and segundos < 2)
+pt.crear_gml()
+aviso_grande = texto_barra(dw.messageBar).startswith('Demasiadas parcelas')
+ids_grande = list(grande.allFeatureIds())
+grande.selectByIds(ids_grande[:2])
+pt.capaCombo.setLayer(segregacion)
+pt.capaCombo.setLayer(grande)  #Con selección: se marca «Solo los elementos seleccionados» y salen las 2
+auto_seleccion = pt.soloSeleccion.isChecked() and pt.tabla.rowCount() == 2
+grande.selectByIds(ids_grande[:3])  #Al seleccionar en el mapa, la tabla se actualiza sola
+sigue_seleccion = pt.tabla.rowCount() == 3
+
+# 8. Parcela dividida: los dos trozos copian la misma RC → el mayor la conserva y el otro se propone como Seg_1
+dividida = capa_parcelas('Parcela dividida — prueba', 'EPSG:25830', [
+    (rect(X0, Y0 + 400, 10, 30), '1907401VK4810H', None),
+    (rect(X0 + 10, Y0 + 400, 20, 30), '1907401VK4810H', None),
+])
+pt.soloSeleccion.setChecked(False)
+pt.destino.setFilePath('')
+pt.destino_automatico = ''
+pt.capaCombo.setLayer(dividida)
+ids_div = [pt.tabla.item(i, pp.COL_ID).text() for i in range(pt.tabla.rowCount())]
+nss_div = [pt.namespace_fila(i) for i in range(pt.tabla.rowCount())]
+labels_div = [pt.tabla.item(i, pp.COL_LABEL).text() for i in range(pt.tabla.rowCount())]
+division_ok = ids_div == ['Seg_1', '1907401VK4810H'] and nss_div == ['LOCAL', 'SDGC'] and labels_div == ['Seg_1', '01']
+fichero_propuesto = os.path.basename(pt.destino.filePath()) == 'Parcela_dividida_prueba.gml'
+pt.capaCombo.setLayer(segregacion)
+sigue_capa = os.path.basename(pt.destino.filePath()) == 'segregacion.gml'
+mio = os.path.join(carpeta, 'mi_fichero.gml')
+pt.destino.setFilePath(mio)
+pt.capaCombo.setLayer(dividida)
+respeta_mio = pt.destino.filePath() == mio
+
 for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
 dw.deleteLater()
@@ -182,6 +228,14 @@ checks = {
     "errores: no crea el fichero y los marca en la tabla y la barra": errores_ok,
     "aviso si falta el fichero de destino": sin_destino,
     "solo los elementos seleccionados": sin_seleccion and con_seleccion,
+    "capa de 400 parcelas: no se carga entera, avisa y tarda menos de 2 s": grande_ok and aviso_grande,
+    "al cambiar de capa la tabla se calcula una sola vez": una_vez,
+    "capa grande con selección: usa la selección automáticamente": auto_seleccion,
+    "la tabla sigue la selección del mapa": sigue_seleccion,
+    "parcela dividida: el trozo mayor conserva la RC y el otro se propone como Seg_1": division_ok,
+    "fichero propuesto con el nombre de la capa, sin espacios ni símbolos": fichero_propuesto,
+    "el fichero propuesto cambia con la capa": sigue_capa,
+    "el fichero elegido por el usuario se respeta": respeta_mio,
     "ninguna ventana emergente": not ventanas,
 }
 
@@ -194,6 +248,8 @@ if not all(checks.values()):
                         'locales': locales, 'labels_gml': labels_gml, 'areas_gml': areas_gml, 'area_tabla': area_tabla, 'resultado': resultado, 'botones': botones, 'srs2': srs2, 'area2': area2,
                         'error_barra': error_barra[:200], 'estado_previo': estado_previo,
                         'estados3': [pt.tabla.item(i, pp.COL_ESTADO).text() for i in range(pt.tabla.rowCount())],
-                        'abiertos': abiertos, 'ventanas': ventanas})
+                        'abiertos': abiertos, 'ventanas': ventanas,
+                        'grande': (pt.resumen.text(), segundos, len(llamadas)),
+                        'division': (ids_div, nss_div, labels_div), 'fichero': pt.destino.filePath()})
 print("RESULTADO:", "TODO CORRECTO" if all(checks.values()) else "HAY FALLOS")
 print("=" * 60)

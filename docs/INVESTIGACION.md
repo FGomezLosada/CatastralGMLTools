@@ -15,7 +15,7 @@
 |---|---|
 | Cabecera | `<?xml version="1.0" encoding="utf-8"?>` |
 | Raíz | `FeatureCollection` en el espacio por defecto `http://www.opengis.net/wfs/2.0`, con `timeStamp`, `numberMatched`, `numberReturned` |
-| Espacios de nombres | `gml=http://www.opengis.net/gml/3.2` · `cp=http://inspire.ec.europa.eu/schemas/cp/4.0` · `xsi=http://www.w3.org/2001/XMLSchema-instance` · (`gmd=http://www.isotc211.org/2005/gmd`) · base 3.3 declarado en línea en `Identifier` |
+| Espacios de nombres | **`xlink=http://www.w3.org/1999/xlink` obligatorio para la Sede aunque no se use** (comprobado, E-11) · `gml=http://www.opengis.net/gml/3.2` · `cp=http://inspire.ec.europa.eu/schemas/cp/4.0` · `xsi=http://www.w3.org/2001/XMLSchema-instance` · (`gmd=http://www.isotc211.org/2005/gmd`) · base 3.3 declarado en línea en `Identifier` |
 | schemaLocation | `http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd http://inspire.ec.europa.eu/schemas/cp/4.0 http://inspire.ec.europa.eu/schemas/cp/4.0/CadastralParcels.xsd` |
 | Contenedor | Un `<member>` por parcela. **Varias parcelas en un fichero: sí** (multiparcela) |
 | Recintos | **Un solo recinto por parcela**: la SEC no valida parcelas con más de un `gml:surfaceMember` (no admite parcelas multiparte) |

@@ -60,7 +60,8 @@ pos = [float(v) for v in primera.find('cp:referencePoint/gml:Point/gml:pos', N).
 cabecera = (texto.startswith('<?xml version="1.0" encoding="utf-8"?>') and 'herramienta no oficial' in texto
             and raiz.tag == f"{{{gp.NS_WFS}}}FeatureCollection" and raiz.get('numberMatched') == '3'
             and raiz.get('numberReturned') == '3' and raiz.get('timeStamp') == '2026-10-06T12:30:15'
-            and 'cp/4.0/CadastralParcels.xsd' in raiz.get(f"{{{gp.NS_XSI}}}schemaLocation"))
+            and 'cp/4.0/CadastralParcels.xsd' in raiz.get(f"{{{gp.NS_XSI}}}schemaLocation")
+            and f'xmlns:xlink="{gp.NS_XLINK}"' in texto.split('>', 3)[2])  #Exigido por la Sede aunque no se use (E-11)
 estructura = len(miembros) == 3 and hijos == orden and gid == 'ES.SDGC.CP.1907401VK4810H'
 identificador = (ident is not None and ident.find('base:localId', N).text == '1907401VK4810H'
                  and ident.find('base:namespace', N).text == 'ES.SDGC.CP'
@@ -118,7 +119,7 @@ no_escribe, _ = gp.escribir(os.path.join(carpeta, 'mal.gml'), [], 25830)
 no_escribe = not no_escribe and not os.path.exists(os.path.join(carpeta, 'mal.gml'))
 
 checks = {
-    "cabecera, raíz WFS 2.0, número de parcelas y esquema 4.0": cabecera,
+    "cabecera, raíz WFS 2.0, xlink declarado, número de parcelas y esquema 4.0": cabecera,
     "un member por parcela, orden de elementos y gml:id": estructura,
     "inspireId con base 3.3: SDGC con RC y LOCAL con identificador propio": identificador,
     "superficie, fechas, endLifespanVersion nulo, label y referencia": atributos,
