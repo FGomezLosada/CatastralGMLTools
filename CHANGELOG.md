@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones según [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Añadido
+- `core/refcat.py`: comprobación de referencias catastrales de 14, 18 y 20 caracteres (limpieza de espacios y guiones, formato urbano o rústico, provincia y municipio en rústica, caracteres de control y cálculo de los que faltan) con aviso para Navarra y los territorios forales del País Vasco. Prueba `refcat_test.py` con referencias reales.
+
 ## [0.1.0] - 2026-10-06
 
 ### Añadido
