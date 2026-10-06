@@ -78,7 +78,7 @@ Decisiones técnicas:
 | 1 | Esqueleto: estructura, metadata, panel vacío, icono, ayuda, infraestructura de pruebas, empaquetado, plantillas de GitHub | ✅ (0.1.0) |
 | 2 | Núcleo: RC y geometría | ✅ |
 | 3 | GML de parcela (crear) | ✅ |
-| 4 | Lector y visor de GML | — |
+| 4 | Lector y visor de GML | ✅ |
 | 5 | Validador e informe | — |
 | 6 | Servicios: descarga por RC y RC por clic; Navarra y territorios forales | — |
 | 7 | Alteraciones: asistente, multiparcela y unión | — |
@@ -103,7 +103,7 @@ Decisiones técnicas:
 | 6 | `core/geometria.py`: cierre, orientación, 2 decimales, vértices duplicados, punto interior, área redondeada, curvas densificadas con flecha < 2 cm, huso propuesto según la provincia | Reglas de geometría del Catastro | ✅ |
 | 7 | Escritor GML de parcela CP 4.0 (una o varias parcelas, un recinto por parcela) | Función central | ✅ |
 | 8 | Pestaña Parcela: elegir capa, campos de RC/localId/label, namespace por fila, fecha, SRC, destino | Generar el GML desde una capa dibujada | ✅ |
-| 9 | Lector de GML (CP 3.0/4.0, BU) y carga como capa con estilo | Revisar ficheros propios o ajenos | |
+| 9 | Lector de GML (CP 3.0/4.0, BU) y carga como capa con estilo | Revisar ficheros propios o ajenos | ✅ |
 | 10 | Validador: estructura, esquema, coherencia de ids, `count`, `areaValue`, orientación, cierre, solapes, multiparte, SRC | Detectar errores antes de subir | |
 | 11 | Informe de validación en el panel con botón para abrir el informe HTML y el fichero | Resultado claro | |
 | 12 | Descarga por RC: parcela, colindantes y construcciones (WFS) con atribución a la DGC | Partir de la cartografía vigente | |
