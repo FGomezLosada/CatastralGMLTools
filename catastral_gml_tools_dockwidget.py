@@ -20,6 +20,7 @@ from qgis.PyQt.QtWidgets import QHBoxLayout, QLabel, QPushButton, QToolButton, Q
 
 from .core.info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, ruta, version
 from .gui.pestana_parcela import PestanaParcela
+from .gui.pestana_validar import PestanaValidar
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), 'catastral_gml_tools_dockwidget_base.ui'))
 
@@ -45,6 +46,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.setup_tabs()
         self.setup_messages()
         self.setup_parcela()
+        self.setup_validar()
 
     # ------------------------------------------------------------------ Cabecera: aviso legal y ayuda
 
@@ -83,6 +85,12 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.pestanaParcela = PestanaParcela(self, self.tabParcela)
         #Justo debajo del texto de la pestaña y con «stretch»: ocupa todo el alto (el espaciador del .ui se queda sin sitio)
         self.tabParcelaLayout.insertWidget(1, self.pestanaParcela, 1)
+
+    def setup_validar(self):
+        """Pestaña Validar: abrir un GML, ver su contenido y cargarlo en el mapa."""
+        self.tabValidarPendiente.hide()
+        self.pestanaValidar = PestanaValidar(self, self.tabValidar)
+        self.tabValidarLayout.insertWidget(1, self.pestanaValidar, 1)
 
     # ------------------------------------------------------------------ Avisos dentro del panel
 

@@ -33,7 +33,7 @@ prohibidos = [n for n in nombres if '/tests/' in n or '/docs/' in n or '/tools/'
               or '/.git' in n or n.endswith(('.pyc', '.zip'))]
 necesarios = ['__init__.py', 'catastral_gml_tools.py', 'catastral_gml_tools_dockwidget.py',
               'catastral_gml_tools_dockwidget_base.ui', 'metadata.txt', 'icon.png', 'icon.svg', 'LICENSE',
-              'README.md', 'CREDITS.md', 'core/__init__.py', 'core/info.py', 'gui/__init__.py', 'gui/pestana_parcela.py', 'help/index.html']
+              'README.md', 'CREDITS.md', 'core/__init__.py', 'core/info.py', 'gui/__init__.py', 'gui/pestana_parcela.py', 'gui/pestana_validar.py', 'gui/estilos.py', 'core/gml_lector.py', 'help/index.html']
 
 # Los espaciadores de los .ui deben llevar sizeHint: sin él, el uic de PyQt6 (QGIS 4) genera una llamada
 # QSpacerItem inválida y el panel no se abre (error visto en QGIS 4.2.2)

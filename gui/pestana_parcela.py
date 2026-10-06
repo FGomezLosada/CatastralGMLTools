@@ -11,7 +11,7 @@ import contextlib
 import os
 import re
 
-from qgis.core import Qgis, QgsApplication, QgsProject, QgsVectorLayer
+from qgis.core import Qgis, QgsApplication, QgsProject
 from qgis.gui import QgsFieldComboBox, QgsFileWidget, QgsMapLayerComboBox
 from qgis.PyQt import sip
 from qgis.PyQt.QtCore import QDate, Qt
@@ -33,8 +33,10 @@ from qgis.PyQt.QtWidgets import (
 
 from ..core import capa_parcelas as cp
 from ..core import geometria as geo
+from ..core import gml_lector as gl
 from ..core import gml_parcela as gp
 from ..core.incidencias import AVISO, ERROR
+from .pestana_validar import cargar
 
 COL_N, COL_ID, COL_NS, COL_LABEL, COL_AREA, COL_ESTADO = range(6)
 CABECERAS = ['Nº', 'Identificador (localId)', 'Namespace', 'Nº parcela', 'Sup. m²', 'Estado']
@@ -403,12 +405,14 @@ class PestanaParcela(QWidget):
             self.dock.open_path(os.path.dirname(self.ultimo_gml))
 
     def cargar_en_mapa(self, *args):
-        """Carga el GML creado como capa (lo lee el driver GML de GDAL) para compararlo con el original."""
+        """
+        Carga el GML creado en el mapa, leído con el lector del plugin (como lo leerá la Sede y sin crear el fichero .gfs
+        que dejaba GDAL junto al GML), para compararlo con la capa original.
+        """
         if not self.ultimo_gml or not os.path.isfile(self.ultimo_gml):
             return None
-        capa = QgsVectorLayer(self.ultimo_gml, os.path.splitext(os.path.basename(self.ultimo_gml))[0], 'ogr')
-        if not capa.isValid():
-            self.dock.warn("QGIS no ha podido abrir el GML creado")
+        resultado = gl.leer(self.ultimo_gml)
+        if not resultado.elementos:
+            self.dock.warn("No se ha podido leer el GML creado")
             return None
-        QgsProject.instance().addMapLayer(capa)
-        return capa
+        return cargar(resultado, self.ultimo_gml, self.dock.iface)
