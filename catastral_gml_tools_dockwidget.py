@@ -16,9 +16,10 @@ from qgis.gui import QgsMessageBar
 from qgis.PyQt import QtWidgets, sip, uic
 from qgis.PyQt.QtCore import QUrl
 from qgis.PyQt.QtGui import QDesktopServices
-from qgis.PyQt.QtWidgets import QToolButton
+from qgis.PyQt.QtWidgets import QHBoxLayout, QLabel, QPushButton, QToolButton, QWidget
 
 from .core.info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, ruta, version
+from .gui.pestana_parcela import PestanaParcela
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), 'catastral_gml_tools_dockwidget_base.ui'))
 
@@ -43,6 +44,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.setup_header()
         self.setup_tabs()
         self.setup_messages()
+        self.setup_parcela()
 
     # ------------------------------------------------------------------ Cabecera: aviso legal y ayuda
 
@@ -75,6 +77,13 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             if icono:
                 self.tabWidget.setTabIcon(i, QgsApplication.getThemeIcon(icono))
 
+    def setup_parcela(self):
+        """Pestaña Parcela: sustituye el texto «Disponible en próximas versiones» por la herramienta."""
+        self.tabParcelaPendiente.hide()
+        self.pestanaParcela = PestanaParcela(self, self.tabParcela)
+        #Justo debajo del texto de la pestaña y con «stretch»: ocupa todo el alto (el espaciador del .ui se queda sin sitio)
+        self.tabParcelaLayout.insertWidget(1, self.pestanaParcela, 1)
+
     # ------------------------------------------------------------------ Avisos dentro del panel
 
     def setup_messages(self):
@@ -99,3 +108,32 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
     def warn(self, message):
         """Aviso al usuario en la barra del panel. Los avisos largos (con detalles) se quedan hasta cerrarlos."""
         self.notify(message, Qgis.MessageLevel.Warning, 0 if '\n' in message.strip() else 15)
+
+    def success(self, message, buttons=(), detalles=()):
+        """
+        Resultado final en la barra del panel, con botones (texto, método) para abrir lo creado. Se queda hasta cerrarlo.
+        Si hay avisos (detalles), el mensaje sale en naranja y los avisos se ven al pasar el ratón.
+        """
+        if sip.isdeleted(self):
+            return None
+        contenido = QWidget(self.messageBar)  #Con padre: si no, Python lo borraría al salir de aquí
+        fila = QHBoxLayout(contenido)
+        fila.setContentsMargins(0, 0, 0, 0)
+        etiqueta = QLabel(message, contenido)
+        etiqueta.setWordWrap(True)
+        if detalles:
+            etiqueta.setText(f"{message} · {len(detalles)} aviso{'s' if len(detalles) != 1 else ''}")
+            etiqueta.setToolTip("\n".join(detalles))
+        fila.addWidget(etiqueta, 1)
+        for texto, metodo in buttons:
+            boton = QPushButton(texto, contenido)
+            boton.clicked.connect(metodo)
+            fila.addWidget(boton)
+        mensaje = self.messageBar.createMessage(contenido)
+        nivel = Qgis.MessageLevel.Warning if detalles else Qgis.MessageLevel.Success
+        self.messageBar.pushWidget(mensaje, nivel, 0)
+        return mensaje
+
+    def open_path(self, path):
+        """Abre una carpeta o fichero con la aplicación del sistema."""
+        QDesktopServices.openUrl(QUrl.fromLocalFile(path))

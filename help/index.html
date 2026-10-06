@@ -43,6 +43,22 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
 </table>
 <p><small>Las funciones se irán activando versión a versión; las que aún no están disponibles lo indican en su pestaña.</small></p>
 
+<h2>Crear el GML de parcela</h2>
+<ol>
+  <li>Dibuje o cargue una capa de polígonos con una parcela por polígono (en cualquier SRC: si no es uno de los que admite la
+      Sede, se transforma).</li>
+  <li>En la pestaña <strong>Parcela</strong>, elija la capa y, si quiere, marque «Solo los elementos seleccionados».</li>
+  <li>Elija el campo con la referencia catastral o el identificador. Las parcelas sin identificador se numeran como
+      <code>Parcela_1</code>, <code>Parcela_2</code>…</li>
+  <li>Revise la tabla: <strong>SDGC</strong> para la parcela que existe en el Catastro y conserva su referencia de 14
+      caracteres; <strong>LOCAL</strong> para las parcelas nuevas, con un identificador propio sin espacios ni tildes
+      (por ejemplo <code>Seg_1</code> en una segregación, <code>Div_1_1</code> en una división o <code>Agrupa_1_2</code>
+      en una agrupación).</li>
+  <li>Indique la fecha, el SRC (automático por defecto) y el fichero, y pulse <strong>Crear GML</strong>.</li>
+</ol>
+<p>Si algo impide crear el fichero (una parcela con varias partes, un identificador repetido, SDGC sin referencia
+catastral…), no se crea y la columna <em>Estado</em> indica el problema de cada parcela.</p>
+
 <h2>Ámbito territorial</h2>
 <p>El plugin trabaja con el territorio gestionado por la Dirección General del Catastro. Navarra y los territorios
 forales del País Vasco (Álava/Araba, Gipuzkoa y Bizkaia) tienen catastros propios, con sus propios servicios y
