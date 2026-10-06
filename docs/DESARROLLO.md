@@ -76,7 +76,7 @@ Decisiones técnicas:
 |---|---|---|
 | 0 | Investigación, licencias, alcance, nombre y arquitectura | ✅ |
 | 1 | Esqueleto: estructura, metadata, panel vacío, icono, ayuda, infraestructura de pruebas, empaquetado, plantillas de GitHub | ✅ (0.1.0) |
-| 2 | Núcleo: RC y geometría | En curso |
+| 2 | Núcleo: RC y geometría | ✅ |
 | 3 | GML de parcela (crear) | — |
 | 4 | Lector y visor de GML | — |
 | 5 | Validador e informe | — |
@@ -100,7 +100,7 @@ Decisiones técnicas:
 | 3 | `tools/run_tests.py`, `tools/probar.bat`, `tools/package.py` | Pruebas en las dos versiones y ZIP limpio | ✅ |
 | 4 | Action de publicación por etiqueta y plantillas de issues (`para_github/` si hace falta) | Publicación reproducible | ✅ |
 | 5 | `core/refcat.py`: validar RC de 14/18/20 caracteres y dígitos de control | Evitar RC mal escritas | ✅ |
-| 6 | `core/geometria.py`: cierre, orientación, 2 decimales, vértices duplicados, punto interior, área redondeada, curvas densificadas con flecha < 2 cm, huso propuesto según la provincia | Reglas de geometría del Catastro | |
+| 6 | `core/geometria.py`: cierre, orientación, 2 decimales, vértices duplicados, punto interior, área redondeada, curvas densificadas con flecha < 2 cm, huso propuesto según la provincia | Reglas de geometría del Catastro | ✅ |
 | 7 | Escritor GML de parcela CP 4.0 (una o varias parcelas, un recinto por parcela) | Función central | |
 | 8 | Pestaña Parcela: elegir capa, campos de RC/localId/label, namespace por fila, fecha, SRC, destino | Generar el GML desde una capa dibujada | |
 | 9 | Lector de GML (CP 3.0/4.0, BU) y carga como capa con estilo | Revisar ficheros propios o ajenos | |
