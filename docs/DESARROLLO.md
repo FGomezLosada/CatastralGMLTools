@@ -77,7 +77,7 @@ Decisiones técnicas:
 | 0 | Investigación, licencias, alcance, nombre y arquitectura | ✅ |
 | 1 | Esqueleto: estructura, metadata, panel vacío, icono, ayuda, infraestructura de pruebas, empaquetado, plantillas de GitHub | ✅ (0.1.0) |
 | 2 | Núcleo: RC y geometría | ✅ |
-| 3 | GML de parcela (crear) | — |
+| 3 | GML de parcela (crear) | En curso |
 | 4 | Lector y visor de GML | — |
 | 5 | Validador e informe | — |
 | 6 | Servicios: descarga por RC y RC por clic; Navarra y territorios forales | — |
@@ -101,7 +101,7 @@ Decisiones técnicas:
 | 4 | Action de publicación por etiqueta y plantillas de issues (`para_github/` si hace falta) | Publicación reproducible | ✅ |
 | 5 | `core/refcat.py`: validar RC de 14/18/20 caracteres y dígitos de control | Evitar RC mal escritas | ✅ |
 | 6 | `core/geometria.py`: cierre, orientación, 2 decimales, vértices duplicados, punto interior, área redondeada, curvas densificadas con flecha < 2 cm, huso propuesto según la provincia | Reglas de geometría del Catastro | ✅ |
-| 7 | Escritor GML de parcela CP 4.0 (una o varias parcelas, un recinto por parcela) | Función central | |
+| 7 | Escritor GML de parcela CP 4.0 (una o varias parcelas, un recinto por parcela) | Función central | ✅ |
 | 8 | Pestaña Parcela: elegir capa, campos de RC/localId/label, namespace por fila, fecha, SRC, destino | Generar el GML desde una capa dibujada | |
 | 9 | Lector de GML (CP 3.0/4.0, BU) y carga como capa con estilo | Revisar ficheros propios o ajenos | |
 | 10 | Validador: estructura, esquema, coherencia de ids, `count`, `areaValue`, orientación, cierre, solapes, multiparte, SRC | Detectar errores antes de subir | |
@@ -153,6 +153,7 @@ Decisiones técnicas:
 | E-06 | Las reglas de la SEC no están publicadas de forma completa: el validador avisa de lo conocido y siempre remite a la Sede | Limitación asumida |
 | E-07 | `metadata.txt` lleva `experimental=True` durante el desarrollo; se cambia a `False` en la 1.0.0, que será la primera que se suba a plugins.qgis.org | Decisión |
 | E-09 | QGIS 4.2.2 no abría el panel: el uic de PyQt6 genera `QSpacerItem(Policy, Policy)` para los espaciadores del .ui sin `sizeHint`. Todos los espaciadores llevan ahora `sizeHint` y `package_test.py` lo comprueba en cualquier versión | Resuelto (0.1.0) |
+| E-10 | libxml2 (lxml) no descarga por https ni sigue redirecciones: si no encuentra un esquema importado, **valida sin comprobar nada y da «válido»**. El validador XSD (mejora 10) descargará los esquemas con la red de QGIS (`QgsBlockingNetworkRequest` con redirecciones), los guardará en una caché del perfil y avisará si falta alguno. Comprobado el 06/10/2026: el GML de `gml_parcela.py` es válido contra WFS 2.0 + CP 4.0 (81 esquemas) y un fichero alterado se rechaza | Decisión (mejora 10) |
 | E-08 | El icono `mActionCheckGeometry.svg` no existe en QGIS 3.34: la pestaña Validar usa `algorithms/mAlgorithmCheckGeometry.svg` | Resuelto (0.1.0) |
 
 ---
