@@ -22,8 +22,10 @@ COLORES = {PARCELA: '#e8590c', EDIFICIO: '#c92a2a', OTRA: '#1971c2'}  #Naranja, 
 
 
 def simbolo(color):
+    c = QColor(color)
     return QgsFillSymbol.createSimple({
-        'color': f'{color}26',  #Relleno casi transparente (15 %)
+        #Relleno casi transparente (15 %). En formato «R,G,B,A»: «#RRGGBBAA» lo lee Qt como #AARRGGBB (salía morado opaco)
+        'color': f'{c.red()},{c.green()},{c.blue()},38',
         'outline_color': color,
         'outline_width': '0.6',
         'outline_width_unit': 'MM',
