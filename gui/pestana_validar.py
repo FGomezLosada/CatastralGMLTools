@@ -38,6 +38,8 @@ class PestanaValidar(QWidget):
         self.resultado = None
         self.ruta = ''
         self.construir()
+        self.setAcceptDrops(True)  #Se puede arrastrar un GML desde el Explorador de Windows a la pestaña
+        self.fichero.lineEdit().setAcceptDrops(False)  #Que lo recoja la pestaña entera, también sobre la casilla del fichero
         self.fichero.fileChanged.connect(self.abrir)
         self.cargarBoton.clicked.connect(self.cargar_en_mapa)
 
@@ -53,7 +55,8 @@ class PestanaValidar(QWidget):
         fila.addWidget(self.fichero, 1)
         principal.addLayout(fila)
 
-        self.resumen = QLabel("<i>Elija un GML de parcela catastral (esquema 3.0 o 4.0) o de edificio.</i>", self)
+        self.resumen = QLabel("<i>Elija o arrastre aquí un GML de parcela catastral (esquema 3.0 o 4.0) o de edificio.</i>",
+                              self)
         self.resumen.setWordWrap(True)
         principal.addWidget(self.resumen)
 
@@ -71,6 +74,42 @@ class PestanaValidar(QWidget):
         self.cargarBoton.setEnabled(False)
         botones.addWidget(self.cargarBoton)
         principal.addLayout(botones)
+
+    # ------------------------------------------------------------------ Arrastrar y soltar
+
+    @staticmethod
+    def rutas_gml(mime):
+        """Ficheros .gml o .xml locales que vienen en lo arrastrado."""
+        if mime is None or not mime.hasUrls():
+            return []
+        return [u.toLocalFile() for u in mime.urls()
+                if u.isLocalFile() and u.toLocalFile().lower().endswith(('.gml', '.xml'))]
+
+    def dragEnterEvent(self, event):  # noqa: N802 (nombre impuesto por Qt)
+        if self.rutas_gml(event.mimeData()):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):  # noqa: N802 (nombre impuesto por Qt)
+        self.dragEnterEvent(event)
+
+    def dropEvent(self, event):  # noqa: N802 (nombre impuesto por Qt)
+        rutas = self.rutas_gml(event.mimeData())
+        if not rutas:
+            event.ignore()
+            return
+        event.acceptProposedAction()
+        self.soltar(rutas)
+
+    def soltar(self, rutas):
+        """Abre el GML soltado (si se sueltan varios, el primero, y se avisa)."""
+        self.fichero.setFilePath(rutas[0])  #Lanza abrir() por la señal fileChanged
+        if len(rutas) > 1:
+            self.dock.notify(f"Se ha abierto {os.path.basename(rutas[0])}; la pestaña revisa un GML cada vez",
+                             Qgis.MessageLevel.Info, 8)
+
+    # ------------------------------------------------------------------ Abrir
 
     def abrir(self, *args):
         """Lee el GML elegido y rellena la tabla."""

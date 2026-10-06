@@ -10,6 +10,7 @@ import tempfile
 import qgis.utils
 from qgis.core import Qgis, QgsGeometry, QgsProject
 from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import QLabel, QMessageBox
 
 qgis.utils.reloadPlugin('catastral_gml_tools')
@@ -87,6 +88,27 @@ pv.fichero.setFilePath(os.path.join(DATOS, 'mal_formado.gml'))
 mal = (pv.tabla.rowCount() == 0 and not pv.cargarBoton.isEnabled()
        and dw.messageBar.currentItem().level() == Qgis.MessageLevel.Critical)
 
+# 7. Arrastrar y soltar un GML desde el Explorador
+from qgis.PyQt.QtCore import QMimeData, QPointF, QUrl  # noqa: E402
+from qgis.PyQt.QtGui import QDropEvent  # noqa: E402
+
+mime = QMimeData()
+mime.setUrls([QUrl.fromLocalFile(ruta), QUrl.fromLocalFile(os.path.join(carpeta, 'otro.txt'))])
+solo_gml = pv.rutas_gml(mime) == [ruta.replace('\\', '/')] or pv.rutas_gml(mime) == [ruta]
+evento = QDropEvent(QPointF(10, 10), Qt.DropAction.CopyAction, mime, Qt.MouseButton.LeftButton,
+                    Qt.KeyboardModifier.NoModifier)
+pv.dropEvent(evento)
+soltado = (os.path.normpath(pv.fichero.filePath()) == os.path.normpath(ruta) and pv.tabla.rowCount() == 2
+           and pv.acceptDrops())
+mime_txt = QMimeData()
+mime_txt.setUrls([QUrl.fromLocalFile(os.path.join(carpeta, 'otro.txt'))])
+ignora_otros = pv.rutas_gml(mime_txt) == []
+
+# 8. Estilo: relleno naranja casi transparente (no morado opaco)
+categorias = capa.renderer().categories() if capa is not None else []  #Se guarda la lista: el símbolo es de la categoría
+color = QColor(categorias[0].symbol().color()) if categorias else None
+estilo_ok = color is not None and (color.red(), color.green(), color.blue()) == (232, 89, 12) and color.alpha() < 60
+
 for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
 dw.deleteLater()
@@ -101,6 +123,8 @@ checks = {
     "GML 3.0: aviso de esquema obsoleto": aviso30,
     "GML de edificio: edificio y otra construcción": edificio_ok,
     "GML mal formado: error y nada que cargar": mal,
+    "arrastrar un GML a la pestaña lo abre (solo .gml/.xml)": solo_gml and soltado and ignora_otros,
+    "estilo: relleno naranja casi transparente": estilo_ok,
     "ninguna ventana emergente": not ventanas,
 }
 
@@ -110,6 +134,8 @@ for nombre, ok in checks.items():
     print(("  OK   " if ok else "  FALLO") + "  " + nombre)
 if not all(checks.values()):
     print("Detalles:", {'filas': filas, 'resumen': pv.resumen.text(), 'barra': texto_barra(dw.messageBar), 'tipos': tipos,
-                        'capa': None if capa is None else (capa.featureCount(), capa.renderer().type())})
+                        'capa': None if capa is None else (capa.featureCount(), capa.renderer().type()),
+                        'color': None if color is None else color.name(QColor.NameFormat.HexArgb) if hasattr(QColor, 'NameFormat') else str(color),
+                        'soltado': pv.fichero.filePath()})
 print("RESULTADO:", "TODO CORRECTO" if all(checks.values()) else "HAY FALLOS")
 print("=" * 60)
