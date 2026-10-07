@@ -31,6 +31,8 @@ RC = '1907401VK4810H'
 RC_HUSO_29 = '1907404VK4810H'
 RC_SIN_RED = '1907409VK4810H'
 RC_GRANDE = '1907407VK4810H'
+NAVARRA = '201040112'  #Parcela sintética de Navarra (municipio 201, polígono 4, parcela 112)
+NX, NY = 610000.0, 4740000.0  #Navarra, EPSG:25830
 CAMINO = '29071A00709001'  #Camino de dominio público (parcela 9001 de rústica) que linda con RC por el sur
 X0, Y0 = 421500.0, 4070500.0          #Huso 30 (Andalucía oriental)
 X29, Y29 = 150000.0, 4700000.0        #En coordenadas del huso 30, pero cae en el 29 (Galicia)
@@ -63,6 +65,9 @@ def _todas():
 
 
 def _parcelas(lista, epsg):
+    if not lista:  #Colección vacía, como la del servicio cuando no encuentra nada
+        return (b'<?xml version="1.0" encoding="UTF-8"?><wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" '
+                b'numberMatched="0" numberReturned="0"/>')
     texto, _ = gp.construir(lista, epsg)
     return texto.encode('utf-8')
 
@@ -90,12 +95,17 @@ def pedir(url):
             "bi": {"idbi": {"cn": "RU"}, "dt": {"locs": {"lors": {"lorus": {"npa": "CAMINO" if camino else "PARAJE INVENTADO"}}}},
                    "ldt": f"Polígono {int(rc[6:9])} Parcela {int(rc[9:14])} (ficticia)"}, "lspr": lspr}}}).encode('utf-8'), ''
     if 'consulta_rccoor' in partes.path.lower():
+        if -2.55 <= float(q['coorx']) <= -0.70 and 41.88 <= float(q['coory']) <= 43.35:  #Navarra: referencia de 9
+            return json.dumps({"Consulta_RCCOORResult": {"control": {"cucoor": 1}, "coordenadas": {"coord": [
+                {"pc": {"pc1": NAVARRA[:7], "pc2": NAVARRA[7:]}, "ldt": ""}]}}}).encode('utf-8'), ''
         if float(q['coorx']) > 0:
             return json.dumps({"Consulta_RCCOORResult": {"control": {"cuerr": 1}, "lerr": [
                 {"cod": "16", "des": "PARA ESAS COORDENADAS NO HAY REFERENCIA DISPONIBLE"}]}}).encode('utf-8'), ''
         return json.dumps({"Consulta_RCCOORResult": {"control": {"cucoor": 1}, "coordenadas": {"coord": [
             {"pc": {"pc1": RC[:7], "pc2": RC[7:]}, "geo": {"xcen": q['coorx'], "ycen": q['coory'], "srs": q['srs']},
              "ldt": "CL INVENTADA 1 MUNICIPIO FICTICIO (PROVINCIA)"}]}}}).encode('utf-8'), ''
+    if 'inspire.navarra.es' in partes.netloc:
+        return _navarra(partes.path, q), ''
     rc, consulta = q.get('refcat', ''), q.get('storedquerie_id', '')
     epsg = int(q.get('srsname', 'EPSG::25830').rsplit(':', 1)[-1])
     if 'bbox' in q:
@@ -115,6 +125,38 @@ def pedir(url):
         with open(os.path.join(RAIZ, 'tests', 'data', 'gml', 'edificio_sintetico.gml'), 'rb') as f:
             return f.read(), ''
     return VACIA.encode('latin-1'), ''
+
+
+BU_NAVARRA = ('<?xml version="1.0" encoding="UTF-8"?><wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" '
+              'xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:BU="http://inspire.ec.europa.eu/schemas/bu-core2d/4.0" '
+              'xmlns:bu-base="http://inspire.ec.europa.eu/schemas/bu-base/4.0" '
+              'xmlns:base="http://inspire.ec.europa.eu/schemas/base/3.3">{miembros}</wfs:FeatureCollection>')
+EDIFICIO_NAVARRA = ('<wfs:member><BU:Building gml:id="ES.RRTN.BU.{id}"><bu-base:inspireId><base:Identifier><base:localId>{id}'
+                    '</base:localId><base:namespace>ES.RRTN.BU</base:namespace></base:Identifier></bu-base:inspireId>'
+                    '<bu-base:numberOfFloorsAboveGround>3</bu-base:numberOfFloorsAboveGround><BU:geometry2D><gml:Polygon '
+                    'srsName="http://www.opengis.net/def/crs/EPSG/0/25830"><gml:exterior><gml:LinearRing><gml:posList>'
+                    '{x0} {y0} {x0} {y1} {x1} {y1} {x1} {y0} {x0} {y0}</gml:posList></gml:LinearRing></gml:exterior>'
+                    '</gml:Polygon></BU:geometry2D></BU:Building></wfs:member>')
+
+
+def _todas_navarra():
+    return [(NAVARRA, rect(NX, NY, 20, 30)), ('201040113', rect(NX + 20, NY, 20, 30)), ('201040114', rect(NX + 40, NY, 20, 30))]
+
+
+def _navarra(ruta, q):
+    """Servicios INSPIRE de Navarra simulados: parcela por ResourceId, parcelas y edificios por rectángulo."""
+    if 'BU' in ruta:
+        caja = QgsRectangle(*[float(v) for v in q['bbox'].split(',')[:4]])
+        edificios = [(NAVARRA + 'A', NX + 2, NY + 2, NX + 12, NY + 12), ('201049999A', NX + 15, NY + 2, NX + 18, NY + 5)]
+        miembros = ''.join(EDIFICIO_NAVARRA.format(id=i, x0=a, y0=b, x1=c, y1=d) for i, a, b, c, d in edificios
+                           if caja.intersects(QgsRectangle(a, b, c, d)))
+        return BU_NAVARRA.format(miembros=miembros).encode('utf-8')
+    todas = dict(_todas_navarra())
+    if 'filter' in q:
+        rid = q['filter'].split('rid="')[1].split('"')[0].replace('ES.RRTN.CP.', '')
+        return _parcelas([gp.ParcelaGML(rid, gp.LOCAL, todas[rid])] if rid in todas else [], 25830)
+    caja = QgsGeometry.fromRect(QgsRectangle(*[float(v) for v in q['bbox'].split(',')[:4]]))
+    return _parcelas([gp.ParcelaGML(r, gp.LOCAL, g) for r, g in todas.items() if g.intersects(caja)], 25830)
 
 
 def instalar():

@@ -118,6 +118,21 @@ punto = (p.rc == sim.RC and p.direccion.startswith('CL INVENTADA') and not p.inc
          and p_vacio.incidencias[0].mensaje.startswith('Para esas coordenadas no hay referencia disponible')
          and 'Navarra' in p_vacio.incidencias[0].mensaje)
 
+# 6b. Navarra: servicio INSPIRE del Gobierno de Navarra (sin pasar por la DGC ni por Consulta_DNPRC)
+sim.peticiones.clear()
+nav = servicios.descargar('201-4-112', ahora=ahora)
+nav_ok = (nav.correcta and nav.territorio == 'Navarra' and nav.rc == sim.NAVARRA and nav.epsg == 25830
+          and [e.local_id for e in nav.colindantes.elementos] == ['201040113']
+          and [e.local_id for e in nav.entorno.elementos] == ['201040114']
+          and [e.local_id for e in nav.construcciones.elementos] == ['201040112A']
+          and 'Gobierno de Navarra' in nav.atribucion() and 'NAVARRA' in codigos(nav.incidencias)
+          and all('inspire.navarra.es' in u for u in sim.peticiones)
+          and 'ResourceId' in sim.peticiones[0])
+nav_no = servicios.descargar('201-4-999')
+nav_punto = servicios.rc_en_punto(-1.644, 42.817)
+nav_ok = (nav_ok and not nav_no.correcta and 'No se ha encontrado la parcela 999 del polígono 4 de 201' in str(nav_no.incidencias)
+          and nav_punto.rc == sim.NAVARRA and 'polígono 4, parcela 112' in nav_punto.direccion and not nav_punto.incidencias)
+
 # 7. Servicio real (si hay internet): una parcela, sin colindantes ni construcciones; no se guarda nada
 servicios.pedir = original
 real = servicios.descargar('9872023VH5797S', colindantes=False, construcciones=False)
@@ -145,6 +160,7 @@ checks = {
     "errores: inexistente, RC no válida, foral (sin pedir nada) y sin red": errores,
     "lee el ExceptionReport del WFS": excepcion,
     "referencia catastral de un punto (y sin parcela, con aviso foral)": punto,
+    "Navarra: parcela, colindantes, entorno y edificios del Gobierno de Navarra; clic en Navarra": nav_ok,
     f"servicio real ({modo})": real_ok,
 }
 

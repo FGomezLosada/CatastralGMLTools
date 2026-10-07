@@ -60,7 +60,7 @@ class ElementoGML:
 
 @dataclass
 class ResultadoLectura:
-    version: str = ''           #'CP 4.0', 'CP 3.0', 'BU 2.0' o ''
+    version: str = ''           #'CP 4.0', 'CP 3.0', 'BU 2.0', 'BU 4.0' o ''
     epsg: object = None
     elementos: list = field(default_factory=list)
     incidencias: list = field(default_factory=list)
@@ -251,13 +251,14 @@ def leer_datos(datos):
 
     parcelas = [e for e in raiz.iter() if nombre_local(e.tag) == 'CadastralParcel']
     construcciones = [e for e in raiz.iter() if nombre_local(e.tag) in ('Building', 'OtherConstruction')
-                      and (espacio(e.tag) == BU_EXT2D or 'bu-ext2d' in espacio(e.tag))]
+                      and (espacio(e.tag) == BU_EXT2D or 'bu-ext2d' in espacio(e.tag) or 'bu-core2d' in espacio(e.tag))]
     if parcelas:
         ns = espacio(parcelas[0].tag)
         resultado.version = 'CP 4.0' if ns == CP_40 else 'CP 3.0' if ns == CP_30 else f'CP ({ns})'
         resultado.elementos = [_leer_parcela(p) for p in parcelas]
     elif construcciones:
-        resultado.version = 'BU 2.0'
+        #BU 2.0: el de la DGC (bu-ext2d); BU 4.0: bu-core2d 4.0 de otros servicios INSPIRE (p. ej. Navarra)
+        resultado.version = 'BU 4.0' if '/4.0' in espacio(construcciones[0].tag) else 'BU 2.0'
         resultado.elementos = [_leer_construccion(c) for c in construcciones]
     else:
         resultado.incidencias.append(Incidencia(ERROR, 'GML-SIN-ELEMENTOS',

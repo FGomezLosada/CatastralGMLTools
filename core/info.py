@@ -16,6 +16,8 @@ AVISO_LEGAL = ("Herramienta no oficial. Valide siempre el resultado en la Sede E
                "antes de usarlo en cualquier trámite.")
 #Cita de la fuente para todo dato descargado de los servicios de la DGC
 FUENTE_DGC = "Dirección General del Catastro"
+#Cita de los datos de Navarra (servicios INSPIRE del Gobierno de Navarra, licencia CC BY 4.0)
+FUENTE_NAVARRA = "Gobierno de Navarra – Registro de la Riqueza Territorial (CC BY 4.0)"
 
 #Territorios con catastro propio (códigos de provincia del INE). El resto lo gestiona la DGC.
 FORALES = {

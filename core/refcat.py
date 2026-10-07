@@ -137,3 +137,30 @@ def es_dominio_publico(rc):
     """
     parcela = limpiar(rc)[:14]
     return tipo_parcela(parcela) == 'rústica' and 9001 <= int(parcela[9:14]) <= 9999
+
+
+NAVARRA_SEPARADA = re.compile(r'^\s*(\d{1,3})\s*[-/.,\s]\s*(\d{1,2})\s*[-/.,\s]\s*(\d{1,4})\s*$')
+
+
+def navarra(texto):
+    """
+    Referencia de una parcela de Navarra (Registro de la Riqueza Territorial) en la forma del servicio INSPIRE de
+    Navarra: 9 dígitos, municipio (3) + polígono (2) + parcela (4), p. ej. 201070184 = municipio 201, polígono 7,
+    parcela 184 (comprobado contra el servicio el 07/10/2026: no hay referencias de otra longitud). Admite también
+    «201-7-184», «201/07/0184» o «201 7 184». Devuelve los 9 dígitos, o '' si el texto no tiene esa forma.
+    """
+    t = (texto or '').strip()
+    if re.fullmatch(r'\d{9}', t):
+        return t
+    m = NAVARRA_SEPARADA.match(t)
+    if not m:
+        return ''
+    municipio, poligono, parcela = (int(g) for g in m.groups())
+    if municipio < 1 or parcela < 1:
+        return ''
+    return f"{municipio:03d}{poligono:02d}{parcela:04d}"
+
+
+def navarra_partes(ref9):
+    """(municipio, polígono, parcela) como enteros de una referencia de Navarra de 9 dígitos."""
+    return int(ref9[:3]), int(ref9[3:5]), int(ref9[5:9])
