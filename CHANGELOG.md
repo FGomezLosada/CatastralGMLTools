@@ -31,6 +31,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 - La parcela descargada pasa a ser la capa activa y la capa de la pestaña **Parcela** (con su referencia como SDGC), y el aviso trae el botón «Ir a Parcela».
 - Pestaña Parcela: la lista de capas admite quedarse vacía y, si la capa activa no es de polígonos, empieza sin capa (antes siempre había una elegida).
 - Colindantes calculadas por geometría (`GetNeighbourParcel` no es fiable): se piden las parcelas de un rectángulo 25 m mayor que la parcela y se separan las que la tocan (capa «Colindantes») de las demás a menos de 25 m (capa «Entorno», gris claro). Una parcela rodeada de calles ya no da un aviso: el resumen lo explica y muestra el entorno. Las construcciones no llevan etiqueta (repetían la referencia de la parcela y la tapaban) y la leyenda del mapa de fondo sale plegada.
+- Dominio público en la descarga: las parcelas de rústica con número 9000-9999 (caminos, carreteras, cauces, acequias…) se ven aparte en Colindantes y Entorno (tipo «dominio público», verde azulado), el resumen dice cuántas colindantes lo son y una nota avisa de que ese lindero no se puede mover sin contar con su deslinde. `refcat.es_dominio_publico()`.
 - `core/info.py`: nombres de las provincias por su código.
 - `core/gml_lector.py`: `leer_datos()` lee un GML ya en memoria (respuestas de los servicios).
 - `core/incidencias.py`: avisos y errores comunes que devuelven las funciones de `core/` para que el panel los muestre.

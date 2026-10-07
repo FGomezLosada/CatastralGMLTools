@@ -125,3 +125,13 @@ def es_rc_parcela(texto):
     """True si el texto es una RC de parcela de 14 caracteres con formato urbano o rústico (útil para localId SDGC)."""
     limpia = limpiar(texto)
     return len(limpia) == 14 and bool(tipo_parcela(limpia))
+
+
+def es_dominio_publico(rc):
+    """
+    True si la RC es de un recinto de dominio público de rústica (caminos, carreteras, cauces, acequias…): en el
+    Catastro de rústica llevan un número de parcela entre 9000 y 9999 dentro de su polígono. En urbana las calles no
+    son parcelas (no tienen RC), así que no hay nada que detectar.
+    """
+    parcela = limpiar(rc)[:14]
+    return tipo_parcela(parcela) == 'rústica' and 9000 <= int(parcela[9:14]) <= 9999

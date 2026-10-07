@@ -28,6 +28,7 @@ from .incidencias import AVISO, ERROR, INFO, Incidencia
 PARCELA = 'parcela'
 EDIFICIO = 'edificio'
 OTRA = 'otra construcción'
+DOMINIO_PUBLICO = 'dominio público'  #Parcela de rústica 9000-9999 (caminos, cauces…), en las descargas
 
 #Espacios de nombres que identifican cada formato
 CP_40 = 'http://inspire.ec.europa.eu/schemas/cp/4.0'

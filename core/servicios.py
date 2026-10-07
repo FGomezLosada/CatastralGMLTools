@@ -191,10 +191,12 @@ def descargar(rc, colindantes=True, construcciones=True, epsg=None, ahora=None):
 
     e = parcela.elementos[0]
     n_col = len(descarga.colindantes.elementos) if descarga.colindantes else 0
+    n_pub = len([e for e in descarga.colindantes.elementos if e.tipo == gl.DOMINIO_PUBLICO]) if descarga.colindantes else 0
     n_con = len(descarga.construcciones.elementos) if descarga.construcciones else 0
     descarga.incidencias.append(Incidencia(
         INFO, 'DESCARGA', f"Parcela {descarga.rc} · {e.area_declarada if e.area_declarada is not None else '?'} m² · "
-                          f"EPSG:{pedido}" + (f" · {n_col} colindante{'s' if n_col != 1 else ''}" if colindantes else '')
+                          f"EPSG:{pedido}" + (f" · {n_col} colindante{'s' if n_col != 1 else ''}"
+                                             + (f" ({n_pub} de dominio público)" if n_pub else '') if colindantes else '')
                           + (f" · {len(descarga.entorno.elementos)} en el entorno" if descarga.entorno else '')
                           + (f" · {n_con} construcci{'ones' if n_con != 1 else 'ón'}" if construcciones else '')))
     return descarga
@@ -219,6 +221,7 @@ def _vecinas(descarga, geometria, epsg):
             descarga.entorno = _copia(todas, lejos)
             if not cerca:
                 descarga.incidencias.append(Incidencia(INFO, 'SIN-COLINDANTES', _texto_sin_colindantes(lejos)))
+            _marcar_dominio_publico(descarga)
             return
     vecinas, errores = consultar_wfs(url_colindantes(descarga.rc, epsg), "las parcelas colindantes")
     if errores and all(SIN_COLINDANTES in i.mensaje for i in errores):
@@ -230,6 +233,23 @@ def _vecinas(descarga, geometria, epsg):
         #El servicio a veces incluye la propia parcela entre las colindantes
         vecinas.elementos = [e for e in vecinas.elementos if e.local_id != descarga.rc]
         descarga.colindantes = vecinas
+        _marcar_dominio_publico(descarga)
+
+
+def _marcar_dominio_publico(descarga):
+    """Las parcelas de dominio público (rústica 9000-9999) cambian de tipo para verse aparte, y se avisa si lindan."""
+    for resultado in (descarga.colindantes, descarga.entorno):
+        for e in (resultado.elementos if resultado is not None else []):
+            if refcat.es_dominio_publico(e.local_id):
+                e.tipo = gl.DOMINIO_PUBLICO
+    publicas = [e.local_id for e in (descarga.colindantes.elementos if descarga.colindantes else [])
+                if e.tipo == gl.DOMINIO_PUBLICO]
+    if publicas:
+        descarga.incidencias.append(Incidencia(
+            INFO, 'LINDA-DOMINIO-PUBLICO',
+            f"Linda con dominio público (camino, carretera, cauce…): {', '.join(publicas[:4])}"
+            + (f" y {len(publicas) - 4} más" if len(publicas) > 4 else '') + ". Ese lindero no se puede "
+            "mover sin contar con su deslinde y su Administración titular"))
 
 
 def _copia(resultado, elementos):

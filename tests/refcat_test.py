@@ -24,7 +24,11 @@ r_rara = refcat.comprobar('ABCDEFGHIJKLMN')
 r_navarra = refcat.comprobar('31201A00100001')
 r_bizkaia = refcat.comprobar('48020A00100001')
 
+dominio = (refcat.es_dominio_publico('29075A90009700') and refcat.es_dominio_publico('29071A007 09001')
+           and not refcat.es_dominio_publico('29071A00700123') and not refcat.es_dominio_publico('9872023VH5797S')
+           and not refcat.es_dominio_publico('29071A00708999') and not refcat.es_dominio_publico(''))
 checks = {
+    "dominio público de rústica (parcelas 9000-9999)": dominio,
     "las RC reales tienen los caracteres de control correctos": all(refcat.comprobar(rc).nivel == refcat.CORRECTA for rc in reales),
     "limpia espacios, guiones y minúsculas": r_espacios.rc == '9872023VH5797S0001WX' and r_espacios.valida,
     "detecta caracteres de control erróneos y dice los buenos": r_mal.nivel == refcat.ERROR and 'WX' in r_mal.mensaje,

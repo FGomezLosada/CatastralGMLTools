@@ -3,8 +3,8 @@ Servicios del Catastro simulados para las pruebas (sin internet y sin datos real
 
 Sustituye core.servicios.pedir por una función que contesta como los servicios reales (formato comprobado contra
 ellos el 07/10/2026) con parcelas y construcciones SINTÉTICAS:
-  - 1907401VK4810H: parcela en el huso 30 con una colindante (1907402), otra a 20 m (1907403, entorno) y otra a
-    100 m (fuera del entorno), y construcciones (las del fichero tests/data/gml/edificio_sintetico.gml);
+  - 1907401VK4810H: parcela en el huso 30 con una colindante (1907402), un camino de dominio público que linda por el
+    sur (29071A00709001), otra a 20 m (1907403, entorno) y otra a 100 m (fuera del entorno), y construcciones (las del fichero tests/data/gml/edificio_sintetico.gml);
   - 1907404VK4810H: parcela situada en el huso 29 (al pedirla en el 30 hay que volver a pedirla en el 29);
   - 1907407VK4810H: parcela de 1,2 × 1 km, demasiado grande para pedir su entorno: se usa GetNeighbourParcel, que
     contesta «No se han encontrado parcelas colindantes» (como hace el real con parcelas rodeadas de calles);
@@ -30,6 +30,7 @@ RC = '1907401VK4810H'
 RC_HUSO_29 = '1907404VK4810H'
 RC_SIN_RED = '1907409VK4810H'
 RC_GRANDE = '1907407VK4810H'
+CAMINO = '29071A00709001'  #Camino de dominio público (parcela 9001 de rústica) que linda con RC por el sur
 X0, Y0 = 421500.0, 4070500.0          #Huso 30 (Andalucía oriental)
 X29, Y29 = 150000.0, 4700000.0        #En coordenadas del huso 30, pero cae en el 29 (Galicia)
 
@@ -54,7 +55,7 @@ def rect(x, y, a, b):
 def _todas():
     """Todas las parcelas sintéticas (referencia, geometría en coordenadas del huso 30)."""
     return [(RC, rect(X0, Y0, 20, 30)), ('1907402VK4810H', rect(X0 + 20, Y0, 20, 30)),
-            ('1907403VK4810H', rect(X0 + 40, Y0, 20, 30)), ('1907408VK4810H', rect(X0 + 120, Y0, 20, 30)),
+            ('1907403VK4810H', rect(X0 + 40, Y0, 20, 30)), (CAMINO, rect(X0, Y0 - 6, 60, 6)), ('1907408VK4810H', rect(X0 + 120, Y0, 20, 30)),
             (RC_HUSO_29, rect(X29, Y29, 20, 30)), ('1907405VK4810H', rect(X29 + 20, Y29, 20, 30)),
             (RC_GRANDE, rect(X0 + 5000, Y0, 1200, 1000))]
 
