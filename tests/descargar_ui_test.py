@@ -165,20 +165,27 @@ dw.messageBar.clearWidgets()
 pp.crear_gml()
 navarra_ui = navarra_ui and 'catastro propio' in textos_barra()
 
-# 6. Mapa de fondo con el proyecto vacío: con conexión, Catastro y PNOA en un grupo al final y el proyecto en
+# 6. Mapa de fondo con el proyecto vacío: con conexión, Catastro (DGC y Navarra) y PNOA en un grupo al final y el proyecto en
 # EPSG:25830; sin conexión, nada (ni grupo vacío). Nunca se duplica.
 proyecto.removeMapLayers([c.id() for c in proyecto.mapLayers().values()])
 raiz.removeAllChildren()
 nuevas = fondo.asegurar(iface)
 if nuevas:
     modo_fondo = "con conexión"
-    fondo_ok = (len(nuevas) == 2 and raiz.children()[-1].name() == fondo.GRUPO
+    fondo_ok = (len(nuevas) == 3 and raiz.children()[-1].name() == fondo.GRUPO
+                and [n.name() for n in raiz.children()[-1].children()] == [c[0] for c in fondo.CAPAS]
                 and proyecto.crs().authid() == 'EPSG:25830'
                 and any('Dirección General del Catastro' in c.metadata().rights()[0] for c in nuevas)
                 and any('Instituto Geográfico Nacional' in c.metadata().rights()[0] for c in nuevas)
-                and fondo.asegurar(iface) == [] and len(fondo.capas_fondo()) == 2
+                and fondo.asegurar(iface) == [] and len(fondo.capas_fondo()) == 3
+                and any('Gobierno de Navarra' in c.metadata().rights()[0] for c in nuevas)
                 and not raiz.findGroup(fondo.GRUPO).isExpanded()
                 and not any(raiz.findLayer(c.id()).isExpanded() for c in nuevas))
+    #Proyecto con el fondo de una versión anterior (sin Navarra): se añade solo la que falta, en su sitio
+    proyecto.removeMapLayer([c for c in nuevas if 'Navarra' in c.name()][0].id())
+    falta = fondo.asegurar(iface)
+    fondo_ok = (fondo_ok and [c.name() for c in falta] == ['Catastro de Navarra (WMS)']
+                and [n.name() for n in raiz.findGroup(fondo.GRUPO).children()] == [c[0] for c in fondo.CAPAS])
 else:
     modo_fondo = "sin conexión"
     fondo_ok = raiz.findGroup(fondo.GRUPO) is None and not fondo.capas_fondo()

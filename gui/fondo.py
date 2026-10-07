@@ -15,10 +15,10 @@ from qgis.core import (
     QgsRectangle,
 )
 
-from ..core.info import FUENTE_DGC
+from ..core.info import FUENTE_DGC, FUENTE_NAVARRA
 
 PROPIEDAD_FONDO = 'catastral_gml_tools/fondo'
-GRUPO = 'Fondo (Catastro e IGN)'
+GRUPO = 'Fondo (Catastro e IGN)'  #Catastro de la DGC, de Navarra y ortofoto del IGN
 #SRC en que se piden las imágenes: el del proyecto si ambos servicios lo ofrecen; si no, EPSG:3857 (QGIS reproyecta)
 SRC_WMS = ('EPSG:25829', 'EPSG:25830', 'EPSG:25831', 'EPSG:4258', 'EPSG:4326', 'EPSG:3857')
 SRC_PROYECTO_VACIO = 'EPSG:25830'  #El habitual en el trabajo catastral (la mayor parte de España)
@@ -28,6 +28,9 @@ CAPAS = (
     #(nombre, url, capa del servicio, formato, transparente, fuente)
     ("Catastro (WMS)", 'https://ovc.catastro.meh.es/Cartografia/WMS/ServidorWMS.aspx', 'Catastro', 'image/png', True,
      f"© {FUENTE_DGC}"),
+    #El WMS de la DGC no dibuja Navarra (catastro propio): su cartografía la sirve el Gobierno de Navarra
+    ("Catastro de Navarra (WMS)", 'https://inspire.navarra.es/services/CP/wms', 'CP:CadastralParcel', 'image/png', True,
+     f"Servicio proporcionado por el Gobierno de Navarra · {FUENTE_NAVARRA}"),
     ("Ortofoto PNOA (IGN)", 'https://www.ign.es/wms-inspire/pnoa-ma', 'OI.OrthoimageCoverage', 'image/jpeg', False,
      "PNOA cedido por © Instituto Geográfico Nacional (CC BY 4.0)"),
 )
@@ -49,7 +52,8 @@ def asegurar(iface=None):
     acerca el mapa a España. Devuelve las capas añadidas (lista vacía si ya estaban o si no hay conexión).
     """
     proyecto = QgsProject.instance()
-    if capas_fondo(proyecto):
+    presentes = {c.name() for c in capas_fondo(proyecto)}
+    if len(presentes) >= len(CAPAS):
         return []
     vacio = not proyecto.mapLayers()
     if vacio:
@@ -57,6 +61,8 @@ def asegurar(iface=None):
     src = proyecto.crs().authid() if proyecto.crs().authid() in SRC_WMS else 'EPSG:3857'
     nuevas = []
     for nombre, url, capa_wms, formato, transparente, fuente in CAPAS:
+        if nombre in presentes:  #Un proyecto con el fondo de una versión anterior recibe solo las capas que le faltan
+            continue
         capa = QgsRasterLayer(uri(url, capa_wms, formato, transparente, src), nombre, 'wms')
         if not capa.isValid():  #Sin conexión o servicio caído: QGIS no admite capas no válidas
             continue
@@ -66,10 +72,14 @@ def asegurar(iface=None):
         capa.setMetadata(metadatos)
         nuevas.append(capa)
     if nuevas:
-        grupo = proyecto.layerTreeRoot().addGroup(GRUPO)  #Al final: debajo de todo lo demás
+        raiz = proyecto.layerTreeRoot()
+        grupo = raiz.findGroup(GRUPO) or raiz.addGroup(GRUPO)  #Al final: debajo de todo lo demás
+        orden = [c[0] for c in CAPAS]
         for capa in nuevas:
             proyecto.addMapLayer(capa, False)
-            grupo.addLayer(capa).setExpanded(False)  #Leyenda plegada: la del WMS del Catastro es una imagen muy alta
+            #En el orden de CAPAS: las cartografías catastrales encima de la ortofoto
+            posicion = sum(1 for n in grupo.children() if n.name() in orden[:orden.index(capa.name())])
+            grupo.insertLayer(posicion, capa).setExpanded(False)  #Leyenda plegada: la del WMS del Catastro es muy alta
         grupo.setExpanded(False)
     if vacio and iface is not None and hasattr(iface, 'mapCanvas'):
         lienzo = iface.mapCanvas()

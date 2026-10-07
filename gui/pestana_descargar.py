@@ -90,8 +90,8 @@ class PestanaDescargar(QWidget):
         self.construcciones.setToolTip("Edificios y otras construcciones (piscinas, etc.) de la parcela")
         self.fondo = QCheckBox("Mapa de fondo", self)
         self.fondo.setChecked(True)
-        self.fondo.setToolTip("Si aún no está, añade al final de la lista de capas la cartografía del Catastro y la "
-                              "ortofoto PNOA (servicios WMS públicos de la DGC y del IGN)")
+        self.fondo.setToolTip("Si aún no está, añade al final de la lista de capas la cartografía catastral y la ortofoto "
+                              "PNOA\n(servicios WMS públicos de la DGC, del Gobierno de Navarra y del IGN)")
         for casilla in (self.colindantes, self.construcciones, self.fondo):
             opciones.addWidget(casilla)
         opciones.addStretch(1)
