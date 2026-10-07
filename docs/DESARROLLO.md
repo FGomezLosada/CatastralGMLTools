@@ -80,7 +80,7 @@ Decisiones técnicas:
 | 3 | GML de parcela (crear) | ✅ |
 | 4 | Lector y visor de GML | ✅ |
 | 5 | Validador e informe | ✅ |
-| 6 | Servicios: descarga por RC y RC por clic; Navarra y territorios forales | — |
+| 6 | Servicios: descarga por RC y RC por clic; Navarra y territorios forales | En curso (12 y 13 ✅) |
 | 7 | Alteraciones: asistente, multiparcela y unión | — |
 | 8 | GML de edificio y comprobaciones ICUC | — |
 | 9 | Conversor 3.0 → 4.0 y reparación | — |
@@ -106,8 +106,8 @@ Decisiones técnicas:
 | 9 | Lector de GML (CP 3.0/4.0, BU) y carga como capa con estilo | Revisar ficheros propios o ajenos | ✅ |
 | 10 | Validador: estructura, esquema, coherencia de ids, `count`, `areaValue`, orientación, cierre, solapes, multiparte, SRC | Detectar errores antes de subir | ✅ |
 | 11 | Informe de validación en el panel con botón para abrir el informe HTML y el fichero | Resultado claro | ✅ |
-| 12 | Descarga por RC: parcela, colindantes y construcciones (WFS) con atribución a la DGC | Partir de la cartografía vigente | |
-| 13 | RC por clic en el mapa (Consulta_RCCOOR) | Comodidad | |
+| 12 | Descarga por RC: parcela, colindantes y construcciones (WFS) con atribución a la DGC | Partir de la cartografía vigente | ✅ |
+| 13 | RC por clic en el mapa (Consulta_RCCOOR) | Comodidad | ✅ |
 | 14 | Comparación con la parcela de origen: parcelas sin cambios, contorno total (tolerancia ±1 cm en vértices), NPO | Simular comprobaciones de la SEC | |
 | 15 | Asistente de alteraciones: desplegable «Tipo de alteración» (segregación, división, agregación, agrupación, subsanación) que pone identificadores (`Seg_`, `Div_`, `Agrupa_`) y namespaces y comprueba la tabla NPO/NPP/namespace de la Sede. Mientras tanto, las parcelas nuevas se proponen como `Nueva_N` | Evitar errores de identificadores sin presuponer la alteración | |
 | 16 | Multiparcela: unir varios GML en uno | Equivalente a "multiparcela" | |
@@ -145,8 +145,8 @@ Decisiones técnicas:
 
 | Nº | Descripción | Estado |
 |---|---|---|
-| E-01 | Los servicios del Catastro se publican en `http://`; comprobar si responden por `https://` y usarlo si es así | Servicios libres: responden por `https://` (comprobado el 06/10/2026). WFS: por confirmar (fase 6) |
-| E-02 | Los WFS no ofrecen EPSG:32628 (Canarias): pedir en EPSG:4258 y transformar | Por resolver (fase 6) |
+| E-01 | Los servicios del Catastro se publican en `http://`; comprobar si responden por `https://` y usarlo si es así | Resuelto: los servicios libres y los WFS INSPIRE (CP y BU) responden por `https://` (comprobado el 06 y el 07/10/2026). El plugin solo usa `https://` |
+| E-02 | Se temía que los WFS no ofrecieran EPSG:32628 (Canarias) | Resuelto: el WFS de parcelas reproyecta a cualquier SRC pedido, también 32628 (07/10/2026). El plugin pide la parcela en el huso 30 y, si su posición corresponde a otro huso (o a Canarias), la vuelve a pedir en el suyo; todo lo demás se pide en ese huso. Ojo: en EPSG:4258/4326 devuelve lat-lon, por eso se pide siempre en UTM |
 | E-03 | Confirmar si la SEC acepta EPSG:4083 (REGCAN95 UTM 28) además de 32628 | Por confirmar |
 | E-04 | El GML de parcela usa UTF-8 y el de edificio ISO-8859-1 según los documentos oficiales; mantener cada uno | Decisión |
 | E-05 | El esquema BU de la DGC es un borrador modificado localmente; la validación XSD de edificios debe usar la copia de la DGC | Por resolver (fase 8) |
@@ -156,6 +156,8 @@ Decisiones técnicas:
 | E-10 | libxml2 (lxml) no descarga por https ni sigue redirecciones: si no encuentra un esquema importado, **valida sin comprobar nada y da «válido»**. El validador XSD (mejora 10) descargará los esquemas con la red de QGIS (`QgsBlockingNetworkRequest` con redirecciones), los guardará en una caché del perfil y avisará si falta alguno. Comprobado el 06/10/2026: el GML de `gml_parcela.py` es válido contra WFS 2.0 + CP 4.0 (81 esquemas) y un fichero alterado se rechaza | Decisión (mejora 10) |
 | E-11 | La Sede rechazaba nuestro GML de parcela («no cumple el esquema Inspire GML») aunque era válido contra los XSD públicos. Con 9 ficheros de control subidos a la Sede (06/10/2026) se aisló la causa: **la raíz debe declarar `xmlns:xlink`** aunque no se use. No influyen la codificación (UTF-8 o ISO-8859-1), los saltos de línea, la sangría, `count`, la fecha, el punto de referencia ni el formato de las coordenadas. `gml_parcela.py` declara xlink y la prueba lo comprueba | Resuelto |
 | E-12 | Abrir el panel con una capa grande en el proyecto (p. ej. el municipio descargado) bloqueaba QGIS: la pestaña Parcela calculaba todas sus parcelas, y además 3 o 4 veces al rellenar los campos. Resuelto: capa activa por defecto, máximo de 100 parcelas en la tabla (se trabaja con la selección), señales bloqueadas al rellenar los campos. Prueba con 400 parcelas en `parcela_ui_test.py` | Resuelto |
+| E-13 | `GetNeighbourParcel` a veces incluye la propia parcela entre las colindantes (p. ej. 9872023VH5797S) y otras no: `servicios.py` la quita siempre. `GetOtherBuildingByParcel` devuelve una colección vacía si no hay otras construcciones, y una RC inexistente devuelve un `ExceptionReport` (OWS 1.1) con el motivo, que se muestra al usuario | Resuelto |
+| E-14 | `GetNeighbourParcel` no es fiable: para 1669001VF2616N (manzana entera, rodeada de calles) contesta «No se han encontrado parcelas colindantes», lo que es cierto, pero da un aviso que confunde, y en otros casos devuelve menos parcelas de las que hay. Las colindantes se calculan ahora por geometría: se piden al WFS las parcelas de un rectángulo 25 m mayor que la parcela (`GetFeature` con `bbox`, límite del servicio ~1 km²: «Area of extension out of limits») y se separan las que están a menos de 20 cm (colindantes) de las demás (entorno). Solo si la parcela es demasiado grande se usa `GetNeighbourParcel`. «Sin colindantes» es una nota, no un aviso | Resuelto |
 | E-08 | El icono `mActionCheckGeometry.svg` no existe en QGIS 3.34: la pestaña Validar usa `algorithms/mAlgorithmCheckGeometry.svg` | Resuelto (0.1.0) |
 
 ---

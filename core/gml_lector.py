@@ -221,14 +221,20 @@ def geo_ns_gml():
 
 def leer(ruta):
     """Lee un GML de parcela o de edificio. Nunca lanza excepciones: los problemas van en resultado.incidencias."""
-    resultado = ResultadoLectura()
     nombre = os.path.basename(ruta)
     try:
         with open(ruta, 'rb') as f:
             datos = f.read()
     except OSError as e:
+        resultado = ResultadoLectura()
         resultado.incidencias.append(Incidencia(ERROR, 'FICHERO', f"No se puede leer {nombre}: {e}"))
         return resultado
+    return leer_datos(datos)
+
+
+def leer_datos(datos):
+    """Como leer(), pero a partir del contenido (p. ej. la respuesta de un servicio WFS del Catastro)."""
+    resultado = ResultadoLectura()
     try:
         raiz = ET.fromstring(datos)
     except ET.ParseError as e:

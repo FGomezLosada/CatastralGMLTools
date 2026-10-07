@@ -32,13 +32,25 @@ def simbolo(color):
     })
 
 
-def aplicar(capa):
-    """Simbología por tipo (solo los tipos que hay en la capa, para que la leyenda no muestre los demás) y etiqueta."""
+COLOR_COLINDANTES = '#868e96'  #Gris: las colindantes son contexto, la parcela descargada va en naranja
+COLOR_ENTORNO = '#adb5bd'      #Gris claro: parcelas cercanas que no tocan la parcela (al otro lado de la calle)
+
+
+def aplicar(capa, colores=None, campo_etiqueta='localId'):
+    """
+    Simbología por tipo (solo los tipos que hay en la capa, para que la leyenda no muestre los demás) y etiqueta.
+    colores cambia el color de algún tipo, p. ej. {PARCELA: COLOR_COLINDANTES}. campo_etiqueta=None: sin etiquetas.
+    """
     presentes = {f['tipo'] for f in capa.getFeatures()}
+    tabla = dict(COLORES, **(colores or {}))
     categorias = [QgsRendererCategory(tipo, simbolo(color), tipo.capitalize())
-                  for tipo, color in COLORES.items() if tipo in presentes]
+                  for tipo, color in tabla.items() if tipo in presentes]
     capa.setRenderer(QgsCategorizedSymbolRenderer('tipo', categorias))
 
+    if not campo_etiqueta:
+        capa.setLabelsEnabled(False)
+        capa.triggerRepaint()
+        return capa
     formato = QgsTextFormat()
     formato.setSize(9)
     formato.setColor(QColor('#212529'))
@@ -48,7 +60,7 @@ def aplicar(capa):
     fondo.setColor(QColor('#ffffff'))
     formato.setBuffer(fondo)
     ajustes = QgsPalLayerSettings()
-    ajustes.fieldName = 'localId'
+    ajustes.fieldName = campo_etiqueta
     ajustes.setFormat(formato)
     capa.setLabeling(QgsVectorLayerSimpleLabeling(ajustes))
     capa.setLabelsEnabled(True)
