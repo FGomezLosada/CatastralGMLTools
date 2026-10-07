@@ -95,11 +95,11 @@ cargada = (capa is not None and len(QgsProject.instance().mapLayers()) == antes 
            and capa.renderer().type() == 'categorizedSymbol' and capa.labelsEnabled()
            and not os.path.exists(os.path.join(carpeta, 'segregacion.gfs')))
 
-# 3. Superficie declarada que no coincide: en rojo
+# 3. Superficie declarada que no coincide: en rojo en la tabla y aviso (la Sede ya no lo comprueba)
 pv.fichero.setFilePath(alterado)
 rojo = (pv.tabla.item(0, 3).text() == '650' and pv.tabla.item(0, 3).foreground().color() == Qt.GlobalColor.red
-        and pv.tabla.item(0, 5).text() == 'Con errores' and pv.tabla.item(1, 5).text() == 'Correcta'
-        and '1 error' in pv.estado.text())
+        and pv.tabla.item(0, 5).text() == 'Con avisos' and pv.tabla.item(1, 5).text() == 'Correcta'
+        and '1 aviso' in pv.estado.text())
 esperar_tarea()
 #Elegir la incidencia en la lista selecciona su parcela en la tabla
 for i in range(pv.lista.count()):
@@ -107,7 +107,7 @@ for i in range(pv.lista.count()):
         pv.lista.setCurrentRow(i)
 lista_a_tabla = [r.row() for r in pv.tabla.selectionModel().selectedRows()] == [0]
 iconos = {pv.lista.item(i).text()[:20]: pv.lista.item(i).data(Qt.ItemDataRole.UserRole + 1) for i in range(pv.lista.count())}
-iconos_ok = ('/mIconCritical.svg' in iconos.values() and '/mIconSuccess.svg' in iconos.values())
+iconos_ok = ('/mIconWarning.svg' in iconos.values() and '/mIconSuccess.svg' in iconos.values())
 
 # 4. GML 3.0: errores de la Sede (esquema obsoleto) y sin comprobación XSD
 pv.fichero.setFilePath(os.path.join(DATOS, 'parcela_cp30_sintetica.gml'))
@@ -171,9 +171,9 @@ checks = {
     "GML correcto: «Sin errores», resultado XSD en la lista y botones activos": sin_avisos,
     "la comprobación XSD va en segundo plano y termina": xsd_en_marcha and xsd_terminado,
     "al elegir una incidencia se marca su parcela en la tabla": lista_a_tabla,
-    "iconos: error en rojo y esquema correcto con marca verde": iconos_ok,
+    "iconos: aviso en naranja y esquema correcto con marca verde": iconos_ok,
     "carga en el mapa con estilo por tipo, etiquetas y sin .gfs": cargada,
-    "superficie distinta: en rojo, estado de cada fila y resumen con 1 error": rojo,
+    "superficie distinta: en rojo en la tabla, aviso (la Sede ya no lo comprueba) y estado de cada fila": rojo,
     "GML 3.0: aviso de esquema obsoleto y sin comprobación XSD": aviso30,
     "GML de edificio: edificio y otra construcción": edificio_ok,
     "GML mal formado: error y nada que cargar": mal,

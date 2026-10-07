@@ -28,7 +28,7 @@ from .incidencias import AVISO, ERROR, INFO, Incidencia
 PARCELA = 'parcela'
 EDIFICIO = 'edificio'
 OTRA = 'otra construcción'
-DOMINIO_PUBLICO = 'dominio público'  #Parcela de rústica 9000-9999 (caminos, cauces…), en las descargas
+DOMINIO_PUBLICO = 'dominio público'  #Parcela de rústica 9001-9999 (caminos, cauces…), en las descargas
 
 #Espacios de nombres que identifican cada formato
 CP_40 = 'http://inspire.ec.europa.eu/schemas/cp/4.0'
@@ -55,6 +55,7 @@ class ElementoGML:
     roles: list = field(default_factory=list)    #'exterior' o 'interior' de cada anillo (mismo orden que anillos)
     decimales: int = 0          #Máximo de decimales de las coordenadas tal como están escritas
     punto_referencia: object = None  #(x, y) de cp:referencePoint, o None
+    descripcion: str = ''       #En las descargas: paraje y uso según el Catastro (p. ej. «Camino · vía de comunicación…»)
 
 
 @dataclass
@@ -289,14 +290,14 @@ def leer_datos(datos):
 
 CAMPOS = (('tipo', 'string'), ('localId', 'string'), ('namespace', 'string'), ('label', 'string'),
           ('referencia', 'string'), ('sup_gml', 'integer'), ('sup_calc', 'integer'), ('plantas', 'integer'),
-          ('naturaleza', 'string'))
+          ('naturaleza', 'string'), ('descripcion', 'string'))
 
 
 def capa(resultado, nombre):
     """Capa de memoria (polígonos) con los elementos leídos, en el SRC del fichero."""
     epsg = resultado.epsg or 25830
     uri = f"MultiPolygon?crs=EPSG:{epsg}&" + '&'.join(
-        f"field={n}:{'string(60)' if t == 'string' else t}" for n, t in CAMPOS)
+        f"field={n}:{('string(160)' if n == 'descripcion' else 'string(60)') if t == 'string' else t}" for n, t in CAMPOS)
     nueva = QgsVectorLayer(uri, nombre, 'memory')
     entidades = []
     for e in resultado.elementos:
@@ -307,7 +308,7 @@ def capa(resultado, nombre):
             f.setGeometry(g)
         f.setAttributes([e.tipo, e.local_id, e.namespace, e.label, e.referencia, e.area_declarada,
                          geo.redondear_m2(e.geometria.area()) if not e.geometria.isNull() else None,
-                         e.plantas, e.naturaleza])
+                         e.plantas, e.naturaleza, e.descripcion])
         entidades.append(f)
     nueva.dataProvider().addFeatures(entidades)
     nueva.updateExtents()

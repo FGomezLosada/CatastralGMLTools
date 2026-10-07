@@ -175,8 +175,9 @@ def validar_elemento(e, es_parcela):
         if e.area_declarada is None:
             inc.append(Incidencia(ERROR, 'SUP-FALTA', "Falta la superficie (areaValue)", nombre))
         elif abs(e.area_declarada - calculada) >= 1:
-            inc.append(Incidencia(ERROR, 'SUP-DISTINTA', f"Superficie declarada {e.area_declarada} m² y calculada {calculada} m²: "
-                                                         "debe ser la superficie de la geometría", nombre))
+            #La Sede ya no lo comprueba (documento de validación de la DGC, v2.1), pero conviene que coincida
+            inc.append(Incidencia(AVISO, 'SUP-DISTINTA', f"Superficie declarada {e.area_declarada} m² y calculada {calculada} m²: "
+                                                         "conviene que sea la de la geometría", nombre))
         if e.punto_referencia is not None:
             punto = QgsGeometry.fromPointXY(QgsPointXY(*e.punto_referencia))
             if not e.geometria.contains(punto):

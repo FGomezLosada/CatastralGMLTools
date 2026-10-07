@@ -11,6 +11,7 @@ ellos el 07/10/2026) con parcelas y construcciones SINTÉTICAS:
   - las consultas por rectángulo (bbox) devuelven las parcelas sintéticas que lo tocan, en el SRC pedido;
   - cualquier otra: ExceptionReport «No se ha encontrado la parcela…»;
   - RED: si la referencia es 1907409VK4810H, error de red.
+Consulta_DNPRC: el camino es «VT · vía de comunicación de dominio público»; las demás de rústica, matorral.
 El clic en el mapa (Consulta_RCCOOR) devuelve 1907401VK4810H salvo en longitudes positivas (sin parcela).
 
 No es una prueba: lo importan las pruebas con importlib (no está en la lista de tools/run_tests.py).
@@ -45,6 +46,7 @@ SIN_COLINDANTES = ('<?xml version=\'1.0\' encoding="ISO-8859-1" standalone="no"?
                    '"OperationProcessingFailed">\r\n<ExceptionText><![CDATA[No se han encontrado parcelas colindantes a la '
                    'solicitada]]></ExceptionText>\r\n</Exception>\r\n</ExceptionReport>\r\n')
 
+DNPRC_CAIDO = False  #True: la consulta de datos de parcela falla (para probar la regla de numeración sola)
 peticiones = []  #Direcciones pedidas, para comprobar qué se ha consultado
 
 
@@ -77,6 +79,16 @@ def pedir(url):
     peticiones.append(url)
     partes = urlparse(url)
     q = {k.lower(): v[0] for k, v in parse_qs(partes.query).items()}
+    if 'consulta_dnprc' in partes.path.lower():
+        if DNPRC_CAIDO:
+            return b'', 'Connection refused (simulado)'
+        rc = q['refcat']
+        camino = rc == CAMINO
+        lspr = [{"cspr": "0", "dspr": {"ccc": "VT" if camino else "MT", "ip": "00",
+                                       "dcc": "VÍA DE COMUNICACIÓN DE DOMINIO PÚBLICO" if camino else "MATORRAL"}}]
+        return json.dumps({"consulta_dnprcResult": {"control": {"cudnp": 1}, "bico": {
+            "bi": {"idbi": {"cn": "RU"}, "dt": {"locs": {"lors": {"lorus": {"npa": "CAMINO" if camino else "PARAJE INVENTADO"}}}},
+                   "ldt": f"Polígono {int(rc[6:9])} Parcela {int(rc[9:14])} (ficticia)"}, "lspr": lspr}}}).encode('utf-8'), ''
     if 'consulta_rccoor' in partes.path.lower():
         if float(q['coorx']) > 0:
             return json.dumps({"Consulta_RCCOORResult": {"control": {"cuerr": 1}, "lerr": [

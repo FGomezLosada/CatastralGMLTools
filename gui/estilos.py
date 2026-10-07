@@ -19,7 +19,7 @@ from qgis.PyQt.QtGui import QColor
 from ..core.gml_lector import DOMINIO_PUBLICO, EDIFICIO, OTRA, PARCELA
 
 COLORES = {PARCELA: '#e8590c', EDIFICIO: '#c92a2a', OTRA: '#1971c2',  #Naranja, rojo y azul
-           DOMINIO_PUBLICO: '#0c8599'}  #Verde azulado: caminos, cauces… (parcelas 9000 de rústica)
+           DOMINIO_PUBLICO: '#0c8599'}  #Verde azulado: caminos, cauces… (parcelas 9001-9999 de rústica)
 
 
 def simbolo(color):

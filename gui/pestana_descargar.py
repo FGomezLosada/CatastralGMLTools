@@ -194,8 +194,7 @@ class PestanaDescargar(QWidget):
         self.resumen.setText(f"<span style='color:#2b8a3e'>✔ {info[0] if info else descarga.rc}</span><br>"
                              + ''.join(f"<small>ℹ {n}</small><br>" for n in notas)
                              + f"<small>{descarga.atribucion()}</small>")
-        self.dock.success(f"Descargada la parcela {descarga.rc} (grupo «Catastro {descarga.rc}»). Ya está elegida en "
-                          "la pestaña Parcela", [("Acercar", self.acercar), ("Ir a Parcela", self.ir_a_parcela)],
+        self.dock.success(f"Descargada la parcela {descarga.rc}: ya está elegida en la pestaña Parcela", [("Acercar", self.acercar), ("Ir a Parcela", self.ir_a_parcela)],
                           detalles=avisos)
         self.acercar()
         return self.capas
