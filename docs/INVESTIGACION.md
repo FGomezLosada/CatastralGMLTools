@@ -141,10 +141,10 @@ El plugin es solo para España, pero no todo el territorio lo gestiona la DGC:
 
 | Territorio | Organismo | Qué sabemos | Qué falta |
 |---|---|---|---|
-| **Navarra** (provincia 31) | Servicio de Riqueza Territorial y Tributos Patrimoniales (Registro de la Riqueza Territorial, Ley Foral 12/2006) | Cartografía catastral pública en IDENA (descarga en Shapefile y GeoPackage, EPSG:25830). La coordinación con el Registro se hace con **cédulas parcelarias**, no con el IVGA de la Sede de la DGC | Formato GML que admite el RRTN (si lo hay) y su servicio WFS de parcelas; condiciones de uso de IDENA. Se investigará en la fase 6 (mejora 30), también en la carpeta del curso de gestión catastral |
+| **Navarra** (provincia 31) | Servicio de Riqueza Territorial y Tributos Patrimoniales (Registro de la Riqueza Territorial, Ley Foral 12/2006) | WFS INSPIRE de parcelas y edificios del Gobierno de Navarra (`https://inspire.navarra.es/services/CP/wfs`, `/BU/wfs`; CC BY 4.0, citar «Servicio proporcionado por el Gobierno de Navarra»), descarga completa en Shapefile, GeoPackage y GML INSPIRE (filescartografia.navarra.es), EPSG:25830. Identificador de 9 dígitos: municipio (3) + polígono (2) + parcela (4) (p. ej. 201040112; también en el enlace `ref_catastral/unidades.aspx?C=201&PO=4&PA=112`). La coordinación con el Registro se hace con cédulas parcelarias; no hay un servicio público equivalente al IVG de la DGC (una guía profesional de nov. 2025 lo confirma: «no debemos contar con que exista una herramienta como el IVGA en los territorios forales») | Si el RRTN publica un formato de representación gráfica propio, incorporarlo |
 | **Álava/Araba** (01), **Gipuzkoa** (20), **Bizkaia** (48) | Diputaciones forales | Catastros propios, con sus servicios | Solo se detectan y se avisa (mejora 31) |
 
-Consecuencia: los GML para la Sede de la DGC **no sirven** en estos territorios; el plugin lo detectará (por municipio o por posición) y avisará antes de generar nada.
+Consecuencia: los GML para la Sede de la DGC **no sirven** en estos territorios. El plugin lo detecta por la referencia (provincia de la RC rústica, formato de Navarra) y por las capas descargadas de Navarra, y no genera GML para ellos. En Navarra sí descarga la parcela, sus colindantes, su entorno y sus edificios del servicio del Gobierno de Navarra.
 
 ---
 

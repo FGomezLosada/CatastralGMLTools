@@ -28,7 +28,12 @@ dominio = (refcat.es_dominio_publico('29075A90009700') and refcat.es_dominio_pub
            and not refcat.es_dominio_publico('29071A00700123') and not refcat.es_dominio_publico('9872023VH5797S')
            and not refcat.es_dominio_publico('29071A00708999') and not refcat.es_dominio_publico('29071A00709000')
            and refcat.es_dominio_publico('03099A04809010') and not refcat.es_dominio_publico(''))
+navarra = (refcat.navarra('201-4-112') == '201040112' and refcat.navarra('201040112') == '201040112'
+           and refcat.navarra('201/04/0112') == '201040112' and refcat.navarra('73 2 577') == '073020577'
+           and refcat.navarra('0-1-1') == '' and refcat.navarra('9872023VH5797S') == '' and refcat.navarra('') == ''
+           and refcat.navarra_partes('201040112') == (201, 4, 112))
 checks = {
+    "Navarra: municipio-polígono-parcela y sus 9 dígitos": navarra,
     "dominio público de rústica (parcelas 9001-9999; la 9000 no)": dominio,
     "las RC reales tienen los caracteres de control correctos": all(refcat.comprobar(rc).nivel == refcat.CORRECTA for rc in reales),
     "limpia espacios, guiones y minúsculas": r_espacios.rc == '9872023VH5797S0001WX' and r_espacios.valida,

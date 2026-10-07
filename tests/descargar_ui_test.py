@@ -146,6 +146,25 @@ dw.cleanup()
 devuelta = lienzo.mapTool() is pan
 herramienta = sin_parcela and desmarcado and devuelta
 
+# 5b. Navarra: se descarga del Gobierno de Navarra, no pasa a la pestaña Parcela y no deja crear el GML de la Sede
+pp = dw.pestanaParcela
+id_antes = pp.capa().id() if pp.capa() is not None else None
+pes.rc.setText('201-4-112')
+texto_nav = 'Parcela de Navarra' in pes.comprobacion.text() and pes.descargarBoton.isEnabled()
+dw.messageBar.clearWidgets()
+capas_nav = pes.descargar(segundo_plano=False) or {}
+parcela_nav = capas_nav.get('parcela')
+navarra_ui = (texto_nav and parcela_nav is not None and raiz.findGroup('Catastro 201040112') is not None
+              and parcela_nav.customProperty('catastral_gml_tools/territorio') == 'Navarra'
+              and 'Gobierno de Navarra' in parcela_nav.metadata().rights()[0]
+              and 'Servicio proporcionado por el Gobierno de Navarra' in parcela_nav.metadata().abstract()
+              and (pp.capa().id() if pp.capa() is not None else None) == id_antes
+              and 'de Navarra' in textos_barra())
+pp.capaCombo.setLayer(parcela_nav)
+dw.messageBar.clearWidgets()
+pp.crear_gml()
+navarra_ui = navarra_ui and 'catastro propio' in textos_barra()
+
 # 6. Mapa de fondo con el proyecto vacío: con conexión, Catastro y PNOA en un grupo al final y el proyecto en
 # EPSG:25830; sin conexión, nada (ni grupo vacío). Nunca se duplica.
 proyecto.removeMapLayers([c.id() for c in proyecto.mapLayers().values()])
@@ -181,6 +200,7 @@ checks = {
     "errores en la barra: parcela inexistente y sin red": errores,
     "clic en el mapa: consulta la RC, descarga y devuelve la herramienta": clic,
     "clic sin parcela y cambio de herramienta": herramienta,
+    "Navarra: descarga del Gobierno de Navarra y sin GML de la Sede": navarra_ui,
     f"mapa de fondo ({modo_fondo})": fondo_ok,
     "ninguna ventana emergente": not ventanas,
 }

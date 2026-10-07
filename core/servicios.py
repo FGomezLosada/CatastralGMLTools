@@ -22,9 +22,17 @@ import datetime
 import json
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
-from qgis.core import QgsBlockingNetworkRequest, QgsCoordinateReferenceSystem
+from qgis.core import (
+    QgsBlockingNetworkRequest,
+    QgsCoordinateReferenceSystem,
+    QgsCoordinateTransform,
+    QgsGeometry,
+    QgsPointXY,
+    QgsProject,
+    QgsRectangle,
+)
 from qgis.PyQt.QtCore import QUrl
 from qgis.PyQt.QtNetwork import QNetworkRequest
 
@@ -32,7 +40,7 @@ from . import geometria as geo
 from . import gml_lector as gl
 from . import refcat
 from .incidencias import AVISO, ERROR, INFO, Incidencia, hay_errores
-from .info import FUENTE_DGC
+from .info import FUENTE_DGC, FUENTE_NAVARRA
 
 WFS_CP = 'https://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx'
 WFS_BU = 'https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx'
@@ -42,6 +50,13 @@ MARGEN_ENTORNO = 25.0           #m alrededor de la parcela en los que se buscan 
 TOLERANCIA_COLINDANTE = 0.20    #m: a menos de esta distancia se considera colindante (calles de por medio: no)
 AREA_MAXIMA_ENTORNO = 1_000_000  #m²: el WFS no admite rectángulos mayores («Area of extension out of limits»)
 SIN_COLINDANTES = 'No se han encontrado parcelas colindantes'  #Texto del ExceptionReport cuando no hay ninguna
+#Navarra (Registro de la Riqueza Territorial): servicios INSPIRE del Gobierno de Navarra, CC BY 4.0, todo en el huso 30
+WFS_NAVARRA_CP = 'https://inspire.navarra.es/services/CP/wfs'
+WFS_NAVARRA_BU = 'https://inspire.navarra.es/services/BU/wfs'
+EPSG_NAVARRA = 25830
+CAJA_NAVARRA = (-2.55, 41.88, -0.70, 43.35)  #lon/lat aproximados: solo para no preguntar a Navarra por puntos de fuera
+AVISO_NAVARRA = ("Parcela de Navarra (Registro de la Riqueza Territorial). El GML de la Sede Electrónica de la DGC no sirve "
+                 "en Navarra: sus alteraciones se tramitan ante la Hacienda Foral de Navarra")
 DNPRC = 'https://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejero.svc/json/Consulta_DNPRC'
 #Usos de las parcelas de dominio público de rústica (9001-9999) según la DGC: VT y HG comprobados además en
 #Consulta_DNPRC el 07/10/2026. OT («otros») no se usa como prueba por sí solo: cuenta la numeración
@@ -86,6 +101,32 @@ def url_otras(rc, epsg=EPSG_INICIAL):
 
 def url_datos(rc):
     return DNPRC + '?' + urlencode({'RefCat': rc})
+
+
+def _wfs_navarra(base, tipo, **parametros):
+    consulta = {'service': 'WFS', 'version': '2.0.0', 'request': 'GetFeature', 'typeNames': tipo,
+                'srsName': f'EPSG:{EPSG_NAVARRA}'}
+    consulta.update(parametros)
+    return base + '?' + urlencode(consulta, quote_via=quote)
+
+
+def url_navarra_parcela(ref9):
+    """Parcela de Navarra por su identificador INSPIRE (ES.RRTN.CP.<9 dígitos>), con un filtro FES ResourceId."""
+    filtro = f'<fes:Filter xmlns:fes="http://www.opengis.net/fes/2.0"><fes:ResourceId rid="ES.RRTN.CP.{ref9}"/></fes:Filter>'
+    return _wfs_navarra(WFS_NAVARRA_CP, 'CP:CadastralParcel', FILTER=filtro)
+
+
+def _caja(rectangulo):
+    return ','.join(f'{v:.2f}' for v in (rectangulo.xMinimum(), rectangulo.yMinimum(), rectangulo.xMaximum(),
+                                          rectangulo.yMaximum())) + f',urn:ogc:def:crs:EPSG::{EPSG_NAVARRA}'
+
+
+def url_navarra_entorno(rectangulo):
+    return _wfs_navarra(WFS_NAVARRA_CP, 'CP:CadastralParcel', bbox=_caja(rectangulo))
+
+
+def url_navarra_edificios(rectangulo):
+    return _wfs_navarra(WFS_NAVARRA_BU, 'BU:Building', bbox=_caja(rectangulo))
 
 
 def url_rc_en_punto(x, y, epsg=EPSG_PUNTO):
@@ -148,6 +189,7 @@ class Descarga:
     construcciones: object = None      #ResultadoLectura con edificios y otras construcciones juntos
     incidencias: list = field(default_factory=list)
     fecha: object = None               #datetime de la descarga
+    territorio: str = ''               #'' (Dirección General del Catastro) o 'Navarra'
 
     @property
     def correcta(self):
@@ -156,7 +198,7 @@ class Descarga:
     def atribucion(self):
         """Cita de la fuente de los datos con la fecha de descarga."""
         fecha = f" · descargado el {self.fecha:%d/%m/%Y %H:%M}" if self.fecha else ''
-        return f"© {FUENTE_DGC}{fecha}"
+        return f"© {FUENTE_NAVARRA if self.territorio == 'Navarra' else FUENTE_DGC}{fecha}"
 
 
 def descargar(rc, colindantes=True, construcciones=True, epsg=None, ahora=None):
@@ -167,6 +209,8 @@ def descargar(rc, colindantes=True, construcciones=True, epsg=None, ahora=None):
     descarga = Descarga(fecha=ahora or datetime.datetime.now())
     comprobada = refcat.comprobar(rc)
     descarga.rc = comprobada.parcela or comprobada.rc
+    if not comprobada.valida and refcat.navarra(rc):
+        return _descargar_navarra(descarga, refcat.navarra(rc), colindantes, construcciones)
     if not comprobada.valida:
         descarga.incidencias.append(Incidencia(ERROR, 'RC', comprobada.mensaje))
         return descarga
@@ -201,7 +245,13 @@ def descargar(rc, colindantes=True, construcciones=True, epsg=None, ahora=None):
             juntas.epsg = juntas.epsg or pedido
             descarga.construcciones = juntas
 
-    e = parcela.elementos[0]
+    _resumen(descarga, colindantes, construcciones)
+    return descarga
+
+
+def _resumen(descarga, colindantes, construcciones):
+    e = descarga.parcela.elementos[0]
+    pedido = descarga.epsg
     n_col = len(descarga.colindantes.elementos) if descarga.colindantes else 0
     n_pub = len([e for e in descarga.colindantes.elementos if e.tipo == gl.DOMINIO_PUBLICO]) if descarga.colindantes else 0
     n_con = len(descarga.construcciones.elementos) if descarga.construcciones else 0
@@ -211,6 +261,40 @@ def descargar(rc, colindantes=True, construcciones=True, epsg=None, ahora=None):
                                              + (f" ({n_pub} de dominio público)" if n_pub else '') if colindantes else '')
                           + (f" · {len(descarga.entorno.elementos)} en el entorno" if descarga.entorno else '')
                           + (f" · {n_con} construcci{'ones' if n_con != 1 else 'ón'}" if construcciones else '')))
+
+
+def _descargar_navarra(descarga, ref9, colindantes, construcciones):
+    """
+    Parcela de Navarra del servicio INSPIRE del Gobierno de Navarra (Registro de la Riqueza Territorial): la parcela por
+    su referencia, el entorno por rectángulo (colindantes por geometría, como en la DGC) y sus edificios (los del
+    rectángulo de la parcela cuyo identificador empieza por su referencia). Siempre en EPSG:25830.
+    """
+    municipio, poligono, numero = refcat.navarra_partes(ref9)
+    descarga.rc, descarga.territorio, descarga.epsg = ref9, 'Navarra', EPSG_NAVARRA
+    que = f"la parcela {numero} del polígono {poligono} de {municipio:03d} (Navarra)"
+    parcela, errores = consultar_wfs(url_navarra_parcela(ref9), que)
+    if errores or parcela is None or not parcela.elementos:
+        descarga.incidencias += errores or [Incidencia(ERROR, 'WFS-VACIO', f"No se ha encontrado {que} en el Registro de "
+                                                                          "la Riqueza Territorial")]
+        return descarga
+    descarga.parcela = parcela
+    geometria = parcela.elementos[0].geometria
+    if colindantes:
+        caja = geometria.boundingBox()
+        caja.grow(MARGEN_ENTORNO)
+        todas, errores = consultar_wfs(url_navarra_entorno(caja), "las parcelas del entorno")
+        descarga.incidencias += [Incidencia(AVISO, i.codigo, i.mensaje) for i in errores]
+        if todas is not None and not errores:
+            _separar(descarga, todas, geometria)
+    if construcciones:
+        edificios, errores = consultar_wfs(url_navarra_edificios(geometria.boundingBox()), "los edificios")
+        descarga.incidencias += [Incidencia(AVISO, i.codigo, i.mensaje) for i in errores]
+        if edificios is not None:
+            edificios.elementos = [e for e in edificios.elementos if e.local_id.startswith(ref9)]
+            edificios.epsg = edificios.epsg or EPSG_NAVARRA
+            descarga.construcciones = edificios
+    descarga.incidencias.append(Incidencia(INFO, 'NAVARRA', AVISO_NAVARRA))
+    _resumen(descarga, colindantes, construcciones)
     return descarga
 
 
@@ -225,14 +309,7 @@ def _vecinas(descarga, geometria, epsg):
     if caja.area() <= AREA_MAXIMA_ENTORNO:
         todas, errores = consultar_wfs(url_entorno(caja, epsg), "las parcelas del entorno")
         if todas is not None and not errores:
-            otras = [e for e in todas.elementos if e.local_id != descarga.rc and not e.geometria.isEmpty()]
-            distancias = [(e, e.geometria.distance(geometria)) for e in otras]
-            cerca = [e for e, d in distancias if d <= TOLERANCIA_COLINDANTE]
-            lejos = [e for e, d in distancias if TOLERANCIA_COLINDANTE < d <= MARGEN_ENTORNO]
-            descarga.colindantes = _copia(todas, cerca)
-            descarga.entorno = _copia(todas, lejos)
-            if not cerca:
-                descarga.incidencias.append(Incidencia(INFO, 'SIN-COLINDANTES', _texto_sin_colindantes(lejos)))
+            _separar(descarga, todas, geometria)
             _marcar_dominio_publico(descarga)
             return
     vecinas, errores = consultar_wfs(url_colindantes(descarga.rc, epsg), "las parcelas colindantes")
@@ -321,6 +398,18 @@ def _marcar_dominio_publico(descarga):
             "mover sin contar con su deslinde y su Administración titular"))
 
 
+def _separar(descarga, todas, geometria):
+    """Parte las parcelas de un rectángulo en colindantes (tocan la parcela) y entorno (a menos de MARGEN_ENTORNO m)."""
+    otras = [e for e in todas.elementos if e.local_id != descarga.rc and not e.geometria.isEmpty()]
+    distancias = [(e, e.geometria.distance(geometria)) for e in otras]
+    cerca = [e for e, d in distancias if d <= TOLERANCIA_COLINDANTE]
+    lejos = [e for e, d in distancias if TOLERANCIA_COLINDANTE < d <= MARGEN_ENTORNO]
+    descarga.colindantes = _copia(todas, cerca)
+    descarga.entorno = _copia(todas, lejos)
+    if not cerca:
+        descarga.incidencias.append(Incidencia(INFO, 'SIN-COLINDANTES', _texto_sin_colindantes(lejos)))
+
+
 def _copia(resultado, elementos):
     return gl.ResultadoLectura(version=resultado.version, epsg=resultado.epsg, elementos=list(elementos))
 
@@ -354,6 +443,13 @@ def rc_en_punto(x, y, epsg=EPSG_PUNTO):
         resultado.incidencias.append(Incidencia(ERROR, 'RCCOOR-RESPUESTA', "Respuesta no esperada del Catastro"))
         return resultado
     errores = respuesta.get('lerr') or []
+    if errores and epsg == EPSG_PUNTO and _en_navarra(x, y):
+        ref9 = _navarra_en_punto(x, y)
+        if ref9:  #Navarra no está en los servicios de la DGC: se pregunta al del Gobierno de Navarra
+            resultado.rc = ref9
+            municipio, poligono, numero = refcat.navarra_partes(ref9)
+            resultado.direccion = f"Navarra · municipio {municipio:03d}, polígono {poligono}, parcela {numero}"
+            return resultado
     if errores:
         texto = '; '.join(str(e.get('des', '')).strip().capitalize() for e in errores if isinstance(e, dict))
         resultado.incidencias.append(Incidencia(ERROR, 'RCCOOR-SIN-PARCELA',
@@ -369,6 +465,29 @@ def rc_en_punto(x, y, epsg=EPSG_PUNTO):
     pc = primera.get('pc') or {}
     resultado.rc = f"{pc.get('pc1', '')}{pc.get('pc2', '')}".strip()
     resultado.direccion = str(primera.get('ldt', '')).strip()
+    if refcat.navarra(resultado.rc):  #En Navarra, Consulta_RCCOOR devuelve su referencia de 9 dígitos
+        municipio, poligono, numero = refcat.navarra_partes(resultado.rc)
+        resultado.direccion = (resultado.direccion or
+                               f"Navarra · municipio {municipio:03d}, polígono {poligono}, parcela {numero}")
+        return resultado
     if len(resultado.rc) != 14:
         resultado.incidencias.append(Incidencia(ERROR, 'RCCOOR-RESPUESTA', "El Catastro no ha devuelto una referencia válida"))
     return resultado
+
+
+def _en_navarra(lon, lat):
+    return CAJA_NAVARRA[0] <= lon <= CAJA_NAVARRA[2] and CAJA_NAVARRA[1] <= lat <= CAJA_NAVARRA[3]
+
+
+def _navarra_en_punto(lon, lat):
+    """Referencia de Navarra (9 dígitos) de la parcela que contiene un punto en ETRS89 geográficas, o ''."""
+    transformacion = QgsCoordinateTransform(QgsCoordinateReferenceSystem(f'EPSG:{EPSG_PUNTO}'),
+                                            QgsCoordinateReferenceSystem(f'EPSG:{EPSG_NAVARRA}'), QgsProject.instance())
+    p = transformacion.transform(QgsPointXY(lon, lat))
+    todas, errores = consultar_wfs(url_navarra_entorno(QgsRectangle(p.x() - 0.5, p.y() - 0.5, p.x() + 0.5, p.y() + 0.5)),
+                                   "la parcela del punto (Navarra)")
+    if errores or todas is None:
+        return ''
+    punto = QgsGeometry.fromPointXY(p)
+    dentro = [e for e in todas.elementos if e.geometria.contains(punto)] or todas.elementos
+    return dentro[0].local_id if dentro and refcat.navarra(dentro[0].local_id) else ''

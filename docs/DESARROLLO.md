@@ -80,7 +80,7 @@ Decisiones técnicas:
 | 3 | GML de parcela (crear) | ✅ |
 | 4 | Lector y visor de GML | ✅ |
 | 5 | Validador e informe | ✅ |
-| 6 | Servicios: descarga por RC y RC por clic; Navarra y territorios forales | En curso (12 y 13 ✅) |
+| 6 | Servicios: descarga por RC y RC por clic; Navarra y territorios forales | ✅ |
 | 7 | Alteraciones: asistente, multiparcela y unión | — |
 | 8 | GML de edificio y comprobaciones ICUC | — |
 | 9 | Conversor 3.0 → 4.0 y reparación | — |
@@ -124,10 +124,10 @@ Decisiones técnicas:
 | 27 | Traducción al inglés (Qt Linguist) | Publicación internacional | |
 | 28 | Ayuda local HTML con ejemplos y avisos legales | Uso sin conexión | |
 | 29 | README con capturas reales, ZIP de prueba y publicación estable (`experimental=False` en 1.0.0) | Cierre | |
-| 30 | Navarra: investigar el formato y los servicios del Registro de la Riqueza Territorial (IDENA) e incorporar lo que admita (descarga y GML) | El plugin es para toda España | |
+| 30 | Navarra: investigar el formato y los servicios del Registro de la Riqueza Territorial (IDENA) e incorporar lo que admita (descarga y GML) | El plugin es para toda España | ✅ |
 | 32 | Lector del XML del informe de validación gráfica (IVG): cargar en QGIS las parcelas propuestas y las afectadas total y parcialmente (`parcelasGML`, `parcelasAfecT`, `parcelasAfectP`, ZIP en base64) | Revisar un IVG negativo sobre el mapa | |
 | 33 | Exportar los vértices como puntos de apoyo para el editor parcelario de la Sede (.txt «x y» por línea) | Usar el editor en línea con datos de campo | |
-| 31 | Detección de territorios con catastro propio (Navarra, Álava/Araba, Gipuzkoa, Bizkaia) con aviso antes de generar GML para la Sede de la DGC | Evitar ficheros que no sirven | |
+| 31 | Detección de territorios con catastro propio (Navarra, Álava/Araba, Gipuzkoa, Bizkaia) con aviso antes de generar GML para la Sede de la DGC | Evitar ficheros que no sirven | ✅ |
 
 ---
 
@@ -163,6 +163,7 @@ Decisiones técnicas:
 | E-15 | Dominio público. Fuentes oficiales: (1) *Modelo de datos de cartografía vectorial (shapefile) v2.0* de la DGC: el campo TIPO de PARCELA distingue «(X) Dominio público y ajustes topográficos», y la parcela 09000 es un artificio de la cartografía rústica que debe ignorarse; (2) datos vigentes de Consulta_DNPRC (07/10/2026): las parcelas 9001-9999 de rústica de Nerja que lindan con las de prueba son «VT · Vía de comunicación de dominio público» (caminos, A-7) o «HG · Hidrografía natural» (arroyos, barrancos), y la 29075A90009700 es «(BIEN DE DOMINIO PUBLICO) ZONA MARITIMO TERRESTRE». El plugin no se fía solo de la numeración: consulta Consulta_DNPRC para cada colindante de rústica y cada 9000-9999 del entorno (máx. 60 por descarga) y marca dominio público si la DGC lo dice; si no responde, usa la numeración y lo indica como «sin confirmar». En urbana las calles no son parcelas (no tienen RC). Que la nueva geometría no invada vía pública sin parcela se comprobará en la mejora 14. Pendiente: si la DGC publica una lista oficial completa de clases de cultivo de dominio público, ampliar `CULTIVOS_DOMINIO_PUBLICO` (ahora VT y HG, las comprobadas) | Decisión |
 | E-16 | Según el documento de validación de la DGC (IVG_Operaciones_Parcelario_GMLs, v2.3): la Sede **ya no compara `areaValue` con la geometría** (desde la v2.1) y, si hay más de 2 decimales, **solo tiene en cuenta los dos primeros** (trunca). El validador pasa SUP-DISTINTA a aviso; el escritor sigue poniendo la superficie de la geometría y 2 decimales | Resuelto |
 | E-17 | Umbral de la agregación: la DGC da dos cifras distintas, 80 % de la resultante (documento de validación) y quíntuplo de las agregadas, ≈83,3 % (guía GML y editor). Solo serán avisos (mejora 15) | Por confirmar |
+| E-18 | Navarra (07/10/2026): el Registro de la Riqueza Territorial publica parcelas y edificios en WFS INSPIRE (`inspire.navarra.es/services/CP/wfs` y `/BU/wfs`, CC BY 4.0, cita obligatoria «Servicio proporcionado por el Gobierno de Navarra»). Identificador de 9 dígitos, municipio (3) + polígono (2) + parcela (4), namespace `ES.RRTN.CP`; coordenadas con 3 decimales en EPSG:25830. La parcela se pide con un filtro FES `ResourceId` (`GetFeatureById` y `resourceId` dan error en ese servidor); Consulta_RCCOOR de la DGC devuelve en Navarra la referencia de 9 dígitos. No se ha encontrado un procedimiento equivalente al IVG ni un formato GML de alteraciones propio: el plugin descarga, pero no crea GML para Navarra (la pestaña Parcela lo impide con un aviso). País Vasco: solo se detecta | Decisión |
 | E-08 | El icono `mActionCheckGeometry.svg` no existe en QGIS 3.34: la pestaña Validar usa `algorithms/mAlgorithmCheckGeometry.svg` | Resuelto (0.1.0) |
 
 ---

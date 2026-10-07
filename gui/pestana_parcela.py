@@ -43,6 +43,7 @@ CABECERAS = ['Nº', 'Identificador (localId)', 'Namespace', 'Nº parcela', 'Sup.
 AUTOMATICO = 0  #Dato del combo de SRC para «automático»
 #Máximo de parcelas que se cargan en la tabla. La Sede admite como mucho 30 parcelas resultantes por operación;
 #con una capa grande (p. ej. un municipio entero) hay que seleccionar las parcelas: cargarla entera bloqueaba QGIS.
+PROPIEDAD_TERRITORIO = 'catastral_gml_tools/territorio'  #La pone la pestaña Descargar en las capas de Navarra
 MAX_FILAS = 100
 
 
@@ -372,6 +373,11 @@ class PestanaParcela(QWidget):
         capa = self.capa()
         if capa is None:
             self.dock.warn("Elija una capa de polígonos")
+            return
+        territorio = capa.customProperty(PROPIEDAD_TERRITORIO)
+        if territorio:  #Capa descargada de un catastro foral: el GML de la Sede de la DGC no sirve allí
+            self.dock.warn(f"La capa es de {territorio}, que tiene catastro propio: el GML para la Sede Electrónica de la "
+                           f"Dirección General del Catastro no sirve para sus trámites. Consulte al catastro de {territorio}.")
             return
         if not self.filas:
             if self.demasiadas:

@@ -33,10 +33,11 @@ from qgis.PyQt.QtWidgets import (
 from ..core import gml_lector as gl
 from ..core import refcat, servicios
 from ..core.incidencias import AVISO, ERROR, INFO
-from ..core.info import FUENTE_DGC, provincia
+from ..core.info import FUENTE_DGC, FUENTE_NAVARRA, provincia
 from . import estilos, fondo
 
 PROPIEDAD_FUENTE = 'catastral_gml_tools/fuente'  #Cita de la fuente guardada en cada capa descargada
+PROPIEDAD_TERRITORIO = 'catastral_gml_tools/territorio'  #'Navarra' en las capas de Navarra (el GML de la DGC no sirve)
 COLORES_NIVEL = {refcat.CORRECTA: '#2b8a3e', refcat.AVISO: '#e67700', refcat.ERROR: '#c92a2a'}
 
 
@@ -59,17 +60,17 @@ class PestanaDescargar(QWidget):
     def construir(self):
         principal = QVBoxLayout(self)
         principal.setContentsMargins(0, 0, 0, 0)
-        ayuda = QLabel("Escriba la referencia catastral y pulse <b>Descargar</b>. Si no la conoce, pulse <b>Elegir en el "
-                       "mapa</b> y haga clic sobre la parcela.", self)
+        ayuda = QLabel("Escriba la referencia catastral (en Navarra: municipio-polígono-parcela) y pulse <b>Descargar</b>. "
+                       "Si no la conoce, pulse <b>Elegir en el mapa</b> y haga clic sobre la parcela.", self)
         ayuda.setWordWrap(True)
         principal.addWidget(ayuda)
 
         fila = QHBoxLayout()
         self.rc = QLineEdit(self)
-        self.rc.setPlaceholderText("Referencia catastral, p. ej. 9872023VH5797S")
+        self.rc.setPlaceholderText("p. ej. 9872023VH5797S o, en Navarra, 201-7-184")
         self.rc.setClearButtonEnabled(True)
-        self.rc.setToolTip("Referencia de la parcela (14 caracteres), urbana o rústica, o de un inmueble (18 o 20): "
-                           "se descarga su parcela")
+        self.rc.setToolTip("Referencia de la parcela (14 caracteres), urbana o rústica, o de un inmueble (18 o 20: se\n"
+                           "descarga su parcela). En Navarra: municipio, polígono y parcela (201-7-184) o sus 9 dígitos")
         fila.addWidget(self.rc, 1)
         self.descargarBoton = QPushButton(QgsApplication.getThemeIcon('/mActionAddWfsLayer.svg'), "Descargar", self)
         self.descargarBoton.setDefault(True)
@@ -111,9 +112,10 @@ class PestanaDescargar(QWidget):
         self.resumen = QLabel(self)
         self.resumen.setWordWrap(True)
         principal.addWidget(self.resumen)
-        nota = QLabel(f"<small>Datos públicos de la {FUENTE_DGC} (servicios INSPIRE), sin titulares ni valores. "
-                      "Se descarga una parcela cada vez, en el huso UTM que le corresponde. Navarra y el País Vasco "
-                      "tienen catastro propio y no están en estos servicios.</small>", self)
+        nota = QLabel(f"<small>Datos públicos de la {FUENTE_DGC} (servicios INSPIRE), sin titulares ni valores; en Navarra, "
+                      f"del {FUENTE_NAVARRA.replace('Gobierno de Navarra – ', '')}. Se descarga una parcela cada vez, en el "
+                      "huso UTM que le corresponde. El País Vasco (Álava/Araba, Gipuzkoa y Bizkaia) tiene catastros propios "
+                      "que no están en estos servicios.</small>", self)
         nota.setWordWrap(True)
         principal.addWidget(nota)
         principal.addStretch(1)
@@ -146,6 +148,14 @@ class PestanaDescargar(QWidget):
             self.descargarBoton.setEnabled(False)
             return
         r = refcat.comprobar(texto)
+        navarra = refcat.navarra(texto) if not r.valida else ''
+        if navarra:
+            municipio, poligono, numero = refcat.navarra_partes(navarra)
+            self.comprobacion.setText(f"<small><span style='color:{COLORES_NIVEL[refcat.CORRECTA]}'>✔ Parcela de Navarra: "
+                                      f"municipio {municipio:03d}, polígono {poligono}, parcela {numero}. Se descarga del "
+                                      "Registro de la Riqueza Territorial (Gobierno de Navarra). Pulse Descargar.</span></small>")
+            self.descargarBoton.setEnabled(self.tarea is None)
+            return
         nivel = refcat.ERROR if r.foral else r.nivel
         simbolo = {refcat.CORRECTA: '✔', refcat.AVISO: '⚠', refcat.ERROR: '✖'}[nivel]
         self.comprobacion.setText(f"<small><span style='color:{COLORES_NIVEL[nivel]}'>{simbolo} {self.explicar(r)}"
@@ -161,7 +171,7 @@ class PestanaDescargar(QWidget):
         self.dock.messageBar.clearWidgets()
         rc = self.rc.text()
         opciones = {'colindantes': self.colindantes.isChecked(), 'construcciones': self.construcciones.isChecked()}
-        self.resumen.setText(f"<i>Descargando {refcat.comprobar(rc).parcela} del Catastro…</i>")
+        self.resumen.setText(f"<i>Descargando {refcat.comprobar(rc).parcela or refcat.navarra(rc)}…</i>")
         if not segundo_plano:
             return self.descargada(servicios.descargar(rc, **opciones))
         self.descargarBoton.setEnabled(False)
@@ -187,15 +197,21 @@ class PestanaDescargar(QWidget):
         self.capas = cargar_descarga(descarga, self.dock.iface)
         if self.dock.iface is not None and hasattr(self.dock.iface, 'setActiveLayer'):
             self.dock.iface.setActiveLayer(self.capas['parcela'])
-        self.dock.parcela_descargada(self.capas['parcela'])  #La pestaña Parcela pasa a trabajar con ella
+        navarra = descarga.territorio == 'Navarra'
+        if not navarra:  #El GML de la Sede de la DGC no sirve en Navarra: no se pasa a la pestaña Parcela
+            self.dock.parcela_descargada(self.capas['parcela'])  #La pestaña Parcela pasa a trabajar con ella
         info = [i.mensaje for i in descarga.incidencias if i.codigo == 'DESCARGA']
         avisos = [i.mensaje for i in descarga.incidencias if i.nivel == AVISO]
         notas = [i.mensaje for i in descarga.incidencias if i.nivel == INFO and i.codigo != 'DESCARGA']
         self.resumen.setText(f"<span style='color:#2b8a3e'>✔ {info[0] if info else descarga.rc}</span><br>"
                              + ''.join(f"<small>ℹ {n}</small><br>" for n in notas)
                              + f"<small>{descarga.atribucion()}</small>")
-        self.dock.success(f"Descargada la parcela {descarga.rc}: ya está elegida en la pestaña Parcela", [("Acercar", self.acercar), ("Ir a Parcela", self.ir_a_parcela)],
-                          detalles=avisos)
+        if navarra:
+            self.dock.success(f"Descargada la parcela {descarga.rc} de Navarra", [("Acercar", self.acercar)],
+                              detalles=avisos)
+        else:
+            self.dock.success(f"Descargada la parcela {descarga.rc}: ya está elegida en la pestaña Parcela",
+                              [("Acercar", self.acercar), ("Ir a Parcela", self.ir_a_parcela)], detalles=avisos)
         self.acercar()
         return self.capas
 
@@ -318,14 +334,18 @@ class TareaCatastro(QgsTask):
 
 def _con_fuente(capa, descarga, que):
     """Cita de la fuente y fecha en los metadatos de la capa (se ven en Propiedades > Metadatos)."""
+    origen = (f"del servicio INSPIRE del {FUENTE_NAVARRA}" if descarga.territorio == 'Navarra'
+              else f"de los servicios INSPIRE de la {FUENTE_DGC}")
     metadatos = capa.metadata()
     metadatos.setTitle(capa.name())
-    metadatos.setAbstract(f"{que.capitalize()} de la parcela {descarga.rc} descargada de los servicios INSPIRE de la "
-                          f"{FUENTE_DGC}. Copia para trabajo: no es cartografía oficial. Descargada con Catastral GML Tools "
-                          "(herramienta no oficial).")
+    metadatos.setAbstract(f"{que.capitalize()} de la parcela {descarga.rc} descargada {origen}. Copia para trabajo: no es "
+                          "cartografía oficial. Descargada con Catastral GML Tools (herramienta no oficial)."
+                          + (" Servicio proporcionado por el Gobierno de Navarra." if descarga.territorio == 'Navarra' else ''))
     metadatos.setRights([descarga.atribucion()])
     capa.setMetadata(metadatos)
     capa.setCustomProperty(PROPIEDAD_FUENTE, descarga.atribucion())
+    if descarga.territorio:
+        capa.setCustomProperty(PROPIEDAD_TERRITORIO, descarga.territorio)
     return capa
 
 
