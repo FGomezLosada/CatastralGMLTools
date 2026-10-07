@@ -59,8 +59,14 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
 <p>Si algo impide crear el fichero (una parcela con varias partes, un identificador repetido, SDGC sin referencia
 catastral…), no se crea y la columna <em>Estado</em> indica el problema de cada parcela.</p>
 
-<h2>Revisar un GML</h2>
-<p>En la pestaña <strong>Validar</strong>, elija un GML de parcela (esquema 3.0 o 4.0) o de edificio. La tabla muestra
+<h2>Revisar y validar un GML</h2>
+<p>En la pestaña <strong>Validar</strong>, elija o arrastre un GML de parcela (esquema 3.0 o 4.0) o de edificio. Se comprueba
+al momento como lo hará la Sede: esquema 4.0, declaración <code>xmlns:xlink</code>, sistema de referencia, identificadores y
+namespaces, un recinto por parcela, anillos cerrados y en el sentido correcto, superficie, solapes y huecos entre parcelas.
+Además, en segundo plano, se comprueba contra el esquema XSD oficial de INSPIRE (la primera vez hace falta internet; después
+se usan los esquemas guardados). El resultado sale en verde, naranja o rojo con la lista de errores y avisos; al elegir uno
+se marca su parcela. Recuerde que la validación definitiva es la de la Sede: hay reglas que la DGC no publica.</p>
+<p>La tabla muestra
 cada parcela o construcción con su identificador, su namespace y su superficie: la declarada en el fichero y la calculada
 a partir de la geometría (en rojo si no coinciden). <strong>Cargar en el mapa</strong> lo añade al proyecto con un estilo
 por tipo y una etiqueta con el identificador, para compararlo con la cartografía.</p>

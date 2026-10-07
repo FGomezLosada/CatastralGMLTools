@@ -15,6 +15,13 @@ from qgis.PyQt.QtWidgets import QLabel, QMessageBox
 
 qgis.utils.reloadPlugin('catastral_gml_tools')
 import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa: E402
+import catastral_gml_tools.gui.pestana_validar as pv_module  # noqa: E402
+from catastral_gml_tools.core.incidencias import INFO, Incidencia  # noqa: E402
+
+#El esquema XSD se prueba en esquemas_test.py; aquí se sustituye por una respuesta inmediata para no depender de la red
+_validar_xsd = pv_module.esquemas.validar
+esquema_ok = "Cumple el esquema XSD público de INSPIRE (la Sede comprueba además otras reglas: vea los errores de arriba, si los hay)"
+pv_module.esquemas.validar = lambda datos, version: [Incidencia(INFO, 'XSD-VALIDO', "Cumple el esquema XSD público de INSPIRE (la Sede comprueba además otras reglas: vea los errores de arriba, si los hay)")]
 from catastral_gml_tools.core import gml_parcela as gp  # noqa: E402
 from catastral_gml_tools.core.info import RAIZ  # noqa: E402
 
@@ -56,10 +63,29 @@ pestana_visible = dw.tabValidarPendiente.isHidden() and pv.parent() is dw.tabVal
 
 # 1. Abrir un GML correcto
 pv.fichero.setFilePath(ruta)
-filas = [[pv.tabla.item(i, c).text() for c in range(5)] for i in range(pv.tabla.rowCount())]
-tabla_ok = filas == [['Parcela', '1907401VK4810H', 'ES.SDGC.CP', '600', '600'], ['Parcela', 'Nueva_1', 'ES.LOCAL.CP', '450', '450']]
+from qgis.core import QgsApplication  # noqa: E402
+from qgis.PyQt.QtCore import QCoreApplication  # noqa: E402
+
+
+def esperar_tarea(segundos=10):
+    """Espera a que termine la comprobación XSD en segundo plano (como en QGIS, con el bucle de eventos)."""
+    import time
+    fin = time.time() + segundos
+    while pv.tarea is not None and time.time() < fin:
+        QCoreApplication.processEvents()
+        time.sleep(0.02)
+    return pv.tarea is None
+
+
+filas = [[pv.tabla.item(i, c).text() for c in range(6)] for i in range(pv.tabla.rowCount())]
+tabla_ok = filas == [['Parcela', '1907401VK4810H', 'ES.SDGC.CP', '600', '600', 'Correcta'],
+                     ['Parcela', 'Nueva_1', 'ES.LOCAL.CP', '450', '450', 'Correcta']]
 resumen_ok = 'segregacion.gml' in pv.resumen.text() and 'CP 4.0' in pv.resumen.text() and '2 elementos' in pv.resumen.text()
-sin_avisos = dw.messageBar.currentItem() is None and pv.cargarBoton.isEnabled()
+xsd_en_marcha = pv.tarea is not None and QgsApplication.taskManager().count() >= 0
+xsd_terminado = esperar_tarea()
+lista = [pv.lista.item(i).text() for i in range(pv.lista.count())]
+sin_avisos = (dw.messageBar.currentItem() is None and pv.cargarBoton.isEnabled() and 'Sin errores' in pv.estado.text()
+              and lista == [esquema_ok] and pv.xsdBoton.isEnabled())
 
 # 2. Cargar en el mapa: capa con estilo por tipo y etiquetas, sin .gfs
 antes = len(QgsProject.instance().mapLayers())
@@ -71,22 +97,35 @@ cargada = (capa is not None and len(QgsProject.instance().mapLayers()) == antes 
 
 # 3. Superficie declarada que no coincide: en rojo
 pv.fichero.setFilePath(alterado)
-rojo = pv.tabla.item(0, 3).text() == '650' and pv.tabla.item(0, 3).foreground().color() == Qt.GlobalColor.red
+rojo = (pv.tabla.item(0, 3).text() == '650' and pv.tabla.item(0, 3).foreground().color() == Qt.GlobalColor.red
+        and pv.tabla.item(0, 5).text() == 'Con errores' and pv.tabla.item(1, 5).text() == 'Correcta'
+        and '1 error' in pv.estado.text())
+esperar_tarea()
+#Elegir la incidencia en la lista selecciona su parcela en la tabla
+for i in range(pv.lista.count()):
+    if 'Superficie declarada 650' in pv.lista.item(i).text():
+        pv.lista.setCurrentRow(i)
+lista_a_tabla = [r.row() for r in pv.tabla.selectionModel().selectedRows()] == [0]
+iconos = {pv.lista.item(i).text()[:20]: pv.lista.item(i).data(Qt.ItemDataRole.UserRole + 1) for i in range(pv.lista.count())}
+iconos_ok = ('/mIconCritical.svg' in iconos.values() and '/mIconSuccess.svg' in iconos.values())
 
-# 4. GML 3.0: aviso en la barra
+# 4. GML 3.0: errores de la Sede (esquema obsoleto) y sin comprobación XSD
 pv.fichero.setFilePath(os.path.join(DATOS, 'parcela_cp30_sintetica.gml'))
-aviso30 = ('1 problema' in texto_barra(dw.messageBar) and dw.messageBar.currentItem().level() == Qgis.MessageLevel.Warning
-           and pv.tabla.rowCount() == 2)
+lista30 = [pv.lista.item(i).text() for i in range(pv.lista.count())]
+aviso30 = (pv.tabla.rowCount() == 2 and any('3.0' in x for x in lista30) and pv.tarea is None
+           and not pv.xsdBoton.isEnabled())
 
 # 5. Edificio
 pv.fichero.setFilePath(os.path.join(DATOS, 'edificio_sintetico.gml'))
 tipos = [pv.tabla.item(i, 0).text() for i in range(pv.tabla.rowCount())]
 edificio_ok = tipos == ['Edificio', 'Otra construcción'] and 'BU 2.0' in pv.resumen.text()
 
-# 6. Mal formado: error en la barra, tabla vacía y botón desactivado
+esperar_tarea()
+
+# 6. Mal formado: error en el estado y la lista, tabla vacía y botón desactivado
 pv.fichero.setFilePath(os.path.join(DATOS, 'mal_formado.gml'))
-mal = (pv.tabla.rowCount() == 0 and not pv.cargarBoton.isEnabled()
-       and dw.messageBar.currentItem().level() == Qgis.MessageLevel.Critical)
+mal = (pv.tabla.rowCount() == 0 and not pv.cargarBoton.isEnabled() and pv.lista.count() == 1
+       and 'no es un XML bien formado' in pv.lista.item(0).text())
 
 # 7. Arrastrar y soltar un GML desde el Explorador
 from qgis.PyQt.QtCore import QMimeData, QPointF, QUrl  # noqa: E402
@@ -120,6 +159,7 @@ categorias = capa.renderer().categories() if capa is not None else []  #Se guard
 color = QColor(categorias[0].symbol().color()) if categorias else None
 estilo_ok = color is not None and (color.red(), color.green(), color.blue()) == (232, 89, 12) and color.alpha() < 60
 
+pv_module.esquemas.validar = _validar_xsd
 for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
 dw.deleteLater()
@@ -128,10 +168,13 @@ checks = {
     "la pestaña Validar sustituye al texto provisional": pestana_visible,
     "tabla con tipo, identificador, namespace y superficies": tabla_ok,
     "resumen con fichero, esquema y número de elementos": resumen_ok,
-    "GML correcto: sin avisos y botón de carga activo": sin_avisos,
+    "GML correcto: «Sin errores», resultado XSD en la lista y botones activos": sin_avisos,
+    "la comprobación XSD va en segundo plano y termina": xsd_en_marcha and xsd_terminado,
+    "al elegir una incidencia se marca su parcela en la tabla": lista_a_tabla,
+    "iconos: error en rojo y esquema correcto con marca verde": iconos_ok,
     "carga en el mapa con estilo por tipo, etiquetas y sin .gfs": cargada,
-    "superficie declarada distinta de la calculada, en rojo": rojo,
-    "GML 3.0: aviso de esquema obsoleto": aviso30,
+    "superficie distinta: en rojo, estado de cada fila y resumen con 1 error": rojo,
+    "GML 3.0: aviso de esquema obsoleto y sin comprobación XSD": aviso30,
     "GML de edificio: edificio y otra construcción": edificio_ok,
     "GML mal formado: error y nada que cargar": mal,
     "arrastrar un GML a la pestaña lo abre (solo .gml/.xml)": solo_gml and soltado and ignora_otros,
@@ -146,7 +189,7 @@ print("QGIS", Qgis.version(), "· pestaña Validar (lectura)")
 for nombre, ok in checks.items():
     print(("  OK   " if ok else "  FALLO") + "  " + nombre)
 if not all(checks.values()):
-    print("Detalles:", {'filas': filas, 'resumen': pv.resumen.text(), 'barra': texto_barra(dw.messageBar), 'tipos': tipos,
+    print("Detalles:", {'lista': lista, 'estado': pv.estado.text(), 'lista30': lista30, 'filas': filas, 'resumen': pv.resumen.text(), 'barra': texto_barra(dw.messageBar), 'tipos': tipos,
                         'capa': None if capa is None else (capa.featureCount(), capa.renderer().type()),
                         'color': None if color is None else color.name(QColor.NameFormat.HexArgb) if hasattr(QColor, 'NameFormat') else str(color),
                         'soltado': pv.fichero.filePath()})

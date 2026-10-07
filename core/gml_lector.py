@@ -51,6 +51,9 @@ class ElementoGML:
     recintos: int = 0           #Nº de recintos (surfaceMember / Surface) de la parcela
     anillos: list = field(default_factory=list)  #Anillos leídos tal cual (lista de listas de (x, y)), sin corregir
     counts: list = field(default_factory=list)   #Atributo count de cada posList (None si no lo trae)
+    roles: list = field(default_factory=list)    #'exterior' o 'interior' de cada anillo (mismo orden que anillos)
+    decimales: int = 0          #Máximo de decimales de las coordenadas tal como están escritas
+    punto_referencia: object = None  #(x, y) de cp:referencePoint, o None
 
 
 @dataclass
@@ -61,6 +64,8 @@ class ResultadoLectura:
     incidencias: list = field(default_factory=list)
     xlink_declarado: bool = False
     texto: str = ''             #Contenido del fichero (para el validador)
+    datos: bytes = b''          #El fichero tal cual (para validarlo contra el esquema XSD)
+    raiz: str = ''              #Etiqueta de la raíz, p. ej. '{http://www.opengis.net/wfs/2.0}FeatureCollection'
 
 
 def nombre_local(etiqueta):
@@ -100,52 +105,63 @@ def epsg_de_srsname(srs):
     return int(m.group(1)) if m else None
 
 
+def decimales_de(textos):
+    """Máximo número de decimales en una serie de números escritos como texto."""
+    return max((len(v.split('.', 1)[1]) for v in textos if '.' in v), default=0)
+
+
 def coordenadas(elemento_anillo):
     """
     Vértices de un anillo (LinearRing) como lista de (x, y). Admite gml:posList (con srsDimension 2 o 3),
     una serie de gml:pos y el antiguo gml:coordinates ('x,y x,y').
-    Devuelve (vertices, count_declarado).
+    Devuelve (vertices, count_declarado, decimales).
     """
     pos_list = descendientes(elemento_anillo, 'posList')
     if pos_list:
         nodo = pos_list[0]
         dimension = int(nodo.get('srsDimension') or 2)
-        valores = [float(v) for v in (nodo.text or '').split()]
+        textos = (nodo.text or '').split()
+        valores = [float(v) for v in textos]
         vertices = [tuple(valores[i:i + 2]) for i in range(0, len(valores) - dimension + 1, dimension)]
         count = nodo.get('count')
-        return vertices, int(count) if count and count.isdigit() else None
+        return vertices, int(count) if count and count.isdigit() else None, decimales_de(textos)
     posiciones = descendientes(elemento_anillo, 'pos')
     if posiciones:
-        return [tuple(float(v) for v in (p.text or '').split()[:2]) for p in posiciones], None
+        textos = [p.text or '' for p in posiciones]
+        return ([tuple(float(v) for v in tx.split()[:2]) for tx in textos], None,
+                decimales_de(' '.join(textos).split()))
     coords = descendientes(elemento_anillo, 'coordinates')
     if coords:
-        vertices = []
+        vertices, textos = [], []
         for par in (coords[0].text or '').split():
             partes = par.split(',')
             if len(partes) >= 2:
                 vertices.append((float(partes[0]), float(partes[1])))
-        return vertices, None
-    return [], None
+                textos += partes[:2]
+        return vertices, None, decimales_de(textos)
+    return [], None, 0
 
 
 def poligonos(elemento):
     """
     Polígonos (lista de anillos: exterior y huecos) bajo un elemento de geometría: PolygonPatch (Surface) o Polygon.
-    Devuelve (poligonos, counts).
+    Devuelve (poligonos, counts, roles, decimales).
     """
-    resultado, counts = [], []
+    resultado, counts, roles, decimales = [], [], [], 0
     contenedores = descendientes(elemento, 'PolygonPatch') + descendientes(elemento, 'Polygon')
     for contenedor in contenedores:
         anillos = []
         for parte in ('exterior', 'interior', 'outerBoundaryIs', 'innerBoundaryIs'):
             for borde in hijos(contenedor, parte):
-                vertices, count = coordenadas(borde)
+                vertices, count, dec = coordenadas(borde)
                 if vertices:
                     anillos.append(vertices)
                     counts.append(count)
+                    roles.append('exterior' if parte in ('exterior', 'outerBoundaryIs') else 'interior')
+                    decimales = max(decimales, dec)
         if anillos:
             resultado.append(anillos)
-    return resultado, counts
+    return resultado, counts, roles, decimales
 
 
 def geometria_de(lista_poligonos):
@@ -161,7 +177,7 @@ def _leer_parcela(cp_el):
     local_id = texto_de(ident[0], 'localId') if ident else ''
     namespace = texto_de(ident[0], 'namespace') if ident else ''
     geom_el = hijo(cp_el, 'geometry')
-    lista, counts = poligonos(geom_el) if geom_el is not None else ([], [])
+    lista, counts, roles, decimales = poligonos(geom_el) if geom_el is not None else ([], [], [], 0)
     recintos = len(descendientes(geom_el, 'surfaceMember')) if geom_el is not None else 0
     area_txt = texto_de(cp_el, 'areaValue')
     try:
@@ -171,20 +187,32 @@ def _leer_parcela(cp_el):
     return ElementoGML(PARCELA, local_id, namespace, geometria_de(lista), texto_de(cp_el, 'label'),
                        texto_de(cp_el, 'nationalCadastralReference'), area,
                        cp_el.get(f'{{{geo_ns_gml()}}}id', ''), recintos=max(recintos, len(lista)),
-                       anillos=[a for p in lista for a in p], counts=counts)
+                       anillos=[a for p in lista for a in p], counts=counts, roles=roles, decimales=decimales,
+                       punto_referencia=_punto_referencia(cp_el))
+
+
+def _punto_referencia(cp_el):
+    ref = hijo(cp_el, 'referencePoint')
+    pos = descendientes(ref, 'pos') if ref is not None else []
+    try:
+        valores = [float(v) for v in (pos[0].text or '').split()[:2]] if pos else []
+    except ValueError:
+        return None
+    return tuple(valores) if len(valores) == 2 else None
 
 
 def _leer_construccion(el):
     ident = descendientes(el, 'Identifier')
     local_id = texto_de(ident[0], 'localId') if ident else ''
     namespace = texto_de(ident[0], 'namespace') if ident else ''
-    lista, counts = poligonos(el)
+    lista, counts, roles, decimales = poligonos(el)
     tipo = EDIFICIO if nombre_local(el.tag) == 'Building' else OTRA
     plantas_txt = texto_de(el, 'numberOfFloorsAboveGround')
     plantas = int(plantas_txt) if plantas_txt.isdigit() else None
     return ElementoGML(tipo, local_id, namespace, geometria_de(lista), plantas=plantas,
                        naturaleza=texto_de(el, 'constructionNature'), gml_id=el.get(f'{{{geo_ns_gml()}}}id', ''),
-                       recintos=len(lista), anillos=[a for p in lista for a in p], counts=counts)
+                       recintos=len(lista), anillos=[a for p in lista for a in p], counts=counts, roles=roles,
+                       decimales=decimales)
 
 
 def geo_ns_gml():
@@ -206,6 +234,8 @@ def leer(ruta):
     except ET.ParseError as e:
         resultado.incidencias.append(Incidencia(ERROR, 'XML-MAL-FORMADO', f"El fichero no es un XML bien formado: {e}"))
         return resultado
+    resultado.datos = datos
+    resultado.raiz = raiz.tag
     resultado.texto = datos.decode('utf-8', 'replace') if b'utf-8' in datos[:100].lower() else datos.decode('latin-1')
     #xmlns:xlink en la etiqueta raíz: la Sede lo exige en el GML de parcela (docs/DESARROLLO.md, E-11)
     inicio_raiz = re.search(r'<(?:\w+:)?FeatureCollection\b[^>]*>', resultado.texto[:6000])

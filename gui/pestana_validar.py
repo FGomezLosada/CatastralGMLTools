@@ -1,34 +1,44 @@
 """
-Pestaña «Validar»: abre un GML de parcela o de edificio, muestra su contenido (identificadores, namespace,
-superficie declarada y calculada) y lo carga en el mapa para revisarlo. Las comprobaciones previas a la Sede
-se añaden en la mejora 10.
+Pestaña «Validar»: abre un GML de parcela o de edificio, lo comprueba como lo hará la Sede Electrónica del
+Catastro (core/validador.py) y contra el esquema XSD oficial (core/esquemas.py, en segundo plano), muestra cada
+parcela o construcción con su estado y la lista de incidencias, y lo carga en el mapa para revisarlo.
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
 import os
 
-from qgis.core import Qgis, QgsApplication, QgsMimeDataUtils, QgsProject
+from qgis.core import Qgis, QgsApplication, QgsMimeDataUtils, QgsProject, QgsTask
 from qgis.gui import QgsFileWidget
+from qgis.PyQt import sip
 from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QPushButton,
+    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from ..core import esquemas
 from ..core import geometria as geo
 from ..core import gml_lector as gl
-from ..core.incidencias import AVISO, ERROR
+from ..core import validador
+from ..core.incidencias import AVISO, ERROR, INFO, Incidencia
 from . import estilos
 
-CABECERAS = ['Tipo', 'Identificador (localId)', 'Namespace', 'Sup. GML m²', 'Sup. calculada m²']
+CABECERAS = ['Tipo', 'Identificador (localId)', 'Namespace', 'Sup. GML m²', 'Sup. calculada m²', 'Estado']
+COL_ESTADO = 5
+ICONOS = {ERROR: '/mIconCritical.svg', AVISO: '/mIconWarning.svg', INFO: '/mIconInfo.svg'}
+ICONOS_CODIGO = {'XSD-VALIDO': '/mIconSuccess.svg'}  #Marca verde para lo que está bien
+TEXTO_ESTADO = {ERROR: 'Con errores', AVISO: 'Con avisos', 'correcta': 'Correcta'}
 PROPIEDAD_GML = 'catastral_gml_tools/gml'  #Propiedad de las capas que carga el plugin: ruta del GML del que salen
 
 
@@ -37,12 +47,16 @@ class PestanaValidar(QWidget):
         super().__init__(parent)
         self.dock = dock
         self.resultado = None
+        self.informe = None
+        self.tarea = None  #Comprobación XSD en curso (se guarda la referencia para que Python no la borre)
         self.ruta = ''
         self.construir()
         self.setAcceptDrops(True)  #Se puede arrastrar un GML desde el Explorador de Windows a la pestaña
         self.fichero.lineEdit().setAcceptDrops(False)  #Que lo recoja la pestaña entera, también sobre la casilla del fichero
         self.fichero.fileChanged.connect(self.abrir)
         self.cargarBoton.clicked.connect(self.cargar_en_mapa)
+        self.xsdBoton.clicked.connect(self.comprobar_esquema)
+        self.lista.itemSelectionChanged.connect(self.ir_a_elemento)
 
     def construir(self):
         principal = QVBoxLayout(self)
@@ -61,15 +75,30 @@ class PestanaValidar(QWidget):
         self.resumen.setWordWrap(True)
         principal.addWidget(self.resumen)
 
-        self.tabla = QTableWidget(0, len(CABECERAS), self)
+        self.estado = QLabel(self)
+        self.estado.setWordWrap(True)
+        principal.addWidget(self.estado)
+
+        divisor = QSplitter(Qt.Orientation.Vertical, self)
+        self.tabla = QTableWidget(0, len(CABECERAS), divisor)
         self.tabla.setHorizontalHeaderLabels(CABECERAS)
         self.tabla.verticalHeader().setVisible(False)
         self.tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabla.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabla.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        principal.addWidget(self.tabla, 1)
+        self.lista = QListWidget(divisor)
+        self.lista.setWordWrap(True)
+        self.lista.setToolTip("Incidencias del GML. Al elegir una, se marca su parcela en la tabla")
+        divisor.addWidget(self.tabla)
+        divisor.addWidget(self.lista)
+        principal.addWidget(divisor, 1)
 
         botones = QHBoxLayout()
+        self.xsdBoton = QPushButton(QgsApplication.getThemeIcon('/mActionRefresh.svg'), "Comprobar esquema XSD", self)
+        self.xsdBoton.setToolTip("Vuelve a comprobar el GML contra los esquemas XSD oficiales de INSPIRE.\n"
+                                 "La primera vez se descargan de internet; después se usan los guardados")
+        self.xsdBoton.setEnabled(False)
+        botones.addWidget(self.xsdBoton)
         botones.addStretch(1)
         self.cargarBoton = QPushButton(QgsApplication.getThemeIcon('/mActionAddLayer.svg'), "Cargar en el mapa", self)
         self.cargarBoton.setEnabled(False)
@@ -130,13 +159,20 @@ class PestanaValidar(QWidget):
 
     # ------------------------------------------------------------------ Abrir
 
-    def abrir(self, *args):
-        """Lee el GML elegido y rellena la tabla."""
+    def limpiar(self):
+        self.tabla.setRowCount(0)
+        self.lista.clear()
+        self.estado.clear()
+        self.cargarBoton.setEnabled(False)
+        self.xsdBoton.setEnabled(False)
+        self.resultado = None
+        self.informe = None
+
+    def abrir(self, *args, segundo_plano=True):
+        """Lee y valida el GML elegido, rellena la tabla y la lista, y lanza la comprobación XSD en segundo plano."""
         self.dock.messageBar.clearWidgets()
         ruta = self.fichero.filePath().strip()
-        self.tabla.setRowCount(0)
-        self.cargarBoton.setEnabled(False)
-        self.resultado = None
+        self.limpiar()
         if not ruta:
             return None
         if not os.path.isfile(ruta):
@@ -144,36 +180,127 @@ class PestanaValidar(QWidget):
             return None
         self.ruta = ruta
         self.resultado = gl.leer(ruta)
+        self.informe = validador.validar(ruta, self.resultado)
         r = self.resultado
         self.tabla.setRowCount(len(r.elementos))
         for i, e in enumerate(r.elementos):
             calculada = None if e.geometria.isNull() else geo.redondear_m2(e.geometria.area())
             valores = [e.tipo.capitalize(), e.local_id, e.namespace,
-                       '' if e.area_declarada is None else str(e.area_declarada), '' if calculada is None else str(calculada)]
+                       '' if e.area_declarada is None else str(e.area_declarada), '' if calculada is None else str(calculada), '']
             for col, valor in enumerate(valores):
                 item = QTableWidgetItem(valor)
-                if col >= 3:
+                if col in (3, 4):
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 self.tabla.setItem(i, col, item)
             if e.area_declarada is not None and calculada is not None and e.area_declarada != calculada:
                 self.tabla.item(i, 3).setForeground(Qt.GlobalColor.red)
                 self.tabla.item(i, 3).setToolTip("La superficie declarada no coincide con la de la geometría")
         self.tabla.resizeColumnToContents(0)
-        informativas = [i.mensaje for i in r.incidencias if i.nivel not in (ERROR, AVISO)]
+        informativas = [i.mensaje for i in r.incidencias if i.codigo == 'GML-LEIDO']
         self.resumen.setText(f"<b>{os.path.basename(ruta)}</b> · " + (informativas[0] if informativas else 'sin elementos'))
-        problemas = [str(i) for i in r.incidencias if i.nivel in (ERROR, AVISO)]
-        if problemas:
-            nivel = Qgis.MessageLevel.Critical if any(i.nivel == ERROR for i in r.incidencias) else Qgis.MessageLevel.Warning
-            self.dock.notify(f"{os.path.basename(ruta)}: {len(problemas)} problema{'s' if len(problemas) != 1 else ''}\n\n"
-                             + "\n".join(f"- {p}" for p in problemas), nivel, 0)
+        self.mostrar_informe()
         self.cargarBoton.setEnabled(bool(r.elementos))
-        return r
+        if r.elementos and r.version in ('CP 4.0', 'BU 2.0'):
+            self.comprobar_esquema(segundo_plano=segundo_plano)
+        return self.informe
+
+    def mostrar_informe(self):
+        """Estado de cada fila, lista de incidencias y resumen (verde, naranja o rojo)."""
+        informe = self.informe
+        if informe is None:
+            return
+        for i, e in enumerate(informe.lectura.elementos):
+            estado = informe.estado(e.local_id)
+            item = self.tabla.item(i, COL_ESTADO)
+            if item is None:
+                continue
+            item.setText(TEXTO_ESTADO[estado])
+            item.setForeground(Qt.GlobalColor.red if estado == ERROR else Qt.GlobalColor.darkYellow if estado == AVISO
+                               else Qt.GlobalColor.darkGreen)
+            item.setToolTip("\n".join(i.mensaje for i in informe.de(e.local_id)))
+        self.lista.clear()
+        orden = {ERROR: 0, AVISO: 1, INFO: 2}
+        for inc in sorted(informe.incidencias, key=lambda i: orden.get(i.nivel, 3)):
+            if inc.codigo == 'GML-LEIDO':
+                continue
+            icono = ICONOS_CODIGO.get(inc.codigo) or ICONOS.get(inc.nivel, '/mIconInfo.svg')
+            item = QListWidgetItem(QgsApplication.getThemeIcon(icono), str(inc))
+            item.setData(Qt.ItemDataRole.UserRole + 1, icono)
+            item.setData(Qt.ItemDataRole.UserRole, inc.elemento)
+            if inc.nivel == ERROR:
+                item.setForeground(Qt.GlobalColor.red)
+            self.lista.addItem(item)
+        n_err, n_av = len(informe.errores), len(informe.avisos)
+        color = '#c92a2a' if n_err else '#e67700' if n_av else '#2b8a3e'
+        simbolo = '✖' if n_err else '⚠' if n_av else '✔'
+        self.estado.setText(f"<span style='color:{color}'><b>{simbolo} {validador.resumen(informe)}</b></span>"
+                            "<br><small>Herramienta no oficial: valide siempre el fichero en la Sede Electrónica del "
+                            "Catastro.</small>")
+
+    def ir_a_elemento(self):
+        """Al elegir una incidencia de la lista, se selecciona su fila en la tabla."""
+        items = self.lista.selectedItems()
+        elemento = items[0].data(Qt.ItemDataRole.UserRole) if items else ''
+        if not elemento:
+            return
+        for i in range(self.tabla.rowCount()):
+            if self.tabla.item(i, 1).text() == elemento:
+                self.tabla.selectRow(i)
+                self.tabla.scrollToItem(self.tabla.item(i, 1))
+                break
+
+    # ------------------------------------------------------------------ Esquema XSD (segundo plano)
+
+    def comprobar_esquema(self, *args, segundo_plano=True):
+        """Comprueba el GML contra el esquema XSD oficial. En segundo plano no bloquea QGIS mientras se descargan."""
+        if self.resultado is None or not self.resultado.datos:
+            return
+        self.informe.incidencias = [i for i in self.informe.incidencias if not i.codigo.startswith('XSD')]
+        self.xsdBoton.setEnabled(False)
+        self.lista.addItem(QListWidgetItem(QgsApplication.getThemeIcon('/mIconLoading.gif'),
+                                           "Comprobando el esquema XSD oficial…"))
+        if not segundo_plano:
+            self.esquema_comprobado(esquemas.validar(self.resultado.datos, self.resultado.version))
+            return
+        self.tarea = TareaEsquema(self.resultado.datos, self.resultado.version, self)
+        QgsApplication.taskManager().addTask(self.tarea)
+
+    def esquema_comprobado(self, incidencias):
+        """Llega del hilo de la tarea (ya en el hilo principal): añade el resultado XSD al informe."""
+        if sip.isdeleted(self) or self.informe is None:
+            return
+        self.informe.incidencias += incidencias
+        self.mostrar_informe()
+        self.xsdBoton.setEnabled(True)
+        self.tarea = None
 
     def cargar_en_mapa(self, *args):
         """Añade el GML al proyecto como capa de memoria con estilo y acerca el mapa a ella."""
         if not self.resultado or not self.resultado.elementos:
             return None
         return cargar(self.resultado, self.ruta, self.dock.iface)
+
+
+class TareaEsquema(QgsTask):
+    """Validación XSD en segundo plano: la primera vez descarga ~80 esquemas oficiales."""
+
+    def __init__(self, datos, version, pestana):
+        super().__init__("Catastral GML Tools: comprobando el esquema XSD", QgsTask.Flag.CanCancel)
+        self.datos = datos
+        self.version = version
+        self.pestana = pestana
+        self.incidencias = []
+
+    def run(self):
+        try:
+            self.incidencias = esquemas.validar(self.datos, self.version)
+        except Exception as e:  #Nunca debe cerrar QGIS: se informa como incidencia
+            self.incidencias = [Incidencia(AVISO, 'XSD-FALLO', f"No se ha podido comprobar el esquema XSD: {e}")]
+        return True
+
+    def finished(self, resultado):
+        if self.pestana is not None and not sip.isdeleted(self.pestana):
+            self.pestana.esquema_comprobado(self.incidencias)
 
 
 def cargar(resultado, ruta, iface=None):
