@@ -35,7 +35,8 @@ d = servicios.descargar(sim.RC, ahora=ahora)
 parcela = d.parcela.elementos[0] if d.parcela and d.parcela.elementos else None
 completa = (d.correcta and d.epsg == 25830 and parcela is not None and parcela.local_id == sim.RC
             and parcela.area_declarada == 600 and len(sim.peticiones) == 4)
-colindantes = (d.colindantes is not None and [e.local_id for e in d.colindantes.elementos] == ['1907402VK4810H']
+colindantes = (d.colindantes is not None
+               and sorted(e.local_id for e in d.colindantes.elementos) == ['1907402VK4810H', sim.CAMINO]
                and [e.local_id for e in d.entorno.elementos] == ['1907403VK4810H']
                and 'typeNames=CP%3ACadastralParcel' in sim.peticiones[1] and 'bbox=421475.00%2C4070475.00%2C421545.00'
                in sim.peticiones[1] and not any('GetNeighbourParcel' in u for u in sim.peticiones))
@@ -43,7 +44,14 @@ construcciones = (d.construcciones is not None and len(d.construcciones.elemento
                   and d.construcciones.version == 'BU 2.0' and d.construcciones.epsg == 25830)
 atribucion = d.atribucion() == "© Dirección General del Catastro · descargado el 07/10/2026 09:30"
 resumen = [i.mensaje for i in d.incidencias if i.codigo == 'DESCARGA']
-resumen_ok = resumen == [f"Parcela {sim.RC} · 600 m² · EPSG:25830 · 1 colindante · 1 en el entorno · 2 construcciones"]
+resumen_ok = resumen == [f"Parcela {sim.RC} · 600 m² · EPSG:25830 · 2 colindantes (1 de dominio público) · 1 en el entorno · 2 construcciones"]
+
+# Dominio público: el camino se ve aparte y se avisa de que linda con él
+camino = [e for e in d.colindantes.elementos if e.local_id == sim.CAMINO]
+dominio = (camino and camino[0].tipo == 'dominio público'
+           and [e.tipo for e in d.colindantes.elementos if e.local_id != sim.CAMINO] == ['parcela']
+           and any(i.codigo == 'LINDA-DOMINIO-PUBLICO' and sim.CAMINO in i.mensaje and i.nivel == 'info'
+                   for i in d.incidencias))
 
 # 2b. Parcela demasiado grande para pedir su entorno: GetNeighbourParcel; «no hay colindantes» no es un error
 grande = servicios.descargar(sim.RC_GRANDE, construcciones=False)
@@ -111,6 +119,7 @@ checks = {
     "direcciones https de los servicios (WFS CP, WFS BU y RCCOOR)": direcciones,
     "descarga la parcela con su superficie y el huso 30": completa,
     "colindantes (tocan la parcela) y entorno (a menos de 25 m), por geometría": colindantes,
+    "dominio público (parcela 9000 de rústica): tipo propio y nota de que linda": dominio,
     "sin colindantes: nota informativa, no aviso (parcela grande: GetNeighbourParcel)": sin_colindantes,
     "edificios y otras construcciones juntos": construcciones,
     "cita de la fuente con la fecha de descarga": atribucion,

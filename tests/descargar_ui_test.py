@@ -76,7 +76,8 @@ fuente = (parcela is not None and all('Dirección General del Catastro' in c.met
 estilo = (parcela is not None and parcela.renderer().type() == 'categorizedSymbol' and parcela.labelsEnabled()
           and capas['colindantes'].labeling().settings().fieldName == 'label'
           and not capas['construcciones'].labelsEnabled() and capas['entorno'].labeling().settings().fieldName == 'label'
-          and parcela.featureCount() == 1 and capas['colindantes'].featureCount() == 1 and capas['entorno'].featureCount() == 1
+          and parcela.featureCount() == 1 and capas['colindantes'].featureCount() == 2
+          and len(capas['colindantes'].renderer().categories()) == 2 and capas['entorno'].featureCount() == 1
           and capas['construcciones'].featureCount() == 2 and parcela.crs().authid() == 'EPSG:25830')
 barra = f'Descargada la parcela {sim.RC}' in textos_barra() and '600 m²' in pes.resumen.text()
 # La pestaña Parcela pasa a trabajar con la parcela descargada (con su RC como SDGC)
