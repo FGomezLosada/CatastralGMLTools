@@ -49,6 +49,7 @@ class CatastralGMLTools:
         self.iface.removeToolBarIcon(self.action)
         if self.dockwidget is not None:
             self.dockwidget.visibilityChanged.disconnect(self.on_visibility)
+            self.dockwidget.cleanup()
             self.iface.removeDockWidget(self.dockwidget)
             self.dockwidget.deleteLater()
             self.dockwidget = None

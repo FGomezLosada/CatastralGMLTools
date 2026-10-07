@@ -65,8 +65,8 @@ class PestanaParcela(QWidget):
         self.destino_automatico = ''  #Último nombre de fichero propuesto (si el usuario no lo cambia, sigue a la capa)  #Capa cuya selección se sigue (para desconectarla al cambiar)
         self.construir()
         activa = self.dock.iface.activeLayer() if self.dock.iface is not None else None
-        if cp.es_capa_poligonos(activa):
-            self.capaCombo.setLayer(activa)  #Se empieza por la capa activa, no por la primera del proyecto
+        #Se empieza por la capa activa si es de polígonos; si no, sin capa (no la primera del proyecto)
+        self.capaCombo.setLayer(activa if cp.es_capa_poligonos(activa) else None)
         self.conectar()
         self.cambiar_capa()  #La capa que el combo ya muestra al abrir el panel (sin esto no se proponen los campos)
 
@@ -79,6 +79,7 @@ class PestanaParcela(QWidget):
 
         self.capaCombo = QgsMapLayerComboBox(self)
         self.capaCombo.setFilters(Qgis.LayerFilter.PolygonLayer)
+        self.capaCombo.setAllowEmptyLayer(True)  #Se puede dejar sin capa
         self.capaCombo.setToolTip("Capa de polígonos con las parcelas (cada polígono será una parcela del GML)")
         formulario.addRow("Capa", self.capaCombo)
 
@@ -157,6 +158,12 @@ class PestanaParcela(QWidget):
         self.crearBoton.clicked.connect(self.crear_gml)
 
     # ------------------------------------------------------------------ Capa y tabla
+
+    def usar_capa(self, capa):
+        """Elige una capa desde fuera de la pestaña (p. ej. la parcela recién descargada)."""
+        if cp.es_capa_poligonos(capa):
+            self.soloSeleccion.setChecked(False)
+            self.capaCombo.setLayer(capa)  #Lanza cambiar_capa por la señal layerChanged
 
     def capa(self):
         capa = self.capaCombo.currentLayer()

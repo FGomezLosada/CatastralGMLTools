@@ -19,6 +19,7 @@ from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtWidgets import QHBoxLayout, QLabel, QPushButton, QToolButton, QWidget
 
 from .core.info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, ruta, version
+from .gui.pestana_descargar import PestanaDescargar
 from .gui.pestana_parcela import PestanaParcela
 from .gui.pestana_validar import PestanaValidar
 
@@ -47,6 +48,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.setup_messages()
         self.setup_parcela()
         self.setup_validar()
+        self.setup_descargar()
 
     # ------------------------------------------------------------------ Cabecera: aviso legal y ayuda
 
@@ -91,6 +93,22 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.tabValidarPendiente.hide()
         self.pestanaValidar = PestanaValidar(self, self.tabValidar)
         self.tabValidarLayout.insertWidget(1, self.pestanaValidar, 1)
+
+    def setup_descargar(self):
+        """Pestaña Descargar: una parcela por referencia catastral o con un clic en el mapa."""
+        self.tabDescargarPendiente.hide()
+        self.pestanaDescargar = PestanaDescargar(self, self.tabDescargar)
+        self.tabDescargarLayout.insertWidget(1, self.pestanaDescargar, 1)
+
+    def parcela_descargada(self, capa):
+        """Tras descargar una parcela, la pestaña Parcela pasa a trabajar con ella."""
+        if hasattr(self, 'pestanaParcela'):
+            self.pestanaParcela.usar_capa(capa)
+
+    def cleanup(self):
+        """Al descargar el plugin: devuelve al mapa la herramienta que había antes de la nuestra."""
+        if not sip.isdeleted(self) and hasattr(self, 'pestanaDescargar'):
+            self.pestanaDescargar.soltar_herramienta()
 
     # ------------------------------------------------------------------ Avisos dentro del panel
 
