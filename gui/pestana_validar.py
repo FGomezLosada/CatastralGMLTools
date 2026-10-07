@@ -30,6 +30,7 @@ from qgis.PyQt.QtWidgets import (
 from ..core import esquemas
 from ..core import geometria as geo
 from ..core import gml_lector as gl
+from ..core import informe as informe_html
 from ..core import validador
 from ..core.incidencias import AVISO, ERROR, INFO, Incidencia
 from . import estilos
@@ -56,6 +57,7 @@ class PestanaValidar(QWidget):
         self.fichero.fileChanged.connect(self.abrir)
         self.cargarBoton.clicked.connect(self.cargar_en_mapa)
         self.xsdBoton.clicked.connect(self.comprobar_esquema)
+        self.informeBoton.clicked.connect(self.crear_informe)
         self.lista.itemSelectionChanged.connect(self.ir_a_elemento)
 
     def construir(self):
@@ -100,6 +102,11 @@ class PestanaValidar(QWidget):
         self.xsdBoton.setEnabled(False)
         botones.addWidget(self.xsdBoton)
         botones.addStretch(1)
+        self.informeBoton = QPushButton(QgsApplication.getThemeIcon('/mActionNewReport.svg'), "Informe", self)
+        self.informeBoton.setToolTip("Guarda junto al GML un informe de validación en HTML (resultado, incidencias, croquis y\n"
+                                     "coordenadas) y lo abre en el navegador")
+        self.informeBoton.setEnabled(False)
+        botones.addWidget(self.informeBoton)
         self.cargarBoton = QPushButton(QgsApplication.getThemeIcon('/mActionAddLayer.svg'), "Cargar en el mapa", self)
         self.cargarBoton.setEnabled(False)
         botones.addWidget(self.cargarBoton)
@@ -165,8 +172,10 @@ class PestanaValidar(QWidget):
         self.estado.clear()
         self.cargarBoton.setEnabled(False)
         self.xsdBoton.setEnabled(False)
+        self.informeBoton.setEnabled(False)
         self.resultado = None
         self.informe = None
+        self.ultimo_informe = ''
 
     def abrir(self, *args, segundo_plano=True):
         """Lee y valida el GML elegido, rellena la tabla y la lista, y lanza la comprobación XSD en segundo plano."""
@@ -200,6 +209,7 @@ class PestanaValidar(QWidget):
         self.resumen.setText(f"<b>{os.path.basename(ruta)}</b> · " + (informativas[0] if informativas else 'sin elementos'))
         self.mostrar_informe()
         self.cargarBoton.setEnabled(bool(r.elementos))
+        self.informeBoton.setEnabled(bool(r.elementos))
         if r.elementos and r.version in ('CP 4.0', 'BU 2.0'):
             self.comprobar_esquema(segundo_plano=segundo_plano)
         return self.informe
@@ -248,6 +258,31 @@ class PestanaValidar(QWidget):
                 self.tabla.selectRow(i)
                 self.tabla.scrollToItem(self.tabla.item(i, 1))
                 break
+
+    # ------------------------------------------------------------------ Informe HTML
+
+    def crear_informe(self, *args):
+        """Guarda el informe de validación junto al GML y lo abre en el navegador."""
+        if self.informe is None or not self.informe.lectura.elementos:
+            return None
+        try:
+            ruta = informe_html.escribir(self.informe)
+        except OSError as e:
+            self.dock.warn(f"No se ha podido guardar el informe: {e}")
+            return None
+        self.ultimo_informe = ruta
+        self.dock.success(f"Informe guardado: {os.path.basename(ruta)}",
+                          [("Abrir informe", self.abrir_informe), ("Abrir carpeta", self.abrir_carpeta_informe)])
+        self.abrir_informe()
+        return ruta
+
+    def abrir_informe(self, *args):
+        if self.ultimo_informe:
+            self.dock.open_path(self.ultimo_informe)
+
+    def abrir_carpeta_informe(self, *args):
+        if self.ultimo_informe:
+            self.dock.open_path(os.path.dirname(self.ultimo_informe))
 
     # ------------------------------------------------------------------ Esquema XSD (segundo plano)
 
