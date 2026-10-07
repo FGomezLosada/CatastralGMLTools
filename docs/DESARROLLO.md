@@ -79,7 +79,7 @@ Decisiones técnicas:
 | 2 | Núcleo: RC y geometría | ✅ |
 | 3 | GML de parcela (crear) | ✅ |
 | 4 | Lector y visor de GML | ✅ |
-| 5 | Validador e informe | En curso (falta el informe HTML, mejora 11) |
+| 5 | Validador e informe | ✅ |
 | 6 | Servicios: descarga por RC y RC por clic; Navarra y territorios forales | — |
 | 7 | Alteraciones: asistente, multiparcela y unión | — |
 | 8 | GML de edificio y comprobaciones ICUC | — |
@@ -105,7 +105,7 @@ Decisiones técnicas:
 | 8 | Pestaña Parcela: elegir capa, campos de RC/localId/label, namespace por fila, fecha, SRC, destino | Generar el GML desde una capa dibujada | ✅ |
 | 9 | Lector de GML (CP 3.0/4.0, BU) y carga como capa con estilo | Revisar ficheros propios o ajenos | ✅ |
 | 10 | Validador: estructura, esquema, coherencia de ids, `count`, `areaValue`, orientación, cierre, solapes, multiparte, SRC | Detectar errores antes de subir | ✅ |
-| 11 | Informe de validación en el panel con botón para abrir el informe HTML y el fichero | Resultado claro | |
+| 11 | Informe de validación en el panel con botón para abrir el informe HTML y el fichero | Resultado claro | ✅ |
 | 12 | Descarga por RC: parcela, colindantes y construcciones (WFS) con atribución a la DGC | Partir de la cartografía vigente | |
 | 13 | RC por clic en el mapa (Consulta_RCCOOR) | Comodidad | |
 | 14 | Comparación con la parcela de origen: parcelas sin cambios, contorno total (tolerancia ±1 cm en vértices), NPO | Simular comprobaciones de la SEC | |
