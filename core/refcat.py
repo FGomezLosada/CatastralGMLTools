@@ -129,9 +129,11 @@ def es_rc_parcela(texto):
 
 def es_dominio_publico(rc):
     """
-    True si la RC es de un recinto de dominio público de rústica (caminos, carreteras, cauces, acequias…): en el
-    Catastro de rústica llevan un número de parcela entre 9000 y 9999 dentro de su polígono. En urbana las calles no
-    son parcelas (no tienen RC), así que no hay nada que detectar.
+    True si la RC es de una parcela de dominio público de rústica (antiguos «descuentos»): número de parcela entre
+    9001 y 9999 dentro de su polígono, según su uso HG (hidrografía), HC (hidrografía construida), VT (vías de
+    comunicación), FF (ferrocarril) u OT (otros). La 9000 NO es dominio público: corresponde a suelo que tributa en
+    urbano (núcleos y diseminados). En urbana las calles no son parcelas (no tienen RC): no hay nada que detectar.
+    Fuente: curso de Gestión Catastral (Tema 2.1) y modelo de datos shapefile de la DGC (docs/DESARROLLO.md, E-15).
     """
     parcela = limpiar(rc)[:14]
-    return tipo_parcela(parcela) == 'rústica' and 9000 <= int(parcela[9:14]) <= 9999
+    return tipo_parcela(parcela) == 'rústica' and 9001 <= int(parcela[9:14]) <= 9999

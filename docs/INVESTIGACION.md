@@ -184,6 +184,61 @@ Pendiente: revisar las cabeceras de cada repositorio cuando los clone (la licenc
 
 ---
 
+## 7. Documentación oficial del curso de Gestión Catastral (revisada el 07/10/2026)
+
+Documentos de la DGC y del curso guardados en la carpeta del curso (Tema 2, 3 y 8 y foros). Peso: **[DGC]** documento
+oficial; **[Curso]** temario; **[Foro]** respuestas del tutor.
+
+### 7.1 Parcela, IVG y dominio público
+- **Dominio público en rústica** [Curso, Tema 2.1; DGC, modelo shapefile v2.0]: «Las parcelas con numeración (9.001 a
+  9.999) se encuentran excluidas de tributar por rústica, divididas a su vez en función del uso (HG-hidrografía,
+  HC-Hidrografía construida, VT- Vías de comunicación, FF- Ferrocarril, OT- Otros). Las parcelas con numeración específica
+  9.000 corresponderán a suelos que tributan en urbano». El shapefile distingue el tipo «(X) Dominio público y ajustes
+  topográficos» y la parcela 09000 es un artificio de la cartografía rústica. En el formato CAT, el tipo de subparcela «D»
+  es dominio público. Consulta_DNPRC (07/10/2026) lo confirma: VT, HG y «BIEN DE DOMINIO PUBLICO».
+- **Afectación de dominio público** [DGC, FAQ Coordinación]: si está catastrado como parcela, «deberá formar parte de la
+  representación gráfica alternativa, delimitando la parte afectada y no afectada»; «En el caso de viales urbanos, esta
+  circunstancia no se podrá dar, por lo que el informe de validación que se obtendrá será negativo». La guía GML [DGC]
+  precisa que el GML, a diferencia del editor, «SÍ permite actuar sobre el dominio público en zona urbana tanto para los
+  casos de cesión como de incorporación del viario» (con una parcela LOCAL nueva).
+- **IVG positivo** [DGC, IVG_Operaciones v2.3]: «cuando, el contorno exterior de la geometría resultante sea igual al
+  contorno exterior de la geometría original»; tolerancia ±1 cm en vértices [FAQ]. Parcelas afectadas total o parcialmente:
+  con alguna parcial, negativo.
+- **NPO/NPP** [DGC]: NPO = parcelas de la cartografía bajo el parcelario propuesto; NPP = parcelas del GML. Tabla completa
+  (segregación, división, agregación, agrupación, subsanación, no permitido con 2 o más SDGC y NPO=1) en IVG_Operaciones
+  §4.2: base de la mejora 15. Las RC SDGC deben existir en el Catastro.
+- **No impiden el IVG pero sí la tramitación automática** [DGC]: incidencias pendientes, esbeltez >15, parcelas de distinto
+  municipio, polígono o manzana, urbana y rústica mezcladas, diseminado de urbana, más de 30 parcelas por operación.
+- **Superficie y decimales** [DGC]: desde la v2.1 «Se elimina la validación de la etiqueta del área frente al área de la
+  geometría»; con más de 2 decimales «solo se tendrán en cuenta los dos primeros».
+- **Identificador LOCAL** [DGC, manual del editor]: «solo se permite introducir caracteres alfanuméricos sin acentos,
+  debiendo usar el punto (".") o el guión ("_" ó "-")»; conviene que sea el número de la finca en la escritura.
+- **Etiquetas** [DGC, guía GML]: `beginLifespanVersion` de libre elección con formato `AAAA-MM-DDT00:00:00`;
+  `endLifespanVersion` nil con `VoidReasonValue/Unpopulated`; `label` de 2 dígitos en urbana y hasta 5 en rústica; huecos
+  con `gml:interior`. No hay reglas de superficie mínima ni de islas.
+- **Precisión** [DGC, FAQ]: levantamiento con error máximo <25 cm y el 85 % de los puntos ≤20 cm; digitalización sobre la
+  cartografía catastral ±0,20 m (urbana) y ±0,40 m (rústica).
+
+### 7.2 GML de edificio [DGC, Formato GML edificio]
+BU-ext2d 2.0, ISO-8859-1, `gml:FeatureCollection` + `gml:featureMember`. `Building` con gml:id `namespace.localId`,
+namespace `ES.LOCAL.BU`, localId la RC o el identificador de la escritura (sufijo opcional). Una `gml:Surface` con **varios
+`PolygonPatch`** (el edificio sí admite varios recintos), exterior horario, huecos antihorarios, sin autointersecciones, 2
+decimales. `conditionOfConstruction` (declined, demolished, functional, projected, ruin, underConstruction),
+`horizontalGeometryEstimatedAccuracy` en m, `horizontalGeometryReference=footPrint`, `referenceGeometry=true`,
+`numberOfFloorsAboveGround` (máximo). Piscina: `OtherConstruction` con un `gml:Polygon` y `constructionNature=openAirPool`.
+
+### 7.3 Conversión 3.0 → 4.0 [DGC, Diferencias GML parcela v3 v4, dic. 2024]
+Raíz `gml:FeatureCollection` → `FeatureCollection` (wfs 2.0 por defecto, `timeStamp`, `numberMatched`, `numberReturned`);
+`xmlns:cp` 3.0 → `http://inspire.ec.europa.eu/schemas/cp/4.0` y schemaLocation con wfs.xsd; `gml:featureMember` → `member`;
+se quita `gml:boundedBy`; srsName `urn:ogc:def:crs:EPSG::258xx` → `http://www.opengis.net/def/crs/EPSG/0/258xx`;
+`base:Identifier` → `Identifier` con namespace base 3.3; nilReason `other:unpopulated` →
+`http://inspire.ec.europa.eu/codelist/VoidReasonValue/Unpopulated`; se quitan `validFrom`, `validTo` y `zoning`.
+
+### 7.4 Otros servicios aprovechables
+- El editor parcelario de la Sede carga **puntos de apoyo** desde un .txt con «x y» por línea (mejora 33) y divide por
+  partes, porcentajes, superficies o cuotas con linderos paralelos (modelo para las mejoras 22-23).
+- El IVG lleva un XML con `parcelasGML`, `parcelasAfecT` y `parcelasAfectP` (ZIP en base64 con los GML) (mejora 32).
+
 ## 6. Fuentes
 - Formato GML de parcela catastral (DGC): https://www.catastro.hacienda.gob.es/documentos/formatos_intercambio/Formato%20GML%20parcela%20catastral.pdf
 - Fichero GML coordinación Catastro-Registro (DGC): https://www.catastro.hacienda.gob.es/asistente_catreg/img/GML.pdf

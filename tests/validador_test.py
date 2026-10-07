@@ -101,11 +101,15 @@ for codigo, ruta in casos.items():
     detectados[codigo] = (codigo in encontrados, encontrados)
 
 #Nivel de algunas reglas y que un error se atribuye a su parcela
+#La Sede dejó de comparar areaValue con la geometría (documento de validación de la DGC, v2.1): solo aviso
 inf_sup = va.validar(casos['SUP-DISTINTA'])
-niveles = ([i.nivel for i in inf_sup.incidencias if i.codigo == 'SUP-DISTINTA'] == [ERROR]
-           and inf_sup.estado('1907401VK4810H') == ERROR and inf_sup.estado('Nueva_1') == 'correcta'
+inf_id = va.validar(casos['ID-CARACTERES'])
+niveles = ([i.nivel for i in inf_sup.incidencias if i.codigo == 'SUP-DISTINTA'] == [AVISO]
+           and inf_sup.estado('1907401VK4810H') == AVISO and inf_sup.estado('Nueva_1') == 'correcta'
+           and not inf_sup.errores and '1 aviso' in va.resumen(inf_sup)
+           and inf_id.estado('Nueva 1') == ERROR and inf_id.estado('1907401VK4810H') == 'correcta'
            and [i.nivel for i in va.validar(casos['ESBELTEZ']).incidencias if i.codigo == 'ESBELTEZ'] == [AVISO]
-           and '1 error' in va.resumen(inf_sup))
+           and '1 error' in va.resumen(inf_id))
 edificio = va.validar(os.path.join(RAIZ, 'tests', 'data', 'gml', 'edificio_sintetico.gml'))
 edificio_ok = not edificio.errores
 

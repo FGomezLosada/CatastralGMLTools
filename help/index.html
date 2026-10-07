@@ -86,8 +86,10 @@ Dirección General del Catastro, en el huso UTM que le corresponde, y se añade 
 «Catastro <em>referencia</em>»: la parcela, sus colindantes (las que la tocan, con su número de parcela), el entorno (las
 demás parcelas a menos de 25 m, por ejemplo al otro lado de la calle) y sus edificios y otras construcciones, según las
 casillas marcadas. Si la parcela está rodeada de calles, no tiene colindantes en el Catastro y solo verá el entorno.</p>
-<p><strong>Dominio público.</strong> En rústica, los caminos, carreteras, cauces y acequias son parcelas numeradas del 9000 al
-9999 dentro de su polígono: se ven en otro color (verde azulado) y, si lindan con la parcela, el panel lo indica. En urbana las
+<p><strong>Dominio público.</strong> En rústica, los caminos, carreteras, cauces y acequias son parcelas (numeradas del 9001 al
+9999 dentro de su polígono; la 9000 no es dominio público, es suelo que tributa como urbano). El plugin lo confirma con los datos públicos de la Dirección General del Catastro de cada parcela
+(su paraje y su uso, que se guardan en el campo <code>descripcion</code>): se ven en otro color (verde azulado) y, si lindan con
+la parcela, el panel lo indica. En urbana las
 calles no son parcelas, por eso una parcela rodeada de calles no tiene colindantes. En los dos casos, la nueva geometría no
 debe ocupar ese suelo. Cada capa lleva en sus metadatos la fuente y la fecha de descarga. Si vuelve a descargar la misma
 parcela, el grupo se sustituye. La parcela descargada queda elegida en la pestaña <strong>Parcela</strong>.</p>

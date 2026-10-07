@@ -34,7 +34,8 @@ ahora = datetime.datetime(2026, 10, 7, 9, 30)
 d = servicios.descargar(sim.RC, ahora=ahora)
 parcela = d.parcela.elementos[0] if d.parcela and d.parcela.elementos else None
 completa = (d.correcta and d.epsg == 25830 and parcela is not None and parcela.local_id == sim.RC
-            and parcela.area_declarada == 600 and len(sim.peticiones) == 4)
+            and parcela.area_declarada == 600 and len(sim.peticiones) == 5
+            and sum('Consulta_DNPRC' in u for u in sim.peticiones) == 1)
 colindantes = (d.colindantes is not None
                and sorted(e.local_id for e in d.colindantes.elementos) == ['1907402VK4810H', sim.CAMINO]
                and [e.local_id for e in d.entorno.elementos] == ['1907403VK4810H']
@@ -49,9 +50,23 @@ resumen_ok = resumen == [f"Parcela {sim.RC} · 600 m² · EPSG:25830 · 2 colind
 # Dominio público: el camino se ve aparte y se avisa de que linda con él
 camino = [e for e in d.colindantes.elementos if e.local_id == sim.CAMINO]
 dominio = (camino and camino[0].tipo == 'dominio público'
+           and camino[0].descripcion == 'Camino · Vía de comunicación de dominio público'
            and [e.tipo for e in d.colindantes.elementos if e.local_id != sim.CAMINO] == ['parcela']
            and any(i.codigo == 'LINDA-DOMINIO-PUBLICO' and sim.CAMINO in i.mensaje and i.nivel == 'info'
                    for i in d.incidencias))
+
+# Sin poder consultar los datos de la DGC: se aplica la numeración y se dice que no está confirmado
+sim.DNPRC_CAIDO = True
+d_caido = servicios.descargar(sim.RC, construcciones=False)
+sim.DNPRC_CAIDO = False
+camino_caido = [e for e in d_caido.colindantes.elementos if e.local_id == sim.CAMINO]
+dominio = (dominio and d_caido.correcta and camino_caido and camino_caido[0].tipo == 'dominio público'
+           and 'sin confirmar' in camino_caido[0].descripcion)
+datos_ok = (servicios.es_dominio_publico_segun({'texto': 'Parcela 9700 (BIEN DE DOMIIO PUBLICO)', 'cultivos': []})
+            and servicios.es_dominio_publico_segun({'texto': '', 'cultivos': [('HG', 'HIDROGRAFÍA NATURAL')]})
+            and not servicios.es_dominio_publico_segun({'texto': 'SIERRA', 'cultivos': [('MT', 'MATORRAL')]})
+            and not servicios.es_dominio_publico_segun(None))
+dominio = dominio and datos_ok
 
 # 2b. Parcela demasiado grande para pedir su entorno: GetNeighbourParcel; «no hay colindantes» no es un error
 grande = servicios.descargar(sim.RC_GRANDE, construcciones=False)
@@ -119,7 +134,7 @@ checks = {
     "direcciones https de los servicios (WFS CP, WFS BU y RCCOOR)": direcciones,
     "descarga la parcela con su superficie y el huso 30": completa,
     "colindantes (tocan la parcela) y entorno (a menos de 25 m), por geometría": colindantes,
-    "dominio público (parcela 9000 de rústica): tipo propio y nota de que linda": dominio,
+    "dominio público confirmado con la DGC (o por numeración si no responde), tipo propio y nota": dominio,
     "sin colindantes: nota informativa, no aviso (parcela grande: GetNeighbourParcel)": sin_colindantes,
     "edificios y otras construcciones juntos": construcciones,
     "cita de la fuente con la fecha de descarga": atribucion,

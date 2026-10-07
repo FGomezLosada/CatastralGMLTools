@@ -4,7 +4,9 @@ Servicios públicos de la Dirección General del Catastro que usa el plugin:
     un poco mayor que la parcela), de las que se separan las colindantes por geometría. GetNeighbourParcel no es
     fiable (docs/DESARROLLO.md, E-14): solo se usa si la parcela es demasiado grande para pedir su entorno;
   - WFS INSPIRE de edificios (wfsBU.aspx): edificios (GetBuildingByParcel) y otras construcciones (GetOtherBuildingByParcel);
-  - Consulta_RCCOOR (JSON): referencia catastral de la parcela que hay en un punto.
+  - Consulta_RCCOOR (JSON): referencia catastral de la parcela que hay en un punto;
+  - Consulta_DNPRC (JSON): datos no protegidos de una parcela de rústica (paraje y clase de cultivo), para confirmar
+    si es de dominio público (docs/DESARROLLO.md, E-15).
 
 Solo datos públicos (geometría, referencia, superficie, dirección): nunca titulares ni valores. Se descarga una
 parcela concreta cada vez, no zonas enteras. Todo lo descargado se cita como «Dirección General del Catastro» con la
@@ -40,6 +42,12 @@ MARGEN_ENTORNO = 25.0           #m alrededor de la parcela en los que se buscan 
 TOLERANCIA_COLINDANTE = 0.20    #m: a menos de esta distancia se considera colindante (calles de por medio: no)
 AREA_MAXIMA_ENTORNO = 1_000_000  #m²: el WFS no admite rectángulos mayores («Area of extension out of limits»)
 SIN_COLINDANTES = 'No se han encontrado parcelas colindantes'  #Texto del ExceptionReport cuando no hay ninguna
+DNPRC = 'https://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejero.svc/json/Consulta_DNPRC'
+#Usos de las parcelas de dominio público de rústica (9001-9999) según la DGC: VT y HG comprobados además en
+#Consulta_DNPRC el 07/10/2026. OT («otros») no se usa como prueba por sí solo: cuenta la numeración
+CULTIVOS_DOMINIO_PUBLICO = {'VT': 'vías de comunicación', 'HG': 'hidrografía natural', 'HC': 'hidrografía construida',
+                            'FF': 'ferrocarril'}
+MAX_CONSULTAS_DNPRC = 60  #Como mucho, tantas consultas de datos por descarga (una por parcela de rústica)
 EPSG_PUNTO = 4258     #Las coordenadas del clic se envían en ETRS89 geográficas (lon, lat): vale para toda España
 AVISO_FORAL = ("Si está en Navarra o en el País Vasco, consulte su catastro foral: no lo gestiona la Dirección General "
                "del Catastro")
@@ -74,6 +82,10 @@ def url_edificios(rc, epsg=EPSG_INICIAL):
 
 def url_otras(rc, epsg=EPSG_INICIAL):
     return _wfs(WFS_BU, 'GetOtherBuildingByParcel', rc, epsg)
+
+
+def url_datos(rc):
+    return DNPRC + '?' + urlencode({'RefCat': rc})
 
 
 def url_rc_en_punto(x, y, epsg=EPSG_PUNTO):
@@ -236,18 +248,75 @@ def _vecinas(descarga, geometria, epsg):
         _marcar_dominio_publico(descarga)
 
 
+def datos_rustica(rc):
+    """
+    Datos no protegidos de una parcela de rústica (Consulta_DNPRC): {'paraje', 'cultivos': [(código, descripción)],
+    'texto'}. None si no se puede consultar o la respuesta no es la esperada. Nunca titulares ni valores.
+    """
+    datos, error = pedir(url_datos(rc))
+    if error:
+        return None
+    try:
+        bico = json.loads(datos.decode('utf-8', 'replace'))['consulta_dnprcResult']['bico']
+        bi = bico['bi']
+        lugar = bi.get('dt', {}).get('locs', {}).get('lors', {}).get('lorus', {})
+        subparcelas = bico.get('lspr') or []
+        if isinstance(subparcelas, dict):
+            subparcelas = [subparcelas]
+        cultivos = [(str(sp.get('dspr', {}).get('ccc', '')), str(sp.get('dspr', {}).get('dcc', '')))
+                    for sp in subparcelas if isinstance(sp, dict)]
+        return {'paraje': str(lugar.get('npa', '')).strip(), 'cultivos': cultivos, 'texto': str(bi.get('ldt', ''))}
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
+def _sin_tildes(texto):
+    return texto.upper().translate(str.maketrans('ÁÉÍÓÚ', 'AEIOU'))
+
+
+def es_dominio_publico_segun(datos):
+    """True si los datos de Consulta_DNPRC indican dominio público (clase de cultivo o texto de la DGC)."""
+    if not datos:
+        return False
+    textos = _sin_tildes(datos['texto'] + ' ' + ' '.join(d for _, d in datos['cultivos']))
+    return (any(c in CULTIVOS_DOMINIO_PUBLICO for c, _ in datos['cultivos'])
+            or 'DOMINIO PUBLICO' in textos or 'DOMIIO PUBLICO' in textos)  #La DGC lo escribe a veces así
+
+
+def _descripcion(datos):
+    partes = [datos['paraje'].capitalize()] if datos['paraje'] else []
+    partes += [d.capitalize() for _, d in datos['cultivos'][:2] if d]
+    return ' · '.join(partes)
+
+
 def _marcar_dominio_publico(descarga):
-    """Las parcelas de dominio público (rústica 9000-9999) cambian de tipo para verse aparte, y se avisa si lindan."""
-    for resultado in (descarga.colindantes, descarga.entorno):
-        for e in (resultado.elementos if resultado is not None else []):
-            if refcat.es_dominio_publico(e.local_id):
-                e.tipo = gl.DOMINIO_PUBLICO
-    publicas = [e.local_id for e in (descarga.colindantes.elementos if descarga.colindantes else [])
-                if e.tipo == gl.DOMINIO_PUBLICO]
+    """
+    Parcelas de dominio público entre las colindantes y el entorno: se consulta a la DGC (Consulta_DNPRC) cada colindante
+    de rústica y cada parcela del entorno con número 9001-9999. Es de dominio público si la DGC lo dice (clase VT o HG,
+    o «dominio público» en su descripción) o, si no se puede consultar, si su número está entre 9001 y 9999 (se indica
+    «sin confirmar»). Cambian de tipo para verse aparte, llevan la descripción de la DGC y se avisa si lindan.
+    """
+    colindantes = descarga.colindantes.elementos if descarga.colindantes else []
+    entorno = descarga.entorno.elementos if descarga.entorno else []
+    candidatas = [e for e in colindantes if refcat.tipo_parcela(e.local_id[:14]) == 'rústica']
+    candidatas += [e for e in entorno if refcat.es_dominio_publico(e.local_id)]
+    for e in candidatas[:MAX_CONSULTAS_DNPRC]:
+        datos = datos_rustica(e.local_id)
+        if datos:
+            e.descripcion = _descripcion(datos)
+            publica = es_dominio_publico_segun(datos) or refcat.es_dominio_publico(e.local_id)
+        else:
+            publica = refcat.es_dominio_publico(e.local_id)
+            if publica:
+                e.descripcion = "Parcela 9001-9999 de rústica (sin confirmar: no se ha podido consultar el Catastro)"
+        if publica:
+            e.tipo = gl.DOMINIO_PUBLICO
+    publicas = [e.local_id + (f" ({e.descripcion.split(' · ')[0].lower()})" if e.descripcion else '')
+                for e in colindantes if e.tipo == gl.DOMINIO_PUBLICO]
     if publicas:
         descarga.incidencias.append(Incidencia(
             INFO, 'LINDA-DOMINIO-PUBLICO',
-            f"Linda con dominio público (camino, carretera, cauce…): {', '.join(publicas[:4])}"
+            f"Linda con dominio público: {', '.join(publicas[:4])}"
             + (f" y {len(publicas) - 4} más" if len(publicas) > 4 else '') + ". Ese lindero no se puede "
             "mover sin contar con su deslinde y su Administración titular"))
 
