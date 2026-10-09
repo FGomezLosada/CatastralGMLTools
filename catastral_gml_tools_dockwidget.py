@@ -21,6 +21,7 @@ from qgis.PyQt.QtWidgets import QHBoxLayout, QLabel, QPushButton, QToolButton, Q
 from .core.info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, ruta, version
 from .gui.pestana_descargar import PestanaDescargar
 from .gui.pestana_parcela import PestanaParcela
+from .gui.pestana_utilidades import PestanaUtilidades
 from .gui.pestana_validar import PestanaValidar
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), 'catastral_gml_tools_dockwidget_base.ui'))
@@ -49,6 +50,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.setup_parcela()
         self.setup_validar()
         self.setup_descargar()
+        self.setup_utilidades()
 
     # ------------------------------------------------------------------ Cabecera: aviso legal y ayuda
 
@@ -99,6 +101,12 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.tabDescargarPendiente.hide()
         self.pestanaDescargar = PestanaDescargar(self, self.tabDescargar)
         self.tabDescargarLayout.insertWidget(1, self.pestanaDescargar, 1)
+
+    def setup_utilidades(self):
+        """Pestaña Utilidades: unir varios GML (multiparcela); el resto de utilidades, en próximas versiones."""
+        self.tabUtilidadesPendiente.hide()
+        self.pestanaUtilidades = PestanaUtilidades(self, self.tabUtilidades)
+        self.tabUtilidadesLayout.insertWidget(1, self.pestanaUtilidades, 1)
 
     def parcela_descargada(self, capa):
         """Tras descargar una parcela, la pestaña Parcela pasa a trabajar con ella."""
