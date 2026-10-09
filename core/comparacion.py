@@ -162,8 +162,10 @@ def comparar(lectura):
     c.defecto = defecto if not defecto.isEmpty() and defecto.area() > AREA_MINIMA else None
     if not parciales and c.exceso is None and c.defecto is None:
         c.incidencias.append(Incidencia(INFO, 'CMP-CONTORNO-OK',
-                                        f"El contorno exterior coincide con el de las {c.npo} parcela(s) catastral(es) "
-                                        f"afectada(s) (±{TOLERANCIA * 100:.0f} cm)"))
+                                        "El contorno exterior coincide con el de "
+                                        + ("la parcela catastral afectada" if c.npo == 1
+                                           else f"las {c.npo} parcelas catastrales afectadas")
+                                        + f" (±{TOLERANCIA * 100:.0f} cm)"))
 
     #Referencias catastrales del GML
     ids_origen = [e.local_id for e in afectadas]

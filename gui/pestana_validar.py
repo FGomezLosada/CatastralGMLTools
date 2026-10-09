@@ -40,7 +40,7 @@ from . import estilos
 CABECERAS = ['Tipo', 'Identificador (localId)', 'Namespace', 'Sup. GML m²', 'Sup. calculada m²', 'Estado']
 COL_ESTADO = 5
 ICONOS = {ERROR: '/mIconCritical.svg', AVISO: '/mIconWarning.svg', INFO: '/mIconInfo.svg'}
-ICONOS_CODIGO = {'XSD-VALIDO': '/mIconSuccess.svg'}  #Marca verde para lo que está bien
+ICONOS_CODIGO = {'XSD-VALIDO': '/mIconSuccess.svg', 'CMP-CONTORNO-OK': '/mIconSuccess.svg'}  #Marca verde para lo que está bien
 TEXTO_ESTADO = {ERROR: 'Con errores', AVISO: 'Con avisos', 'correcta': 'Correcta'}
 PROPIEDAD_GML = 'catastral_gml_tools/gml'  #Propiedad de las capas que carga el plugin: ruta del GML del que salen
 
@@ -92,7 +92,10 @@ class PestanaValidar(QWidget):
         self.tabla.verticalHeader().setVisible(False)
         self.tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabla.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.tabla.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        cabecera = self.tabla.horizontalHeader()
+        cabecera.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)  #Todas se pueden ensanchar arrastrando el borde
+        cabecera.setStretchLastSection(True)
+        cabecera.setMinimumSectionSize(40)
         self.lista = QListWidget(divisor)
         self.lista.setWordWrap(True)
         self.lista.setToolTip("Incidencias del GML. Al elegir una, se marca su parcela en la tabla")
@@ -220,7 +223,8 @@ class PestanaValidar(QWidget):
             if e.area_declarada is not None and calculada is not None and e.area_declarada != calculada:
                 self.tabla.item(i, 3).setForeground(Qt.GlobalColor.red)
                 self.tabla.item(i, 3).setToolTip("La superficie declarada no coincide con la de la geometría")
-        self.tabla.resizeColumnToContents(0)
+        self.tabla.resizeColumnsToContents()
+        self.tabla.setColumnWidth(1, max(self.tabla.columnWidth(1), 130))
         informativas = [i.mensaje for i in r.incidencias if i.codigo == 'GML-LEIDO']
         self.resumen.setText(f"<b>{os.path.basename(ruta)}</b> · " + (informativas[0] if informativas else 'sin elementos'))
         self.mostrar_informe()
@@ -251,6 +255,8 @@ class PestanaValidar(QWidget):
             if inc.codigo == 'GML-LEIDO':
                 continue
             icono = ICONOS_CODIGO.get(inc.codigo) or ICONOS.get(inc.nivel, '/mIconInfo.svg')
+            if inc.codigo == 'CMP-OPERACION' and inc.nivel == INFO:  #Operación admitida: también en verde
+                icono = '/mIconSuccess.svg'
             item = QListWidgetItem(QgsApplication.getThemeIcon(icono), str(inc))
             item.setData(Qt.ItemDataRole.UserRole + 1, icono)
             item.setData(Qt.ItemDataRole.UserRole, inc.elemento)
