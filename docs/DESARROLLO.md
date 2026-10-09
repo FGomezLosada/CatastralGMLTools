@@ -81,7 +81,7 @@ Decisiones técnicas:
 | 4 | Lector y visor de GML | ✅ |
 | 5 | Validador e informe | ✅ |
 | 6 | Servicios: descarga por RC y RC por clic; Navarra y territorios forales | ✅ |
-| 7 | Alteraciones: asistente, multiparcela y unión | — |
+| 7 | Alteraciones: asistente, multiparcela y unión | En curso (14 ✅) |
 | 8 | GML de edificio y comprobaciones ICUC | — |
 | 9 | Conversor 3.0 → 4.0 y reparación | — |
 | 10 | División de parcelas | — |
@@ -108,7 +108,7 @@ Decisiones técnicas:
 | 11 | Informe de validación en el panel con botón para abrir el informe HTML y el fichero | Resultado claro | ✅ |
 | 12 | Descarga por RC: parcela, colindantes y construcciones (WFS) con atribución a la DGC | Partir de la cartografía vigente | ✅ |
 | 13 | RC por clic en el mapa (Consulta_RCCOOR) | Comodidad | ✅ |
-| 14 | Comparación con la parcela de origen: parcelas sin cambios, contorno total (tolerancia ±1 cm en vértices: «IVG positivo cuando el contorno exterior resultante sea igual al original»), parcelas afectadas total o parcialmente (parcial → negativo), NPO, que las RC SDGC existan en el Catastro; avisos de tramitación no automática (esbeltez >15, distinto municipio, polígono o manzana, urbana y rústica mezcladas, diseminado, >30 parcelas por operación); dominio público catastrado afectado: debe ir en el GML delimitando la parte afectada (FAQ DGC); viales urbanos sin parcela: IVG negativo salvo cesión/incorporación con parcela LOCAL; avisar si la nueva geometría ocupa suelo sin parcela (vía pública) o parcelas no incluidas en el GML, o mueve un lindero con dominio público (con superficie en m² y zona en el mapa) | Simular comprobaciones de la SEC | |
+| 14 | Comparación con la parcela de origen: parcelas sin cambios, contorno total (tolerancia ±1 cm en vértices: «IVG positivo cuando el contorno exterior resultante sea igual al original»), parcelas afectadas total o parcialmente (parcial → negativo), NPO, que las RC SDGC existan en el Catastro; avisos de tramitación no automática (esbeltez >15, distinto municipio, polígono o manzana, urbana y rústica mezcladas, diseminado, >30 parcelas por operación); dominio público catastrado afectado: debe ir en el GML delimitando la parte afectada (FAQ DGC); viales urbanos sin parcela: IVG negativo salvo cesión/incorporación con parcela LOCAL; avisar si la nueva geometría ocupa suelo sin parcela (vía pública) o parcelas no incluidas en el GML, o mueve un lindero con dominio público (con superficie en m² y zona en el mapa) | Simular comprobaciones de la SEC | ✅ |
 | 15 | Asistente de alteraciones: desplegable «Tipo de alteración» (segregación, división, agregación, agrupación, subsanación; umbrales del Reglamento Hipotecario como aviso: segregada <20 % de la matriz, resultantes de división y fincas agrupadas >1/5, agregación: principal ≥80 % según el documento de validación de la DGC o quíntuplo según el editor — E-17) que pone identificadores (`Seg_`, `Div_`, `Agrupa_`) y namespaces y comprueba la tabla NPO/NPP/namespace de la Sede. Mientras tanto, las parcelas nuevas se proponen como `Nueva_N` | Evitar errores de identificadores sin presuponer la alteración | |
 | 16 | Multiparcela: unir varios GML en uno | Equivalente a "multiparcela" | |
 | 17 | Unión/disolución de parcelas seleccionadas en una sola | Agregación y agrupación | |

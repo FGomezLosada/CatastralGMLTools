@@ -6,6 +6,11 @@ copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
 from qgis.core import (
+    QgsCoordinateReferenceSystem,
+    QgsFeature,
+    QgsGeometry,
+    QgsSingleSymbolRenderer,
+    QgsVectorLayer,
     QgsCategorizedSymbolRenderer,
     QgsFillSymbol,
     QgsPalLayerSettings,
@@ -66,4 +71,23 @@ def aplicar(capa, colores=None, campo_etiqueta='localId'):
     capa.setLabeling(QgsVectorLayerSimpleLabeling(ajustes))
     capa.setLabelsEnabled(True)
     capa.triggerRepaint()
+    return capa
+
+
+def capa_diferencia(geometria, epsg, nombre, color):
+    """Capa de memoria con una diferencia de superficie (exceso o defecto), rayada y con su superficie en m²."""
+    capa = QgsVectorLayer(f"MultiPolygon?crs=EPSG:{epsg or 25830}&field=superficie:double", nombre, 'memory')
+    entidad = QgsFeature(capa.fields())
+    g = QgsGeometry(geometria)
+    g.convertToMultiType()
+    entidad.setGeometry(g)
+    entidad.setAttributes([round(g.area(), 2)])
+    capa.dataProvider().addFeatures([entidad])
+    capa.updateExtents()
+    capa.setCrs(QgsCoordinateReferenceSystem(f'EPSG:{epsg or 25830}'))
+    c = QColor(color)
+    simbolo_relleno = QgsFillSymbol.createSimple({'color': f'{c.red()},{c.green()},{c.blue()},110', 'style': 'b_diagonal',
+                                                  'outline_color': color, 'outline_width': '0.5',
+                                                  'outline_width_unit': 'MM'})
+    capa.setRenderer(QgsSingleSymbolRenderer(simbolo_relleno))
     return capa
