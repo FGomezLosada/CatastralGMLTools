@@ -88,6 +88,22 @@ cada parcela o construcción con su identificador, su namespace y su superficie:
 a partir de la geometría (en rojo si no coinciden). <strong>Cargar en el mapa</strong> lo añade al proyecto con un estilo
 por tipo y una etiqueta con el identificador, para compararlo con la cartografía.</p>
 
+<h2>Crear el GML de edificio (ICUC)</h2>
+<p>El GML de edificio sirve para el Informe Catastral de Ubicación de las Construcciones (ICUC). En la pestaña
+<strong>Edificio</strong> elija la capa con la <strong>huella</strong> de cada construcción (el contorno a nivel del suelo,
+sin vuelos, terrazas ni balcones). Tras descargar una parcela con sus construcciones, la capa «Construcciones» pasa sola a
+esta pestaña. Escriba la referencia catastral de la parcela (o, si aún no existe, su identificador en la escritura): los
+identificadores se proponen como pide la Dirección General del Catastro, la referencia si hay un solo edificio y
+<code>RC_Edificio_1</code>, <code>RC_Edificio_2</code>… si hay varios; las piscinas, <code>RC_Piscina_1</code>…</p>
+<p>En la tabla puede cambiar el <strong>tipo</strong> (edificio o piscina), las <strong>plantas sobre rasante</strong> (la
+máxima si varía) y el identificador. Un edificio puede tener varias partes (toda su huella); cada piscina, una sola.
+Elija el <strong>estado</strong> (terminado, en construcción, proyectado…), la fecha, el SRC y el fichero, y pulse
+<strong>Crear GML</strong>. El fichero se escribe en ISO-8859-1, como el ejemplo oficial.</p>
+<p>Con el botón <strong>Validar</strong> del resultado se abre en la pestaña Validar. Allí, <strong>Comparar con el
+Catastro</strong> sitúa cada construcción respecto a la parcela catastral vigente, como el ICUC: dentro (bien), en parte
+fuera (aviso: el informe lo reflejará) o a más de 100 m (error: el ICUC no la admite). Los solapes entre construcciones
+los marca el validador.</p>
+
 <h2>Unir varios GML (multiparcela)</h2>
 <p>En la pestaña <strong>Utilidades</strong>, añada (o arrastre) dos o más GML de parcela, elija el fichero de salida y pulse
 <strong>Unir GML</strong>. Las parcelas que estén en varios ficheros se incluyen una sola vez; si un identificador aparece con

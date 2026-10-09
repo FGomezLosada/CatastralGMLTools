@@ -35,6 +35,7 @@ LADO_MAXIMO = 1000.0     #m: el WFS no admite rectángulos de más de ~1 km² (�
 MAX_TROZOS = 25          #Como mucho, tantas peticiones por comparación (parcelarios de hasta ~5 × 5 km)
 MAX_TRAMITACION = 30     #Más parcelas por operación: no se tramita de forma automática
 EPSG_DGC = (25829, 25830, 25831, 32628)
+DISTANCIA_ICUC = 100.0   #m: el ICUC no admite construcciones más lejos de la parcela
 
 
 @dataclass
@@ -47,6 +48,7 @@ class Comparacion:
     defecto: object = None                            #QgsGeometry: suelo de las parcelas afectadas que el GML deja fuera
     incidencias: list = field(default_factory=list)
     epsg: object = None
+    edificio: bool = False                            #Comparación de un GML de edificio con su parcela (ICUC)
 
     @property
     def comparada(self):
@@ -203,6 +205,75 @@ def comparar(lectura):
                                         f"Afecta a dominio público ({', '.join(publicas)}): debe ir en el GML delimitando la "
                                         "parte afectada, y la alteración requiere el pronunciamiento de su Administración "
                                         "titular"))
+    return c
+
+
+def comparar_edificio(lectura):
+    """
+    GML de edificio (mejora 20): sitúa cada construcción respecto a la parcela catastral vigente cuya referencia lleva su
+    identificador (RC, RC_Edificio_N, RC_Piscina_N), como el ICUC: dentro (bien), en parte fuera (aviso: el informe lo
+    reflejará) o a más de 100 m (error: el ICUC no la admite). Los solapes entre construcciones los ve el validador.
+    Nunca lanza excepciones.
+    """
+    c = Comparacion(epsg=lectura.epsg, edificio=True)
+    construcciones = [e for e in lectura.elementos if e.tipo != gl.PARCELA and not e.geometria.isEmpty()]
+    if lectura.version != 'BU 2.0' or not construcciones:
+        return c
+    if lectura.epsg not in EPSG_DGC:
+        c.incidencias.append(Incidencia(AVISO, 'CMP-SRC', "No se compara con el Catastro: el SRC no es uno de los de la Sede"))
+        return c
+    referencias = {refcat.limpiar(e.local_id)[:14] for e in construcciones}
+    referencias = {r for r in referencias if refcat.es_rc_parcela(r)}
+    if len(referencias) != 1:
+        texto = ("los identificadores no empiezan por la referencia catastral de la parcela" if not referencias
+                 else f"hay construcciones de varias parcelas ({', '.join(sorted(referencias))})")
+        c.incidencias.append(Incidencia(AVISO, 'CMP-BU-SIN-RC', f"No se compara con el Catastro: {texto}. Si la parcela "
+                                                                "aún no existe, el ICUC usa la del GML de parcela"))
+        return c
+    rc = referencias.pop()
+    if refcat.comprobar(rc).foral:
+        c.incidencias.append(Incidencia(AVISO, 'RC-FORAL', refcat.comprobar(rc).mensaje))
+        return c
+    resultado, errores = servicios.consultar_wfs(servicios.url_parcela(rc, lectura.epsg), f"la parcela {rc}")
+    if errores:
+        c.incidencias += [Incidencia(AVISO, 'CMP-NO-COMPARADO', f"No se ha podido comparar con el Catastro: {i.mensaje}")
+                          for i in errores]
+        return c
+    parcelas = [e for e in (resultado.elementos if resultado else []) if not e.geometria.isEmpty()]
+    if not parcelas:
+        c.operacion = "Parcela no encontrada"
+        c.incidencias.append(Incidencia(ERROR, 'CMP-RC-NO-EXISTE', f"La parcela {rc} no existe en el Catastro: el ICUC "
+                                                                   "necesita una parcela catastral vigente"))
+        return c
+    c.origen = parcelas
+    c.npo, c.npp = 1, len(construcciones)
+    exacta = QgsGeometry.unaryUnion([e.geometria for e in parcelas])
+    parcela = exacta.buffer(TOLERANCIA, 4)
+    fuera = []
+    for e in construcciones:
+        distancia = e.geometria.distance(exacta)
+        if distancia > DISTANCIA_ICUC:
+            fuera.append(e.geometria)
+            c.incidencias.append(Incidencia(ERROR, 'CMP-BU-LEJOS', f"La construcción está a {distancia:.0f} m de la parcela "
+                                                                   f"{rc}: el ICUC no admite construcciones a más de "
+                                                                   f"{DISTANCIA_ICUC:.0f} m. Compruebe la referencia y el SRC",
+                                            e.local_id))
+            continue
+        resto = e.geometria.difference(parcela)
+        if not resto.isEmpty() and resto.area() > AREA_MINIMA:
+            fuera.append(resto)
+            c.incidencias.append(Incidencia(AVISO, 'CMP-BU-FUERA', f"{resto.area():.2f} m² de la construcción quedan fuera de "
+                                                                   f"la parcela catastral {rc}: el informe (ICUC) lo reflejará. "
+                                                                   "Si el lindero no es correcto, tramite antes el GML de "
+                                                                   "parcela", e.local_id))
+    if fuera:
+        c.exceso = QgsGeometry.unaryUnion(fuera)
+        n = len(fuera)
+        c.operacion = f"{n} construcci{'ones' if n != 1 else 'ón'} no {'están' if n != 1 else 'está'} entera dentro de la parcela {rc}"
+    else:
+        c.operacion = f"Construcciones dentro de la parcela {rc}"
+        c.incidencias.append(Incidencia(INFO, 'CMP-BU-DENTRO', f"Todas las construcciones están dentro de la parcela "
+                                                               f"catastral {rc} (±{TOLERANCIA * 100:.0f} cm)"))
     return c
 
 

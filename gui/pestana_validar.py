@@ -40,9 +40,15 @@ from . import estilos
 CABECERAS = ['Tipo', 'Identificador (localId)', 'Namespace', 'Sup. GML m²', 'Sup. calculada m²', 'Estado']
 COL_ESTADO = 5
 ICONOS = {ERROR: '/mIconCritical.svg', AVISO: '/mIconWarning.svg', INFO: '/mIconInfo.svg'}
-ICONOS_CODIGO = {'XSD-VALIDO': '/mIconSuccess.svg', 'CMP-CONTORNO-OK': '/mIconSuccess.svg'}  #Marca verde para lo que está bien
+ICONOS_CODIGO = {'XSD-VALIDO': '/mIconSuccess.svg', 'CMP-CONTORNO-OK': '/mIconSuccess.svg', 'CMP-BU-DENTRO': '/mIconSuccess.svg'}  #Marca verde para lo que está bien
 TEXTO_ESTADO = {ERROR: 'Con errores', AVISO: 'Con avisos', 'correcta': 'Correcta'}
 PROPIEDAD_GML = 'catastral_gml_tools/gml'  #Propiedad de las capas que carga el plugin: ruta del GML del que salen
+COMPARABLES = ('CP 4.0', 'BU 2.0')  #Parcela: operación y contorno; edificio: dentro de la parcela (ICUC)
+
+
+def comparar(lectura):
+    """Comparación con el Catastro según el tipo de GML."""
+    return cmp.comparar_edificio(lectura) if lectura.version == 'BU 2.0' else cmp.comparar(lectura)
 
 
 class PestanaValidar(QWidget):
@@ -112,7 +118,9 @@ class PestanaValidar(QWidget):
         self.cmpBoton = QPushButton(QgsApplication.getThemeIcon('/mActionAddWfsLayer.svg'), "Comparar con el Catastro", self)
         self.cmpBoton.setToolTip("Descarga las parcelas catastrales vigentes bajo el GML y comprueba, como el informe de\n"
                                  "validación gráfica: parcelas afectadas (NPO), operación, contorno exterior (±1 cm),\n"
-                                 "parcelas afectadas solo en parte, suelo sin parcela y referencias. Necesita internet")
+                                 "parcelas afectadas solo en parte, suelo sin parcela y referencias.\n"
+                                 "En un GML de edificio, que cada construcción esté dentro de su parcela (como el ICUC).\n"
+                                 "Necesita internet")
         self.cmpBoton.setEnabled(False)
         botones.addWidget(self.cmpBoton)
         botones.addStretch(1)
@@ -230,7 +238,7 @@ class PestanaValidar(QWidget):
         self.mostrar_informe()
         self.cargarBoton.setEnabled(bool(r.elementos))
         self.informeBoton.setEnabled(bool(r.elementos))
-        self.cmpBoton.setEnabled(r.version == 'CP 4.0' and bool(r.elementos) and self.tarea_cmp is None)
+        self.cmpBoton.setEnabled(r.version in COMPARABLES and bool(r.elementos) and self.tarea_cmp is None)
         if r.elementos and r.version in ('CP 4.0', 'BU 2.0'):
             self.comprobar_esquema(segundo_plano=segundo_plano)
         return self.informe
@@ -339,14 +347,14 @@ class PestanaValidar(QWidget):
 
     def comparar_catastro(self, *args, segundo_plano=True):
         """Compara el GML con las parcelas catastrales vigentes (descarga del WFS de la DGC, en segundo plano)."""
-        if self.resultado is None or self.resultado.version != 'CP 4.0' or self.tarea_cmp is not None:
+        if self.resultado is None or self.resultado.version not in COMPARABLES or self.tarea_cmp is not None:
             return None
         self.informe.incidencias = [i for i in self.informe.incidencias if not i.codigo.startswith('CMP')]
         self.cmpBoton.setEnabled(False)
         self.lista.addItem(QListWidgetItem(QgsApplication.getThemeIcon('/mIconLoading.gif'),
                                            "Comparando con el Catastro…"))
         if not segundo_plano:
-            return self.comparado(cmp.comparar(self.resultado))
+            return self.comparado(comparar(self.resultado))
         self.tarea_cmp = TareaComparacion(self.resultado, self)
         QgsApplication.taskManager().addTask(self.tarea_cmp)
         return None
@@ -367,12 +375,17 @@ class PestanaValidar(QWidget):
             return comparacion
         cargar_comparacion(comparacion, self.ruta, self.dock.iface)
         errores = [i for i in comparacion.incidencias if i.nivel == ERROR]
-        texto = f"NPO {comparacion.npo} · NPP {comparacion.npp} → {comparacion.operacion}"
+        texto = comparacion.operacion if comparacion.edificio else \
+            f"NPO {comparacion.npo} · NPP {comparacion.npp} → {comparacion.operacion}"
+        if comparacion.edificio and not errores:
+            errores = [i for i in comparacion.incidencias if i.nivel == AVISO]  #En parte fuera: se avisa en naranja
         if errores:
-            self.dock.warn(f"Comparación con el Catastro: {len(errores)} error{'es' if len(errores) != 1 else ''} · {texto}\n"
+            n = len(errores)
+            que = (f"{n} error{'es' if n != 1 else ''}" if errores[0].nivel == ERROR else f"{n} aviso{'s' if n != 1 else ''}")
+            self.dock.warn(f"Comparación con el Catastro: {que} · {texto}\n"
                            + "\n".join(i.mensaje for i in errores))
         else:
-            self.dock.success(f"Comparación con el Catastro: {texto}. Contorno coincidente")
+            self.dock.success(f"Comparación con el Catastro: {texto}" + ("" if comparacion.edificio else ". Contorno coincidente"))
         return comparacion
 
     def cargar_en_mapa(self, *args):
@@ -393,7 +406,7 @@ class TareaComparacion(QgsTask):
 
     def run(self):
         try:
-            self.comparacion = cmp.comparar(self.resultado_lectura)
+            self.comparacion = comparar(self.resultado_lectura)
         except Exception as e:  #Nunca debe cerrar QGIS: se informa como incidencia
             self.comparacion = cmp.Comparacion(incidencias=[Incidencia(AVISO, 'CMP-FALLO',
                                                                        f"No se ha podido comparar con el Catastro: {e}")])
@@ -463,12 +476,14 @@ def cargar_comparacion(comparacion, ruta, iface=None):
         raiz.removeChildNode(viejo)
     grupo = raiz.insertGroup(0, nombre)
     capas = []
-    for geometria, titulo, color in ((comparacion.exceso, "Exceso: fuera de las parcelas catastrales", '#e03131'),
+    exceso = "Fuera de la parcela catastral" if comparacion.edificio else "Exceso: fuera de las parcelas catastrales"
+    for geometria, titulo, color in ((comparacion.exceso, exceso, '#e03131'),
                                      (comparacion.defecto, "Defecto: parcela catastral sin cubrir", '#1971c2')):
         if geometria is not None:
             capas.append(estilos.capa_diferencia(geometria, comparacion.epsg, titulo, color))
     origen = gl.ResultadoLectura(version='CP 4.0', epsg=comparacion.epsg, elementos=list(comparacion.origen))
-    catastro = estilos.aplicar(gl.capa(origen, "Catastro vigente (parcelas afectadas)"),
+    titulo = "Catastro vigente (parcela)" if comparacion.edificio else "Catastro vigente (parcelas afectadas)"
+    catastro = estilos.aplicar(gl.capa(origen, titulo),
                                {gl.PARCELA: estilos.COLOR_COLINDANTES}, campo_etiqueta='label')
     metadatos = catastro.metadata()
     metadatos.setRights([f"© {FUENTE_DGC}"])
