@@ -75,17 +75,18 @@ multipoligono = (fid_m is not None and multi.featureCount() == 1 and tipo_m == a
 multi.rollBack()
 
 # 2. Pestaña Parcela: botón, agrupación propuesta (mitades iguales) y tabla resultante
-agrupar = capa('agrupar', [(rect(X0, Y0, 20, 30), '1907401VK4810H'), (rect(X0 + 20, Y0, 20, 30), '1907402VK4810H')])
+agrupar = capa('agrupar', [(rect(X0, Y0, 20, 30), '1907401VK4810H'), (rect(X0 + 20, Y0, 20, 30), '1907402VK4810H'),
+                           (rect(X0 + 100, Y0, 10, 10), '1907409VK4810H')])  #Otra parcela de la capa, no seleccionada
 dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
 pt = dw.pestanaParcela
 pt.capaCombo.setLayer(agrupar)
 desactivado = not pt.unirBoton.isEnabled()
-agrupar.selectAll()
+agrupar.selectByIds(ids(agrupar, ['1907401VK4810H', '1907402VK4810H']))
 activado = pt.unirBoton.isEnabled()
 pt.unirBoton.click()
 filas = [(pt.tabla.item(i, pp.COL_ID).text(), pt.namespace_fila(i)) for i in range(pt.tabla.rowCount())]
 barra = ' '.join(e.text() for e in dw.messageBar.currentItem().findChildren(QLabel)) if dw.messageBar.currentItem() else ''
-interfaz = (desactivado and activado and agrupar.featureCount() == 1 and pt.tipo_alteracion() == alt.AGRUPACION
+interfaz = (desactivado and activado and agrupar.featureCount() == 2 and pt.soloSeleccion.isChecked() and pt.tipo_alteracion() == alt.AGRUPACION
             and filas == [('Agrupa_1', 'LOCAL')] and 'Unidas 2 parcelas en una de 1200 m²' in barra
             and 'propuesta: Agrupación' in barra and 'no llega al 80 %' in barra and not pt.unirBoton.isEnabled()
             and dw.messageBar.currentItem().level() == Qgis.MessageLevel.Success

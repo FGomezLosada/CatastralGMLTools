@@ -264,12 +264,17 @@ class PestanaParcela(QWidget):
         if fid is None:
             self.dock.warn("\n".join(i.mensaje for i in incidencias))
             return None
+        #El GML de una agregación o agrupación lleva solo la parcela resultante (que queda seleccionada): la tabla pasa a
+        #«Solo los elementos seleccionados» para no aplicar la operación a las demás parcelas de la capa
+        self.soloSeleccion.blockSignals(True)
+        self.soloSeleccion.setChecked(True)
+        self.soloSeleccion.blockSignals(False)
         self.recargar()
         if tipo:
             self.alteracion.setCurrentIndex(alt.TIPOS.index(tipo))  #Lanza aplicar_alteracion
         self.actualizar_unir()
         notas = ''.join(f". {i.mensaje}" for i in incidencias[1:])  #Notas informativas, no avisos: el mensaje sigue en verde
-        self.dock.success(incidencias[0].mensaje + f" · propuesta: {alt.NOMBRES[tipo]}{notas}. La capa queda en edición "
+        self.dock.success(incidencias[0].mensaje + f" · propuesta: {alt.NOMBRES[tipo]}{notas}. La tabla muestra solo la parcela unida. La capa queda en edición "
                           "(Ctrl+Z deshace; guarde la capa para conservarla)")
         return fid
 
