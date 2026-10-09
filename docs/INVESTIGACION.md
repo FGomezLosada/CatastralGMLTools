@@ -122,6 +122,14 @@ Navarra no aparece en el material del curso: su investigación sigue pendiente (
 
 **Comprobaciones conocidas del ICUC:** máx. **60 ficheros** por solicitud, sin nombres repetidos; identificadores no vacíos ni repetidos; huso obligatorio e igual en todas las geometrías; geometrías no vacías, cerradas, con ≥4 puntos de 2 coordenadas; sin superposición entre construcciones; distancia máxima a la parcela **100 m**; parcelas BICE excluidas. El ICUC no admite aportar geometría de parcela: se trabaja con la parcela catastral vigente (por RC).
 
+**Resultado del ICUC** (FAQ Catastro-Registro de la DGC, «¿Qué es el informe catastral de ubicación de construcciones?», y
+un ICUC positivo real): positivo si las construcciones están «efectivamente ubicadas en su integridad dentro de la parcela
+catastral consignada, no extralimitándola»; si no, negativo, con la superficie de la huella y la de exceso marcadas. Con
+solapes entre construcciones o a más de 100 m (entre los puntos más cercanos de los contornos) el proceso se detiene sin
+informe. Si la cartografía catastral está desplazada, el GML va en la posición real y en el ICUC se indica el
+desplazamiento (CX, CY o los 6 parámetros afines) (`ICUC_desp.htm`). El manual de Check4SEC (DGC) comprueba también el
+tipo (BU/PI), los solapes y que la parcela contiene cada huella (verde/rojo).
+
 ---
 
 ## 3. Servicios del Catastro
@@ -245,6 +253,8 @@ se quita `gml:boundedBy`; srsName `urn:ogc:def:crs:EPSG::258xx` → `http://www.
 - IVGA (DGC): https://www.catastro.hacienda.gob.es/asistente_catreg/img/IVGA.pdf
 - Formato GML de edificio (DGC): https://www.catastro.hacienda.gob.es/documentos/formatos_intercambio/Formato%20GML%20edificio.pdf
 - Ayuda ICUC: https://www.catastro.hacienda.gob.es/ayuda/vga/ayuda_ICUC.htm
+- Desplazamiento de la cartografía en el ICUC: https://www.catastro.hacienda.gob.es/ayuda/vga/ICUC_desp.htm
+- Preguntas y respuestas acerca de la coordinación Catastro-Registro (DGC), PDF facilitado por el usuario
 - Diferencias esquemas 3.0 y 4.0: https://www.idee.es/resources/documentos/blog/Diferencias_GML_parcela_3_4.pdf
 - Limitación al esquema 4.0 (blog IDEE): https://blog-idee.blogspot.com/2025/01/limitacion-de-archivos-gml-de-parcela.html
 - WFS CP: https://www.catastro.hacienda.gob.es/webinspire/documentos/inspire-cp-WFS.pdf · WFS BU: https://www.catastro.hacienda.gob.es/webinspire/documentos/inspire-bu-wfs.pdf

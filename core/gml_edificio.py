@@ -11,7 +11,8 @@ Reglas del documento de la DGC (docs/INVESTIGACION.md §7.2):
   - exterior horario, huecos antihorarios, sin autointersecciones, 2 decimales, anillos cerrados;
   - SRC 25829, 25830, 25831 o 32628 (srsName urn:ogc:def:crs:EPSG::xxxxx, como el ejemplo oficial);
   - conditionOfConstruction: declined, demolished, functional, projected, ruin o underConstruction;
-  - numberOfFloorsAboveGround: plantas sobre rasante (la máxima si varía); horizontalGeometryEstimatedAccuracy en m.
+  - numberOfFloorsAboveGround: plantas sobre rasante (la máxima si varía), OBLIGATORIO en el esquema de la DGC (sin él,
+    «Missing child element(s)»); horizontalGeometryEstimatedAccuracy en m.
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
@@ -23,7 +24,7 @@ from xml.sax.saxutils import escape, quoteattr
 
 from . import geometria as geo
 from . import refcat
-from .incidencias import AVISO, ERROR, Incidencia, hay_errores
+from .incidencias import ERROR, Incidencia, hay_errores
 
 EDIFICIO = 'edificio'
 PISCINA = 'piscina'
@@ -175,8 +176,8 @@ def comprobar(construcciones, epsg):
             except (TypeError, ValueError):
                 incidencias.append(Incidencia(ERROR, 'BU-PLANTAS', f"Plantas sobre rasante no válidas: {c.plantas}", nombre))
         if c.tipo == EDIFICIO and c.plantas in (None, ''):
-            incidencias.append(Incidencia(AVISO, 'BU-SIN-PLANTAS', "No se indica el número de plantas sobre rasante",
-                                          nombre))
+            incidencias.append(Incidencia(ERROR, 'BU-SIN-PLANTAS', "Falta el número de plantas sobre rasante: es obligatorio "
+                                                                   "en el esquema de edificio de la DGC", nombre))
         recintos, inc = geo.preparar(c.geometria, nombre)
         #El edificio admite varios recintos (huella de construcciones separadas); la piscina, uno
         incidencias += [i for i in inc if not (i.codigo == 'GEO-MULTIPARTE' and c.tipo == EDIFICIO)]

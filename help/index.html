@@ -95,14 +95,21 @@ sin vuelos, terrazas ni balcones). Tras descargar una parcela con sus construcci
 esta pestaña. Escriba la referencia catastral de la parcela (o, si aún no existe, su identificador en la escritura): los
 identificadores se proponen como pide la Dirección General del Catastro, la referencia si hay un solo edificio y
 <code>RC_Edificio_1</code>, <code>RC_Edificio_2</code>… si hay varios; las piscinas, <code>RC_Piscina_1</code>…</p>
+<p>Si la parcela no tiene construcciones en el Catastro (o son otras), pulse <strong>Dibujar huellas</strong>: se crea una
+capa temporal en edición y se activa la herramienta de dibujo; al cerrar cada polígono elija si es edificio o piscina y sus
+plantas. La tabla se actualiza sola. No elija la capa de la parcela: sus polígonos son parcelas, no huellas.</p>
 <p>En la tabla puede cambiar el <strong>tipo</strong> (edificio o piscina), las <strong>plantas sobre rasante</strong> (la
-máxima si varía) y el identificador. Un edificio puede tener varias partes (toda su huella); cada piscina, una sola.
+máxima si varía; son obligatorias en los edificios) y el identificador. Un edificio puede tener varias partes (toda su huella); cada piscina, una sola.
 Elija el <strong>estado</strong> (terminado, en construcción, proyectado…), la fecha, el SRC y el fichero, y pulse
 <strong>Crear GML</strong>. El fichero se escribe en ISO-8859-1, como el ejemplo oficial.</p>
 <p>Con el botón <strong>Validar</strong> del resultado se abre en la pestaña Validar. Allí, <strong>Comparar con el
-Catastro</strong> sitúa cada construcción respecto a la parcela catastral vigente, como el ICUC: dentro (bien), en parte
-fuera (aviso: el informe lo reflejará) o a más de 100 m (error: el ICUC no la admite). Los solapes entre construcciones
-los marca el validador.</p>
+Catastro</strong> sitúa cada construcción respecto a la parcela catastral vigente, como el ICUC: entera dentro (informe
+positivo), en parte fuera (informe negativo: el ICUC exige que esté «en su integridad» dentro de la parcela, sin
+extralimitarla) o a más de 100 m (no se emite informe). Si hay solapes entre construcciones tampoco hay informe; los marca
+el validador.</p>
+<p>Si la cartografía catastral está desplazada respecto a la realidad, el GML lleva las construcciones en su posición real y
+el desplazamiento se indica en el propio ICUC («¿Existe desplazamiento de la cartografía?», parámetros CX y CY), según la
+ayuda de la Sede. Las parcelas con bienes de características especiales (BICE) no tienen ICUC.</p>
 
 <h2>Unir varios GML (multiparcela)</h2>
 <p>En la pestaña <strong>Utilidades</strong>, añada (o arrastre) dos o más GML de parcela, elija el fichero de salida y pulse
