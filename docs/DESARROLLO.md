@@ -86,8 +86,10 @@ Decisiones técnicas:
 | 9 | Conversor 3.0 → 4.0 y reparación | — |
 | 10 | División de parcelas | — |
 | 11 | Informe de superficies y coordenadas | — |
-| 12 | Processing | — |
-| 13 | Documentación, capturas, traducción, ZIP para compañeros y publicación estable | — |
+| 12 | Manual de usuario detallado con capturas reales (mejora 28) y campaña de pruebas a mano de todo el plugin | — |
+| 13 | Revisión de usabilidad: reorganizar el panel para que sea sencillo y se entienda (docs/USABILIDAD.md), con lo aprendido en las pruebas | — |
+| 14 | Opcionales, según se decida tras la revisión: Processing (26) y traducción (27) | — |
+| 15 | README con capturas, ZIP para compañeros y publicación estable (mejora 29) | — |
 
 ---
 
