@@ -100,13 +100,19 @@ capa temporal en edición y se activa la herramienta de dibujo; al cerrar cada p
 plantas. La tabla se actualiza sola. No elija la capa de la parcela: sus polígonos son parcelas, no huellas.</p>
 <p>En la tabla puede cambiar el <strong>tipo</strong> (edificio o piscina), las <strong>plantas sobre rasante</strong> (la
 máxima si varía; son obligatorias en los edificios) y el identificador. Un edificio puede tener varias partes (toda su huella); cada piscina, una sola.
-Elija el <strong>estado</strong> (terminado, en construcción, proyectado…), la fecha, el SRC y el fichero, y pulse
-<strong>Crear GML</strong>. El fichero se escribe en ISO-8859-1, como el ejemplo oficial.</p>
+Cada edificio lleva su <strong>estado</strong> en la tabla (terminado, en construcción, proyectado…; las piscinas no lo
+llevan). Elija la fecha, el SRC y el fichero, y pulse <strong>Crear GML</strong>. El fichero se escribe en ISO-8859-1, como el ejemplo oficial.</p>
 <p>Con el botón <strong>Validar</strong> del resultado se abre en la pestaña Validar. Allí, <strong>Comparar con el
 Catastro</strong> sitúa cada construcción respecto a la parcela catastral vigente, como el ICUC: entera dentro (informe
 positivo), en parte fuera (informe negativo: el ICUC exige que esté «en su integridad» dentro de la parcela, sin
 extralimitarla) o a más de 100 m (no se emite informe). Si hay solapes entre construcciones tampoco hay informe; los marca
 el validador.</p>
+<p><strong>Cuándo está listo.</strong> Cuando en Validar no hay errores (el esquema XSD se comprueba solo al abrir el
+fichero) y «Comparar con el Catastro» dice que todas las construcciones están dentro de la parcela, el panel muestra
+«Listo para el ICUC». Entonces, en la Sede Electrónica del Catastro (con certificado, DNI electrónico o Cl@ve), abra el
+«Informe catastral de ubicación de las construcciones», indique los 14 primeros caracteres de la referencia de la parcela,
+rellene los datos del técnico y de la obra y suba el fichero <code>…_edificio.gml</code> creado por el plugin (no una capa
+guardada desde QGIS). El informe que emite la Sede va firmado: use solo construcciones reales.</p>
 <p>Si la cartografía catastral está desplazada respecto a la realidad, el GML lleva las construcciones en su posición real y
 el desplazamiento se indica en el propio ICUC («¿Existe desplazamiento de la cartografía?», parámetros CX y CY), según la
 ayuda de la Sede. Las parcelas con bienes de características especiales (BICE) no tienen ICUC.</p>

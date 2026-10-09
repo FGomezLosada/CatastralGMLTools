@@ -29,6 +29,7 @@ class FilaConstruccion:
     geometria: QgsGeometry      #En el SRC de la capa
     partes: int = 1
     referencia: str = ''        #Referencia de parcela deducida de la entidad (o '')
+    estado: str = 'functional'  #conditionOfConstruction (campo «estado» de la capa, si lo tiene)
 
 
 def _campo(capa, nombres):
@@ -49,14 +50,21 @@ def es_capa_de_parcelas(capa):
 def nueva_capa_huellas(crs, nombre="Huellas de construcciones"):
     """
     Capa temporal para dibujar las huellas: campos tipo (edificio o piscina, con lista desplegable) y plantas (sobre
-    rasante). Cada polígono nuevo es un edificio salvo que se elija piscina en el formulario.
+    rasante) y estado del edificio (terminado, en construcción…). Cada polígono nuevo es un edificio terminado salvo que
+    se elija otra cosa en el formulario.
     """
-    capa = QgsVectorLayer(f"Polygon?crs={crs.authid()}&field=tipo:string(20)&field=plantas:integer", nombre, 'memory')
+    capa = QgsVectorLayer(f"Polygon?crs={crs.authid()}&field=tipo:string(20)&field=plantas:integer&field=estado:string(20)",
+                          nombre, 'memory')
     i_tipo = capa.fields().indexOf('tipo')
     capa.setEditorWidgetSetup(i_tipo, QgsEditorWidgetSetup('ValueMap', {'map': [{'Edificio': ge.EDIFICIO},
                                                                                 {'Piscina': ge.PISCINA}]}))
     capa.setDefaultValueDefinition(i_tipo, QgsDefaultValue(f"'{ge.EDIFICIO}'"))
     capa.setFieldAlias(capa.fields().indexOf('plantas'), 'Plantas sobre rasante')
+    i_estado = capa.fields().indexOf('estado')
+    capa.setEditorWidgetSetup(i_estado, QgsEditorWidgetSetup('ValueMap', {'map': [{ge.NOMBRES_CORTOS[e]: e}
+                                                                                  for e in ge.ESTADOS]}))
+    capa.setDefaultValueDefinition(i_estado, QgsDefaultValue("'functional'"))
+    capa.setFieldAlias(i_estado, 'Estado (edificios)')
     return capa
 
 
@@ -97,8 +105,10 @@ def leer_capa(capa, solo_seleccion=False, campo_plantas_=''):
         plantas = _entero(entidad[campo_plantas_]) if campo_plantas_ and tipo == ge.EDIFICIO else None
         rc = refcat.limpiar(valores['id'])[:14]
         partes = 0 if geometria.isNull() else len(geometria.asGeometryCollection()) if geometria.isMultipart() else 1
+        estado = _texto(entidad['estado']) if 'estado' in nombres else ''
         filas.append(FilaConstruccion(entidad.id(), tipo, plantas, geometria, partes,
-                                      rc if refcat.es_rc_parcela(rc) else ''))
+                                      rc if refcat.es_rc_parcela(rc) else '',
+                                      estado if estado in ge.ESTADOS else 'functional'))
     return filas
 
 
@@ -116,8 +126,8 @@ def area_m2(fila, crs, epsg):
     return sum(r.area_m2() for r in recintos) if recintos else None
 
 
-def a_construcciones(filas, ids, tipos, plantas, estado, crs, epsg):
-    """Construccion del GML (geometría transformada al EPSG del fichero) con lo que haya en la tabla."""
+def a_construcciones(filas, ids, tipos, plantas, estados, crs, epsg):
+    """Construccion del GML (geometría transformada al EPSG del fichero) con lo que haya en la tabla (estado por fila)."""
     return [ge.Construccion(local_id, geo.transformar(f.geometria, crs, epsg), tipo, planta if tipo == ge.EDIFICIO else None,
                             estado)
-            for f, local_id, tipo, planta in zip(filas, ids, tipos, plantas)]
+            for f, local_id, tipo, planta, estado in zip(filas, ids, tipos, plantas, estados)]

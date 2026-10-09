@@ -90,14 +90,15 @@ pe.tabla.cellWidget(2, pe_mod.COL_TIPO).setCurrentIndex(0)
 # 3. Crear GML y abrirlo en Validar
 salida = os.path.join(carpeta, 'edificio.gml')
 pe.destino.setFilePath(salida)
-pe.estado.setCurrentIndex(pe.estado.findData('underConstruction'))
+pe.tabla.cellWidget(2, pe_mod.COL_OBRA).setCurrentIndex(ge.ESTADOS.index('underConstruction'))  #Estado por edificio
+obras = (not pe.tabla.cellWidget(1, pe_mod.COL_OBRA).isEnabled() and pe.tabla.cellWidget(0, pe_mod.COL_OBRA).isEnabled())
 creado = pe.crear_gml()
 lectura = gl.leer(salida) if creado else None
 contenido = lectura.datos.decode('iso-8859-1') if lectura else ''
 texto_barra = barra(dw)
 crear = (creado == salida and lectura.version == 'BU 2.0' and len(lectura.elementos) == 3
          and [e.plantas for e in lectura.elementos] == [2, None, 1]
-         and 'underConstruction' in contenido
+         and obras and contenido.count('>underConstruction<') == 1 and contenido.count('>functional<') == 1
          and 'GML de edificio creado: edificio.gml · 2 edificios y 1 piscina · EPSG:25830' in texto_barra
          and pe.tabla.item(0, pe_mod.COL_ESTADO).text() == 'Correcta')
 pe.validar()
@@ -109,7 +110,7 @@ boton_cmp = pv.cmpBoton.isEnabled()
 # 4. ICUC: todas dentro de la parcela
 dentro = pv.comparar_catastro(segundo_plano=False)
 icuc_dentro = (dentro is not None and dentro.edificio and codigos(dentro.incidencias) == ['CMP-BU-DENTRO']
-               and 'Construcciones dentro de la parcela' in barra(dw)
+               and 'Construcciones dentro de la parcela' in barra(dw) and 'Listo para el ICUC' in barra(dw)
                and QgsProject.instance().layerTreeRoot().findGroup('Comparación edificio') is not None)
 
 # 5. Una construcción que sale de la parcela
@@ -155,7 +156,7 @@ nueva = (huellas.isEditable() and pe.capa() is huellas and huellas.name() == f"H
 for geometria, tipo in ((wkt(X0 + 22, Y0 + 2, 5, 3), ge.PISCINA), (wkt(X0 + 30, Y0 + 5, 6, 8), ge.EDIFICIO)):
     f = QgsFeature(huellas.fields())
     f.setGeometry(QgsGeometry.fromWkt(geometria))
-    f.setAttributes([tipo, None])
+    f.setAttributes([tipo, None, 'functional'])
     huellas.addFeature(f)
 dibujadas = ([pe.tipo_fila(i) for i in range(pe.tabla.rowCount())] == [ge.PISCINA, ge.EDIFICIO]
              and [pe.tabla.item(i, pe_mod.COL_ID).text() for i in range(pe.tabla.rowCount())] == [f'{RC2}_Piscina_1', RC2])
@@ -176,7 +177,7 @@ checks = {
     "pestaña Edificio integrada (empieza sin capa)": integrada,
     "capa descargada: referencia, tipos, plantas e identificadores DGC": propuesta,
     "cambiar el tipo renumera los identificadores": cambio_tipo,
-    "Crear GML: fichero, estado y resultado en la barra": crear,
+    "Crear GML: fichero, estado por edificio y resultado en la barra": crear,
     "botón Validar: abre el GML y permite comparar": abierto and boton_cmp,
     "ICUC: construcciones dentro de la parcela": icuc_dentro,
     "ICUC: en parte fuera y a más de 100 m (errores) y sin referencia": icuc_fuera,

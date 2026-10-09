@@ -33,6 +33,8 @@ ESTADOS = ('functional', 'underConstruction', 'projected', 'declined', 'ruin', '
 NOMBRES_ESTADO = {'functional': 'Terminado (functional)', 'underConstruction': 'En construcción (underConstruction)',
                   'projected': 'Proyectado (projected)', 'declined': 'Deteriorado (declined)', 'ruin': 'En ruina (ruin)',
                   'demolished': 'Demolido (demolished)'}
+NOMBRES_CORTOS = {'functional': 'Terminado', 'underConstruction': 'En construcción', 'projected': 'Proyectado',
+                  'declined': 'Deteriorado', 'ruin': 'En ruina', 'demolished': 'Demolido'}
 ID_VALIDO = re.compile(r'^[A-Za-z0-9_.\-]+$')
 NS = {
     'base': 'urn:x-inspire:specification:gmlas:BaseTypes:3.2',

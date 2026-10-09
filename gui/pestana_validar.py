@@ -384,9 +384,18 @@ class PestanaValidar(QWidget):
             que = (f"{n} error{'es' if n != 1 else ''}" if errores[0].nivel == ERROR else f"{n} aviso{'s' if n != 1 else ''}")
             self.dock.warn(f"Comparación con el Catastro: {que} · {texto}\n"
                            + "\n".join(i.mensaje for i in errores))
+        elif comparacion.edificio and not any(i.nivel == ERROR for i in self.informe.incidencias):
+            rc = comparacion.origen[0].local_id if comparacion.origen else ''
+            self.dock.success(f"{texto}. Listo para el ICUC: en la Sede Electrónica del Catastro, «Informe catastral de "
+                              f"ubicación de las construcciones», indique la parcela {rc} y suba "
+                              f"{os.path.basename(self.ruta)}", [("Abrir carpeta", self.abrir_carpeta_gml)])
         else:
             self.dock.success(f"Comparación con el Catastro: {texto}" + ("" if comparacion.edificio else ". Contorno coincidente"))
         return comparacion
+
+    def abrir_carpeta_gml(self, *args):
+        if self.ruta:
+            self.dock.open_path(os.path.dirname(self.ruta))
 
     def cargar_en_mapa(self, *args):
         """Añade el GML al proyecto como capa de memoria con estilo y acerca el mapa a ella."""
