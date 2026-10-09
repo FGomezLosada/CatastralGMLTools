@@ -145,7 +145,27 @@ else:
                and (e.area_declarada or 0) > 0 and real.parcela.version == 'CP 4.0')
     modo = "con conexión: servicio real comprobado"
 
+#Plantas: el WFS de la DGC deja vacías las del edificio y las da en sus partes (BuildingPart); se toma la máxima
+PARTES = ('<?xml version="1.0" encoding="ISO-8859-1"?><gml:FeatureCollection xmlns:gml="http://www.opengis.net/gml/3.2" '
+          'xmlns:bu-ext2d="http://inspire.jrc.ec.europa.eu/schemas/bu-ext2d/2.0" xmlns:bu-core2d="http://inspire.jrc.ec.europa.eu/schemas/bu-core2d/2.0" '
+          'xmlns:base="urn:x-inspire:specification:gmlas:BaseTypes:3.2">{}</gml:FeatureCollection>')
+PARTE = ('<gml:featureMember><bu-ext2d:BuildingPart gml:id="ES.SDGC.BU.X_part{n}"><bu-core2d:inspireId><base:Identifier>'
+         '<base:localId>X_part{n}</base:localId></base:Identifier></bu-core2d:inspireId><bu-ext2d:geometry><gml:Polygon '
+         'srsName="urn:ogc:def:crs:EPSG::25830"><gml:exterior><gml:LinearRing><gml:posList>{c}</gml:posList></gml:LinearRing>'
+         '</gml:exterior></gml:Polygon></bu-ext2d:geometry><bu-ext2d:numberOfFloorsAboveGround>{p}</bu-ext2d:numberOfFloorsAboveGround>'
+         '</bu-ext2d:BuildingPart></gml:featureMember>')
+X0, Y0 = 421500, 4070500
+cuadro = lambda x, y, a: f"{x} {y} {x} {y + a} {x + a} {y + a} {x + a} {y} {x} {y}"  # noqa: E731
+from catastral_gml_tools.core import gml_lector as gl  # noqa: E402
+from qgis.core import QgsGeometry  # noqa: E402
+partes = gl.leer_partes(PARTES.format(PARTE.format(n=1, c=cuadro(X0, Y0, 5), p=1) + PARTE.format(n=2, c=cuadro(X0 + 5, Y0, 5), p=2)
+                                      + PARTE.format(n=3, c=cuadro(X0 + 50, Y0, 5), p=7)).encode('latin-1'))
+edificio = gl.ElementoGML(gl.EDIFICIO, 'X', 'ES.SDGC.BU', QgsGeometry.fromWkt(f"POLYGON(({X0} {Y0}, {X0 + 10} {Y0}, {X0 + 10} {Y0 + 5}, {X0} {Y0 + 5}, {X0} {Y0}))"))
+servicios.plantas_de_partes([edificio], partes)
+plantas_partes = [p.plantas for p in partes] == [1, 2, 7] and edificio.plantas == 2 and 'GetBuildingPartByParcel' in servicios.url_partes(sim.RC)
+
 checks = {
+    "plantas del edificio: la máxima de sus partes (BuildingPart)": plantas_partes,
     "direcciones https de los servicios (WFS CP, WFS BU y RCCOOR)": direcciones,
     "descarga la parcela con su superficie y el huso 30": completa,
     "colindantes (tocan la parcela) y entorno (a menos de 25 m), por geometría": colindantes,

@@ -95,6 +95,11 @@ def url_edificios(rc, epsg=EPSG_INICIAL):
     return _wfs(WFS_BU, 'GetBuildingByParcel', rc, epsg)
 
 
+def url_partes(rc, epsg=EPSG_INICIAL):
+    """Partes de los edificios (BuildingPart): traen las plantas sobre rasante, que el edificio deja vacías."""
+    return _wfs(WFS_BU, 'GetBuildingPartByParcel', rc, epsg)
+
+
 def url_otras(rc, epsg=EPSG_INICIAL):
     return _wfs(WFS_BU, 'GetOtherBuildingByParcel', rc, epsg)
 
@@ -236,6 +241,9 @@ def descargar(rc, colindantes=True, construcciones=True, epsg=None, ahora=None):
         _vecinas(descarga, parcela.elementos[0].geometria, pedido)
     if construcciones:
         edificios, errores = consultar_wfs(url_edificios(descarga.rc, pedido), "los edificios")
+        if edificios is not None and any(e.plantas is None for e in edificios.elementos if e.tipo == gl.EDIFICIO):
+            datos, error = pedir(url_partes(descarga.rc, pedido))
+            plantas_de_partes(edificios.elementos, [] if error else gl.leer_partes(datos))
         otras, errores_otras = consultar_wfs(url_otras(descarga.rc, pedido), "las otras construcciones")
         descarga.incidencias += [Incidencia(AVISO, i.codigo, i.mensaje) for i in errores + errores_otras]
         juntas = edificios or otras
@@ -247,6 +255,21 @@ def descargar(rc, colindantes=True, construcciones=True, epsg=None, ahora=None):
 
     _resumen(descarga, colindantes, construcciones)
     return descarga
+
+
+def plantas_de_partes(edificios, partes):
+    """
+    El WFS de la DGC deja vacías las plantas del edificio (numberOfFloorsAboveGround nil) y las da en sus partes
+    (GetBuildingPartByParcel, una por volumen: «RC_part1»…). Para el GML de edificio vale la máxima: se pone en cada
+    edificio sin plantas la máxima de las partes que caen dentro de él (comprobado con 2082107VF2628S el 09/10/2026).
+    """
+    for edificio in edificios:
+        if edificio.tipo != gl.EDIFICIO or edificio.plantas is not None or edificio.geometria.isEmpty():
+            continue
+        dentro = [p.plantas for p in partes if p.plantas is not None and not p.geometria.isEmpty()
+                  and edificio.geometria.intersection(p.geometria).area() > 0.5 * min(p.geometria.area(), 1.0)]
+        if dentro:
+            edificio.plantas = max(dentro)
 
 
 def _resumen(descarga, colindantes, construcciones):
