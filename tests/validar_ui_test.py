@@ -89,11 +89,12 @@ sin_avisos = (dw.messageBar.currentItem() is None and pv.cargarBoton.isEnabled()
 
 # 2. Cargar en el mapa: capa con estilo por tipo y etiquetas, sin .gfs
 antes = len(QgsProject.instance().mapLayers())
-capa = pv.cargarBoton.click() or [c for c in QgsProject.instance().mapLayers().values() if c.name() == 'segregacion']
+capa = pv.cargarBoton.click() or [c for c in QgsProject.instance().mapLayers().values() if c.name() == 'segregacion (vista del GML)']
 capa = capa[0] if capa else None
 cargada = (capa is not None and len(QgsProject.instance().mapLayers()) == antes + 1 and capa.featureCount() == 2
            and capa.renderer().type() == 'categorizedSymbol' and capa.labelsEnabled()
-           and not os.path.exists(os.path.join(carpeta, 'segregacion.gfs')))
+           and not os.path.exists(os.path.join(carpeta, 'segregacion.gfs'))
+           and 'no guarde esta capa' in capa.metadata().abstract())
 
 # 3. Superficie declarada que no coincide: en rojo en la tabla y aviso (la Sede ya no lo comprueba)
 pv.fichero.setFilePath(alterado)
