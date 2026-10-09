@@ -18,7 +18,7 @@ import sys
 import time
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PRUEBAS = ['smoke_test.py', 'package_test.py', 'refcat_test.py', 'geometria_test.py', 'gml_parcela_test.py', 'parcela_ui_test.py', 'gml_lector_test.py', 'validar_ui_test.py', 'validador_test.py', 'esquemas_test.py', 'informe_test.py', 'servicios_test.py', 'descargar_ui_test.py', 'comparacion_test.py']
+PRUEBAS = ['smoke_test.py', 'package_test.py', 'refcat_test.py', 'geometria_test.py', 'gml_parcela_test.py', 'parcela_ui_test.py', 'gml_lector_test.py', 'validar_ui_test.py', 'validador_test.py', 'esquemas_test.py', 'informe_test.py', 'servicios_test.py', 'descargar_ui_test.py', 'comparacion_test.py', 'alteraciones_test.py']
 ESPERA = 600  #Segundos máximos por prueba
 MODULO = 'catastral_gml_tools'  #Nombre con el que QGIS carga el plugin
 

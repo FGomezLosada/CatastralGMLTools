@@ -18,7 +18,7 @@ from qgis.core import (
     QgsProject,
     QgsVectorLayer,
 )
-from qgis.PyQt.QtCore import QDate
+from qgis.PyQt.QtCore import QDate, QDateTime, QTime
 from qgis.PyQt.QtWidgets import QLabel, QMessageBox, QPushButton
 
 qgis.utils.reloadPlugin('catastral_gml_tools')
@@ -93,7 +93,7 @@ label_renombrado = pt.tabla.item(1, pp.COL_LABEL).text() == 'Seg_1' and pt.names
 pt.tabla.item(2, pp.COL_ID).setText('Seg_2')
 label_respetado = pt.tabla.item(2, pp.COL_LABEL).text() == '7'  #Lo puso el usuario (campo num): no se toca
 area_tabla = [pt.tabla.item(i, pp.COL_AREA).text() for i in range(pt.tabla.rowCount())]
-pt.fecha.setDate(QDate(2026, 10, 1))
+pt.fecha.setDateTime(QDateTime(QDate(2026, 10, 1), QTime(9, 30)))
 ruta = os.path.join(carpeta, 'segregacion.gml')
 pt.destino.setFilePath(ruta)
 pt.crear_gml()
@@ -106,7 +106,7 @@ fecha_gml = raiz.find('.//cp:beginLifespanVersion', NS).text if raiz is not None
 resultado = texto_barra(dw.messageBar)
 item = dw.messageBar.currentItem()
 botones = [b.text() for b in item.findChildren(QPushButton)] if item is not None else []
-gml_ok = (creado and locales == ['1907401VK4810H', 'Seg_1', 'Seg_2'] and fecha_gml == '2026-10-01T00:00:00'
+gml_ok = (creado and locales == ['1907401VK4810H', 'Seg_1', 'Seg_2'] and fecha_gml == '2026-10-01T09:30:00'
           and labels_gml == ['01', 'Seg_1', '7'] and areas_gml == area_tabla)
 barra_ok = ('GML creado: segregacion.gml' in resultado and '3 parcelas' in resultado and botones == ['Abrir carpeta', 'Cargar en el mapa']
             and item.level() == Qgis.MessageLevel.Success)
@@ -212,7 +212,13 @@ for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
 dw.deleteLater()
 
+from qgis.PyQt.QtWidgets import QHeaderView  # noqa: E402
+
+columnas = (all(pt.tabla.horizontalHeader().sectionResizeMode(c) == QHeaderView.ResizeMode.Interactive
+                for c in range(pt.tabla.columnCount()))
+            and pt.tabla.columnWidth(pp.COL_ID) >= 130 and pt.fecha.displayFormat() == 'dd/MM/yyyy HH:mm')
 checks = {
+    "columnas que se pueden ensanchar a mano y fecha con hora": columnas,
     "la pestaña Parcela sustituye al texto provisional": pestana_visible,
     "propone el campo refcat": campo_propuesto,
     "tabla: identificadores, namespaces, nº de parcela y superficies": tabla_ok,

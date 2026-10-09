@@ -81,7 +81,7 @@ Decisiones técnicas:
 | 4 | Lector y visor de GML | ✅ |
 | 5 | Validador e informe | ✅ |
 | 6 | Servicios: descarga por RC y RC por clic; Navarra y territorios forales | ✅ |
-| 7 | Alteraciones: asistente, multiparcela y unión | En curso (14 ✅) |
+| 7 | Alteraciones: asistente, multiparcela y unión | En curso (14 y 15 ✅) |
 | 8 | GML de edificio y comprobaciones ICUC | — |
 | 9 | Conversor 3.0 → 4.0 y reparación | — |
 | 10 | División de parcelas | — |
@@ -109,7 +109,7 @@ Decisiones técnicas:
 | 12 | Descarga por RC: parcela, colindantes y construcciones (WFS) con atribución a la DGC | Partir de la cartografía vigente | ✅ |
 | 13 | RC por clic en el mapa (Consulta_RCCOOR) | Comodidad | ✅ |
 | 14 | Comparación con la parcela de origen: parcelas sin cambios, contorno total (tolerancia ±1 cm en vértices: «IVG positivo cuando el contorno exterior resultante sea igual al original»), parcelas afectadas total o parcialmente (parcial → negativo), NPO, que las RC SDGC existan en el Catastro; avisos de tramitación no automática (esbeltez >15, distinto municipio, polígono o manzana, urbana y rústica mezcladas, diseminado, >30 parcelas por operación); dominio público catastrado afectado: debe ir en el GML delimitando la parte afectada (FAQ DGC); viales urbanos sin parcela: IVG negativo salvo cesión/incorporación con parcela LOCAL; avisar si la nueva geometría ocupa suelo sin parcela (vía pública) o parcelas no incluidas en el GML, o mueve un lindero con dominio público (con superficie en m² y zona en el mapa) | Simular comprobaciones de la SEC | ✅ |
-| 15 | Asistente de alteraciones: desplegable «Tipo de alteración» (segregación, división, agregación, agrupación, subsanación; umbrales del Reglamento Hipotecario como aviso: segregada <20 % de la matriz, resultantes de división y fincas agrupadas >1/5, agregación: principal ≥80 % según el documento de validación de la DGC o quíntuplo según el editor — E-17) que pone identificadores (`Seg_`, `Div_`, `Agrupa_`) y namespaces y comprueba la tabla NPO/NPP/namespace de la Sede. Mientras tanto, las parcelas nuevas se proponen como `Nueva_N` | Evitar errores de identificadores sin presuponer la alteración | |
+| 15 | Asistente de alteraciones: desplegable «Tipo de alteración» (segregación, división, agregación, agrupación, subsanación; umbrales del Reglamento Hipotecario como aviso: segregada <20 % de la matriz, resultantes de división y fincas agrupadas >1/5, agregación: principal ≥80 % según el documento de validación de la DGC o quíntuplo según el editor — E-17) que pone identificadores (`Seg_`, `Div_`, `Agrupa_`) y namespaces y comprueba la tabla NPO/NPP/namespace de la Sede. Mientras tanto, las parcelas nuevas se proponen como `Nueva_N` | Evitar errores de identificadores sin presuponer la alteración | ✅ |
 | 16 | Multiparcela: unir varios GML en uno | Equivalente a "multiparcela" | |
 | 17 | Unión/disolución de parcelas seleccionadas en una sola | Agregación y agrupación | |
 | 18 | Escritor GML de edificio (Building y OtherConstruction; ver INVESTIGACION §7.2: varios PolygonPatch por edificio, piscina con un Polygon, `conditionOfConstruction`, `numberOfFloorsAboveGround` máximo) | GML para el ICUC | |
@@ -122,7 +122,7 @@ Decisiones técnicas:
 | 25 | Informe de superficies y coordenadas (HTML/CSV), con superficie gráfica y diferencia con la catastral | Documentación técnica | |
 | 26 | Proveedor de Processing con los algoritmos principales | Modelos y lotes | |
 | 27 | Traducción al inglés (Qt Linguist) | Publicación internacional | |
-| 28 | Ayuda local HTML con ejemplos y avisos legales | Uso sin conexión | |
+| 28 | Manual de usuario detallado en la ayuda local (help/), una sección por pestaña y por operación (segregación, división, agregación, agrupación, subsanación, comparación, descarga, Navarra), con capturas reales hechas en QGIS 3.40 y 4.x con datos públicos; también en PDF para compañeros. Se hace al final, con la interfaz ya cerrada, para que las capturas no queden viejas | Uso sin conexión y formación | |
 | 29 | README con capturas reales, ZIP de prueba y publicación estable (`experimental=False` en 1.0.0) | Cierre | |
 | 30 | Navarra: investigar el formato y los servicios del Registro de la Riqueza Territorial (IDENA) e incorporar lo que admita (descarga y GML) | El plugin es para toda España | ✅ |
 | 32 | Lector del XML del informe de validación gráfica (IVG): cargar en QGIS las parcelas propuestas y las afectadas total y parcialmente (`parcelasGML`, `parcelasAfecT`, `parcelasAfectP`, ZIP en base64) | Revisar un IVG negativo sobre el mapa | |
@@ -164,6 +164,7 @@ Decisiones técnicas:
 | E-16 | Según el documento de validación de la DGC (IVG_Operaciones_Parcelario_GMLs, v2.3): la Sede **ya no compara `areaValue` con la geometría** (desde la v2.1) y, si hay más de 2 decimales, **solo tiene en cuenta los dos primeros** (trunca). El validador pasa SUP-DISTINTA a aviso; el escritor sigue poniendo la superficie de la geometría y 2 decimales | Resuelto |
 | E-17 | Umbral de la agregación: la DGC da dos cifras distintas, 80 % de la resultante (documento de validación) y quíntuplo de las agregadas, ≈83,3 % (guía GML y editor). Solo serán avisos (mejora 15) | Por confirmar |
 | E-18 | Navarra (07/10/2026): el Registro de la Riqueza Territorial publica parcelas y edificios en WFS INSPIRE (`inspire.navarra.es/services/CP/wfs` y `/BU/wfs`, CC BY 4.0, cita obligatoria «Servicio proporcionado por el Gobierno de Navarra»). Identificador de 9 dígitos, municipio (3) + polígono (2) + parcela (4), namespace `ES.RRTN.CP`; coordenadas con 3 decimales en EPSG:25830. La parcela se pide con un filtro FES `ResourceId` (`GetFeatureById` y `resourceId` dan error en ese servidor); Consulta_RCCOOR de la DGC devuelve en Navarra la referencia de 9 dígitos. No se ha encontrado un procedimiento equivalente al IVG ni un formato GML de alteraciones propio: el plugin descarga, pero no crea GML para Navarra (la pestaña Parcela lo impide con un aviso). País Vasco: solo se detecta | Decisión |
+| E-19 | La guía GML de la DGC pone `beginLifespanVersion` como `AAAA-MM-DDT00:00:00` y dice que la fecha es de libre elección «siempre y cuando se respete el formato». Desde el 09/10/2026 el plugin escribe también la hora (al minuto). Pendiente de confirmar con un GML subido a la Sede; si lo rechazara, se volvería a 00:00:00 | Por confirmar |
 | E-08 | El icono `mActionCheckGeometry.svg` no existe en QGIS 3.34: la pestaña Validar usa `algorithms/mAlgorithmCheckGeometry.svg` | Resuelto (0.1.0) |
 
 ---

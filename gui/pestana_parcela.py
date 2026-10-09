@@ -14,12 +14,12 @@ import re
 from qgis.core import Qgis, QgsApplication, QgsProject
 from qgis.gui import QgsFieldComboBox, QgsFileWidget, QgsMapLayerComboBox
 from qgis.PyQt import sip
-from qgis.PyQt.QtCore import QDate, Qt
+from qgis.PyQt.QtCore import QDateTime, QTime, Qt
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
     QComboBox,
-    QDateEdit,
+    QDateTimeEdit,
     QFormLayout,
     QHBoxLayout,
     QHeaderView,
@@ -31,10 +31,12 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
+from ..core import alteraciones as alt
 from ..core import capa_parcelas as cp
 from ..core import geometria as geo
 from ..core import gml_lector as gl
 from ..core import gml_parcela as gp
+from ..core import refcat
 from ..core.incidencias import AVISO, ERROR
 from .pestana_validar import cargar
 
@@ -60,6 +62,9 @@ class PestanaParcela(QWidget):
         self.dock = dock
         self.filas = []
         self.demasiadas = False
+        self.areas = []  #Superficie de cada fila en el SRC del GML (la calcula actualizar_superficies)
+        self.incidencias_alteracion = []
+        self.filas_capa = []
         self.labels_auto = []  #Por fila: True si el nº de parcela lo ha puesto el plugin (se recalcula al cambiar el id)
         self.ultimo_gml = ''
         self.capa_conectada = None
@@ -98,13 +103,24 @@ class PestanaParcela(QWidget):
         self.campoLabel.setToolTip("Campo con el número de parcela que se ve en el plano (opcional).\n"
                                    "Si se deja vacío, se deduce de la referencia catastral")
         formulario.addRow("Nº de parcela", self.campoLabel)
+
+        self.alteracion = QComboBox(self)
+        for tipo in alt.TIPOS:
+            self.alteracion.addItem(alt.NOMBRES[tipo], tipo)
+            self.alteracion.setItemData(self.alteracion.count() - 1, alt.AYUDA[tipo], Qt.ItemDataRole.ToolTipRole)
+        self.alteracion.setToolTip("Tipo de alteración: el plugin propone identificadores y namespaces y comprueba que "
+                                   "encajan con lo que espera la Sede")
+        formulario.addRow("Alteración", self.alteracion)
         principal.addLayout(formulario)
 
         self.tabla = QTableWidget(0, len(CABECERAS), self)
         self.tabla.setHorizontalHeaderLabels(CABECERAS)
         self.tabla.verticalHeader().setVisible(False)
         self.tabla.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.tabla.horizontalHeader().setSectionResizeMode(COL_ID, QHeaderView.ResizeMode.Stretch)
+        cabecera = self.tabla.horizontalHeader()
+        cabecera.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)  #Todas se pueden ensanchar arrastrando el borde
+        cabecera.setStretchLastSection(True)
+        cabecera.setMinimumSectionSize(40)
         self.tabla.setToolTip("Puede cambiar el identificador, el namespace y el número de parcela de cada fila.\n"
                               "SDGC: la parcela existe en el Catastro y se conserva su referencia (14 caracteres).\n"
                               "LOCAL: parcela nueva con un identificador propio (Seg_1, Div_1_1…).")
@@ -113,13 +129,19 @@ class PestanaParcela(QWidget):
         self.resumen = QLabel(self)
         self.resumen.setWordWrap(True)
         principal.addWidget(self.resumen)
+        self.alteracionInfo = QLabel(self)
+        self.alteracionInfo.setWordWrap(True)
+        self.alteracionInfo.hide()
+        principal.addWidget(self.alteracionInfo)
 
         salida = QFormLayout()
-        self.fecha = QDateEdit(QDate.currentDate(), self)
+        ahora = QDateTime.currentDateTime()
+        ahora.setTime(QTime(ahora.time().hour(), ahora.time().minute()))  #Al minuto, sin segundos
+        self.fecha = QDateTimeEdit(ahora, self)
         self.fecha.setCalendarPopup(True)
-        self.fecha.setDisplayFormat('dd/MM/yyyy')
-        self.fecha.setToolTip("Fecha del GML (beginLifespanVersion)")
-        salida.addRow("Fecha", self.fecha)
+        self.fecha.setDisplayFormat('dd/MM/yyyy HH:mm')
+        self.fecha.setToolTip("Fecha y hora del GML (beginLifespanVersion), en el formato AAAA-MM-DDThh:mm:ss")
+        salida.addRow("Fecha y hora", self.fecha)
 
         self.srcCombo = QComboBox(self)
         self.srcCombo.addItem("Automático (según la posición)", AUTOMATICO)
@@ -153,6 +175,7 @@ class PestanaParcela(QWidget):
         self.campoId.fieldChanged.connect(self.recargar)
         self.campoLabel.fieldChanged.connect(self.recargar)
         self.srcCombo.currentIndexChanged.connect(self.actualizar_superficies)
+        self.alteracion.currentIndexChanged.connect(self.alteracion_cambiada)
         self.tabla.itemSelectionChanged.connect(self.seleccionar_en_capa)
         self.tabla.itemChanged.connect(self.celda_cambiada)
         self.recargarBoton.clicked.connect(self.recargar)
@@ -254,8 +277,17 @@ class PestanaParcela(QWidget):
             estado = 'Varias partes' if fila.partes > 1 else ('Sin geometría' if fila.partes == 0 else '')
             self.tabla.item(i, COL_ESTADO).setText(estado)
         self.tabla.blockSignals(False)
-        self.tabla.resizeColumnToContents(COL_N)
+        self.ajustar_columnas()
+        self.areas = []
+        self.filas_capa = [f.local_id for f in self.filas]  #Identificadores tal como vienen de la capa
+        self.aplicar_alteracion()  #Si hay un tipo de alteración elegido, se propone también para la capa nueva
         self.actualizar_superficies()
+
+    def ajustar_columnas(self):
+        """Ancho de cada columna según su contenido (con un mínimo para el identificador); luego se puede cambiar a mano."""
+        self.tabla.resizeColumnsToContents()
+        self.tabla.setColumnWidth(COL_ID, max(self.tabla.columnWidth(COL_ID), 130))
+        self.tabla.setColumnWidth(COL_NS, max(self.tabla.columnWidth(COL_NS), 90))
 
     def epsg_salida(self):
         capa = self.capa()
@@ -268,10 +300,13 @@ class PestanaParcela(QWidget):
         capa = self.capa()
         epsg = self.epsg_salida()
         total = 0
+        self.areas = []
         for i, fila in enumerate(self.filas):
             area = cp.area_m2(fila, capa.crs(), epsg) if capa is not None else None
+            self.areas.append(area)
             self.tabla.item(i, COL_AREA).setText('' if area is None else miles(area))
             total += area or 0
+        self.mostrar_alteracion()
         if not self.filas:
             if capa is None:
                 texto = "<i>Elija una capa de polígonos con las parcelas.</i>"
@@ -289,6 +324,60 @@ class PestanaParcela(QWidget):
             origen = geo.epsg_de(capa.crs())
             texto += f" · EPSG:{epsg}" + ('' if origen == epsg else f" (se transforma desde {capa.crs().authid()})")
         self.resumen.setText(texto)
+
+    # ------------------------------------------------------------------ Asistente de alteraciones
+
+    def tipo_alteracion(self):
+        return self.alteracion.currentData() or alt.SIN_INDICAR
+
+    def alteracion_cambiada(self, *args):
+        """Al elegir el tipo de alteración se proponen identificadores y namespaces (respetando los del usuario)."""
+        self.aplicar_alteracion()
+        self.actualizar_superficies()
+
+    def aplicar_alteracion(self):
+        tipo = self.tipo_alteracion()
+        if tipo == alt.SIN_INDICAR or not self.filas:
+            return
+        ids = [self.tabla.item(i, COL_ID).text().strip() for i in range(len(self.filas))]
+        areas = getattr(self, 'areas', []) or [None if f.geometria is None else f.geometria.area() for f in self.filas]
+        if len(areas) != len(ids):
+            areas = [None if f.geometria is None else f.geometria.area() for f in self.filas]
+        self.tabla.blockSignals(True)
+        #La referencia original se toma de la capa: la tabla puede haberla perdido (p. ej. tras elegir «División»)
+        rc = next((i for i in self.filas_capa if refcat.es_rc_parcela(i)), '')
+        for i, (local_id, namespace) in enumerate(alt.proponer(tipo, ids, areas, rc)):
+            self.tabla.item(i, COL_ID).setText(local_id)
+            combo = self.tabla.cellWidget(i, COL_NS)
+            if combo is not None:
+                combo.blockSignals(True)
+                combo.setCurrentText(namespace)
+                combo.blockSignals(False)
+        self.tabla.blockSignals(False)
+        for i in range(len(self.filas)):
+            self.actualizar_label(i)
+
+    def mostrar_alteracion(self):
+        """Resumen de la operación elegida y avisos si la tabla no encaja con ella."""
+        tipo = self.tipo_alteracion()
+        n = len(self.filas)
+        if tipo == alt.SIN_INDICAR or not n:
+            self.alteracionInfo.hide()
+            self.incidencias_alteracion = []
+            return
+        ids = [self.tabla.item(i, COL_ID).text().strip() for i in range(n)]
+        nss = [self.namespace_fila(i) for i in range(n)]
+        areas = list(getattr(self, 'areas', [None] * n))
+        self.incidencias_alteracion = alt.comprobar(tipo, ids, nss, areas)
+        lineas = [f"<b>{alt.resumen(tipo, ids, nss, areas)}</b>"]
+        for inc in self.incidencias_alteracion:
+            color = '#e67700' if inc.nivel == AVISO else '#495057'
+            lineas.append(f"<span style='color:{color}'>{'⚠' if inc.nivel == AVISO else 'ℹ'} {inc.mensaje}</span>")
+        if not any(i.nivel == AVISO for i in self.incidencias_alteracion):
+            lineas.insert(1, "<span style='color:#2b8a3e'>✔ Identificadores y namespaces de acuerdo con la operación</span>")
+        self.alteracionInfo.setText("<small>" + "<br>".join(lineas) + "</small>")
+        self.alteracionInfo.setToolTip(alt.AYUDA[tipo])
+        self.alteracionInfo.show()
 
     def namespace_fila(self, i):
         combo = self.tabla.cellWidget(i, COL_NS)
@@ -400,16 +489,21 @@ class PestanaParcela(QWidget):
             self.dock.warn("No se ha podido determinar el SRC del GML: elíjalo en la lista")
             return
         filas = self.filas_editadas()
-        fecha = self.fecha.date().toPyDate()
+        fecha = self.fecha.dateTime().toPyDateTime().replace(second=0, microsecond=0)
         ok, incidencias = gp.escribir(ruta, cp.a_parcelas_gml(filas, capa.crs(), epsg), epsg, fecha)
         self.marcar_estados(incidencias)
         problemas = [str(i) for i in incidencias if i.nivel in (ERROR, AVISO)]
+        if ok:  #Los avisos del asistente de alteraciones no impiden crear el GML, pero se recuerdan
+            self.mostrar_alteracion()
+            problemas += [i.mensaje for i in getattr(self, 'incidencias_alteracion', []) if i.nivel == AVISO]
         if not ok:
             self.dock.notify("No se ha creado el GML: corrija estos errores\n\n" + "\n".join(f"- {p}" for p in problemas),
                              Qgis.MessageLevel.Critical, 0)
             return
         self.ultimo_gml = ruta
         resumen = f"GML creado: {os.path.basename(ruta)} · {len(filas)} parcelas · EPSG:{epsg}"
+        if self.tipo_alteracion() != alt.SIN_INDICAR:
+            resumen += f" · {alt.NOMBRES[self.tipo_alteracion()]}"
         self.dock.success(resumen, [("Abrir carpeta", self.abrir_carpeta), ("Cargar en el mapa", self.cargar_en_mapa)],
                           detalles=problemas)
 
