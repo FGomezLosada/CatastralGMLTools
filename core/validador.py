@@ -135,6 +135,11 @@ def validar_elemento(e, es_parcela):
     if e.gml_id and e.namespace and e.local_id and e.gml_id != f"{e.namespace}.{e.local_id}":
         inc.append(Incidencia(AVISO, 'GMLID', f"gml:id «{e.gml_id}» no coincide con «{e.namespace}.{e.local_id}»", nombre))
 
+    if not es_parcela and e.tipo == gl.EDIFICIO and e.plantas is None:  #Obligatorio en el esquema de edificio de la DGC
+        inc.append(Incidencia(ERROR, 'BU-SIN-PLANTAS', "Falta el número de plantas sobre rasante "
+                                                       "(numberOfFloorsAboveGround): es obligatorio en el esquema de la DGC",
+                              nombre))
+
     #Geometría
     if e.geometria.isNull() or e.geometria.isEmpty():
         return inc  #Ya avisado por el lector

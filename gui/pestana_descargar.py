@@ -200,8 +200,7 @@ class PestanaDescargar(QWidget):
         navarra = descarga.territorio == 'Navarra'
         if not navarra:  #El GML de la Sede de la DGC no sirve en Navarra: no se pasa a la pestaña Parcela
             self.dock.parcela_descargada(self.capas['parcela'])  #La pestaña Parcela pasa a trabajar con ella
-            if self.capas.get('construcciones') is not None:  #Y la pestaña Edificio, con sus construcciones
-                self.dock.construcciones_descargadas(self.capas['construcciones'])
+            self.dock.construcciones_descargadas(descarga.rc, self.capas.get('construcciones'))  #Y la pestaña Edificio
         info = [i.mensaje for i in descarga.incidencias if i.codigo == 'DESCARGA']
         avisos = [i.mensaje for i in descarga.incidencias if i.nivel == AVISO]
         notas = [i.mensaje for i in descarga.incidencias if i.nivel == INFO and i.codigo != 'DESCARGA']

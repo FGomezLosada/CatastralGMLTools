@@ -9,7 +9,7 @@ license   : GNU GPL v2 or later
 from collections import Counter
 from dataclasses import dataclass
 
-from qgis.core import QgsGeometry
+from qgis.core import QgsDefaultValue, QgsEditorWidgetSetup, QgsGeometry, QgsVectorLayer
 
 from . import geometria as geo
 from . import gml_edificio as ge
@@ -33,6 +33,31 @@ class FilaConstruccion:
 
 def _campo(capa, nombres):
     return next((n for n in nombres if capa.fields().indexOf(n) >= 0), '')
+
+
+def es_capa_de_parcelas(capa):
+    """
+    True si la capa es de parcelas (p. ej. la «Parcela» o «Colindantes» de Descargar, o la vista de un GML de parcela):
+    sus polígonos son parcelas, no huellas de construcciones.
+    """
+    if not es_capa_poligonos(capa) or capa.fields().indexOf('tipo') < 0:
+        return False
+    tipos = {_texto(f['tipo']) for f, _ in zip(capa.getFeatures(), range(50))}
+    return bool(tipos) and tipos <= {gl.PARCELA}
+
+
+def nueva_capa_huellas(crs, nombre="Huellas de construcciones"):
+    """
+    Capa temporal para dibujar las huellas: campos tipo (edificio o piscina, con lista desplegable) y plantas (sobre
+    rasante). Cada polígono nuevo es un edificio salvo que se elija piscina en el formulario.
+    """
+    capa = QgsVectorLayer(f"Polygon?crs={crs.authid()}&field=tipo:string(20)&field=plantas:integer", nombre, 'memory')
+    i_tipo = capa.fields().indexOf('tipo')
+    capa.setEditorWidgetSetup(i_tipo, QgsEditorWidgetSetup('ValueMap', {'map': [{'Edificio': ge.EDIFICIO},
+                                                                                {'Piscina': ge.PISCINA}]}))
+    capa.setDefaultValueDefinition(i_tipo, QgsDefaultValue(f"'{ge.EDIFICIO}'"))
+    capa.setFieldAlias(capa.fields().indexOf('plantas'), 'Plantas sobre rasante')
+    return capa
 
 
 def campo_plantas(capa):

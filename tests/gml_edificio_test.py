@@ -16,7 +16,7 @@ from catastral_gml_tools.core import esquemas
 from catastral_gml_tools.core import gml_edificio as ge
 from catastral_gml_tools.core import gml_lector as gl
 from catastral_gml_tools.core import validador
-from catastral_gml_tools.core.incidencias import AVISO, ERROR, INFO, codigos
+from catastral_gml_tools.core.incidencias import ERROR, INFO, codigos
 
 X0, Y0 = 421500.0, 4070500.0
 RC = '1907401VK4810H'
@@ -84,8 +84,16 @@ casos = {
     'sin construcciones': (errores([]), 'BU-VACIO'),
 }
 errores_ok = all(codigo in obtenido for obtenido, codigo in casos.values())
-_, inc_plantas = ge.construir([ge.Construccion(RC, piscina)], 25830)
-sin_plantas = codigos([i for i in inc_plantas if i.nivel == AVISO]) == ['BU-SIN-PLANTAS']
+#Sin plantas: error (numberOfFloorsAboveGround es obligatorio en el esquema de la DGC) y el validador también lo ve
+texto_sin, inc_plantas = ge.construir([ge.Construccion(RC, piscina)], 25830)
+_, inc_con = ge.construir([ge.Construccion(RC, piscina, plantas=1)], 25830)
+sin_plantas_ruta = os.path.join(carpeta, 'sin_plantas.gml')
+with open(sin_plantas_ruta, 'w', encoding='iso-8859-1') as f:
+    f.write(ge.construir([ge.Construccion(RC, piscina, plantas=1)], 25830)[0].replace(
+        '      <bu-ext2d:numberOfFloorsAboveGround>1</bu-ext2d:numberOfFloorsAboveGround>\n', ''))
+validador_sin = codigos([i for i in validador.validar(sin_plantas_ruta).incidencias if i.nivel == ERROR])
+sin_plantas = (texto_sin is None and codigos([i for i in inc_plantas if i.nivel == ERROR]) == ['BU-SIN-PLANTAS']
+               and 'BU-SIN-PLANTAS' not in codigos(inc_con) and validador_sin == ['BU-SIN-PLANTAS'])
 
 # 4. Esquema XSD (copia de la DGC): válido con conexión o caché; sin ella, «sin comprobar», nunca «válido»
 xsd = esquemas.validar(datos, 'BU 2.0')
@@ -98,7 +106,7 @@ checks = {
     "formato: ISO-8859-1, PolygonPatch por recinto, srsName urn, fecha y hora": formato,
     "el validador del plugin no da errores": validado,
     "errores previos (no escribe nada)": errores_ok,
-    "aviso si faltan las plantas": sin_plantas,
+    "sin plantas: error al crear y en el validador": sin_plantas,
     "esquema XSD " + ("(con conexión): válido" if conexion else "(sin conexión): no dice «válido»"): esquema_ok,
 }
 
@@ -110,7 +118,7 @@ if not all(checks.values()):
     print("Detalles:", {'inc': [str(i) for i in inc], 'version': lectura.version,
                         'elementos': [(e.tipo, e.local_id, e.plantas, e.naturaleza, round(e.geometria.area(), 2))
                                       for e in lectura.elementos], 'validador': errores_validador,
-                        'casos': {k: v[0] for k, v in casos.items()}, 'plantas': [str(i) for i in inc_plantas],
+                        'casos': {k: v[0] for k, v in casos.items()}, 'plantas': [str(i) for i in inc_plantas], 'validador_sin': validador_sin,
                         'xsd': [str(i) for i in xsd]})
 print("RESULTADO:", "TODO CORRECTO" if all(checks.values()) else "HAY FALLOS")
 print("=" * 60)

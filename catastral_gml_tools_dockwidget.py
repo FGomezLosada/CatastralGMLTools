@@ -121,10 +121,10 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         if hasattr(self, 'pestanaParcela'):
             self.pestanaParcela.usar_capa(capa)
 
-    def construcciones_descargadas(self, capa):
-        """Tras descargar una parcela con sus construcciones, la pestaña Edificio pasa a trabajar con ellas."""
+    def construcciones_descargadas(self, rc, capa=None):
+        """Tras descargar una parcela, la pestaña Edificio toma su referencia y, si las hay, sus construcciones."""
         if hasattr(self, 'pestanaEdificio'):
-            self.pestanaEdificio.usar_capa(capa)
+            self.pestanaEdificio.descarga_hecha(rc, capa)
 
     def cleanup(self):
         """Al descargar el plugin: devuelve al mapa la herramienta que había antes de la nuestra."""

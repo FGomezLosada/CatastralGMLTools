@@ -211,8 +211,9 @@ def comparar(lectura):
 def comparar_edificio(lectura):
     """
     GML de edificio (mejora 20): sitúa cada construcción respecto a la parcela catastral vigente cuya referencia lleva su
-    identificador (RC, RC_Edificio_N, RC_Piscina_N), como el ICUC: dentro (bien), en parte fuera (aviso: el informe lo
-    reflejará) o a más de 100 m (error: el ICUC no la admite). Los solapes entre construcciones los ve el validador.
+    identificador (RC, RC_Edificio_N, RC_Piscina_N), como el ICUC (ayuda del ICUC y FAQ Catastro-Registro de la DGC):
+    entera dentro (informe positivo), en parte fuera (informe negativo, con el exceso marcado) o a más de 100 m (no se
+    emite informe). Los solapes entre construcciones (tampoco hay informe) los ve el validador.
     Nunca lanza excepciones.
     """
     c = Comparacion(epsg=lectura.epsg, edificio=True)
@@ -256,16 +257,19 @@ def comparar_edificio(lectura):
             fuera.append(e.geometria)
             c.incidencias.append(Incidencia(ERROR, 'CMP-BU-LEJOS', f"La construcción está a {distancia:.0f} m de la parcela "
                                                                    f"{rc}: el ICUC no admite construcciones a más de "
-                                                                   f"{DISTANCIA_ICUC:.0f} m. Compruebe la referencia y el SRC",
+                                                                   f"{DISTANCIA_ICUC:.0f} m y no emite el informe. Compruebe la "
+                                                                   "referencia y el SRC",
                                             e.local_id))
             continue
         resto = e.geometria.difference(parcela)
         if not resto.isEmpty() and resto.area() > AREA_MINIMA:
             fuera.append(resto)
-            c.incidencias.append(Incidencia(AVISO, 'CMP-BU-FUERA', f"{resto.area():.2f} m² de la construcción quedan fuera de "
-                                                                   f"la parcela catastral {rc}: el informe (ICUC) lo reflejará. "
-                                                                   "Si el lindero no es correcto, tramite antes el GML de "
-                                                                   "parcela", e.local_id))
+            c.incidencias.append(Incidencia(ERROR, 'CMP-BU-FUERA', f"{resto.area():.2f} m² de la construcción quedan fuera de "
+                                                                   f"la parcela catastral {rc}: el ICUC saldrá negativo (exige "
+                                                                   "que esté entera dentro, sin extralimitarla). Si el lindero "
+                                                                   "no es correcto, tramite antes el GML de parcela; si la "
+                                                                   "cartografía está desplazada, indíquelo en el ICUC",
+                                            e.local_id))
     if fuera:
         c.exceso = QgsGeometry.unaryUnion(fuera)
         n = len(fuera)

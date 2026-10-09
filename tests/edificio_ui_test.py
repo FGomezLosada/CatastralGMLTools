@@ -19,8 +19,9 @@ import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa
 from catastral_gml_tools.core import comparacion as cmp  # noqa: E402
 from catastral_gml_tools.core import gml_edificio as ge  # noqa: E402
 from catastral_gml_tools.core import gml_lector as gl  # noqa: E402
+from catastral_gml_tools.core import gml_parcela as gp  # noqa: E402
 from catastral_gml_tools.core import servicios  # noqa: E402
-from catastral_gml_tools.core.incidencias import AVISO, ERROR, codigos  # noqa: E402
+from catastral_gml_tools.core.incidencias import ERROR, codigos  # noqa: E402
 from catastral_gml_tools.core.info import RAIZ  # noqa: E402
 from catastral_gml_tools.gui import pestana_edificio as pe_mod  # noqa: E402
 from catastral_gml_tools.gui.pestana_parcela import PROPIEDAD_TERRITORIO  # noqa: E402
@@ -70,7 +71,7 @@ pe = dw.pestanaEdificio
 integrada = dw.tabEdificioPendiente.isHidden() and pe.parent() is dw.tabEdificio and pe.capa() is None
 
 # 1. La capa descargada pasa a la pestaña: referencia, tipos, plantas e identificadores propuestos
-dw.construcciones_descargadas(capa)
+dw.construcciones_descargadas(RC, capa)
 ids = [pe.tabla.item(i, pe_mod.COL_ID).text() for i in range(pe.tabla.rowCount())]
 tipos = [pe.tipo_fila(i) for i in range(pe.tabla.rowCount())]
 plantas = [pe.tabla.item(i, pe_mod.COL_PLANTAS).text() for i in range(pe.tabla.rowCount())]
@@ -121,7 +122,7 @@ lejos = cmp.comparar_edificio(gl.leer(lejos_ruta))
 sin_rc_ruta = os.path.join(carpeta, 'sin_rc.gml')
 ge.escribir(sin_rc_ruta, [ge.Construccion('Edificio_1', QgsGeometry.fromWkt(wkt(X0 + 2, Y0 + 2, 5, 5)), plantas=1)], 25830)
 sin_rc = cmp.comparar_edificio(gl.leer(sin_rc_ruta))
-icuc_fuera = (codigos(fuera.incidencias) == ['CMP-BU-FUERA'] and fuera.incidencias[0].nivel == AVISO
+icuc_fuera = (codigos(fuera.incidencias) == ['CMP-BU-FUERA'] and fuera.incidencias[0].nivel == ERROR
               and abs(fuera.exceso.area() - 25) < 0.1 and codigos(lejos.incidencias) == ['CMP-BU-LEJOS']
               and lejos.incidencias[0].nivel == ERROR
               and codigos(sin_rc.incidencias) == ['CMP-BU-SIN-RC'] and not sin_rc.comparada)
@@ -136,6 +137,36 @@ navarra = pe.crear_gml() is None and 'catastro propio' in barra(dw)
 capa.removeCustomProperty(PROPIEDAD_TERRITORIO)
 ficheros = not os.path.exists(os.path.join(carpeta, 'sin_referencia.gml'))
 
+# 7. Descarga sin construcciones, capa de parcelas y dibujo de huellas
+RC2 = '1907402VK4810H'
+pe.referencia.setText('')
+dw.construcciones_descargadas(RC2, None)
+sin_construcciones = (pe.referencia.text() == RC2 and pe.capa() is None and 'no tiene construcciones' in pe.resumen.text())
+ruta_parcela = os.path.join(carpeta, 'parcela.gml')
+gp.escribir(ruta_parcela, [gp.ParcelaGML(RC2, gp.SDGC, QgsGeometry.fromWkt(wkt(X0 + 20, Y0, 20, 30)))], 25830)
+parcela = gl.capa(gl.leer(ruta_parcela), f"Parcela {RC2}")
+QgsProject.instance().addMapLayer(parcela)
+pe.capaCombo.setLayer(parcela)
+de_parcelas = (pe.de_parcelas and pe.tabla.rowCount() == 0 and 'es de parcelas' in pe.resumen.text()
+               and pe.crear_gml() is None and 'es de parcelas' in barra(dw))
+huellas = pe.nueva_capa()
+nueva = (huellas.isEditable() and pe.capa() is huellas and huellas.name() == f"Huellas {RC2}"
+         and huellas.crs().authid() == 'EPSG:25830' and pe.referencia.text() == RC2)
+for geometria, tipo in ((wkt(X0 + 22, Y0 + 2, 5, 3), ge.PISCINA), (wkt(X0 + 30, Y0 + 5, 6, 8), ge.EDIFICIO)):
+    f = QgsFeature(huellas.fields())
+    f.setGeometry(QgsGeometry.fromWkt(geometria))
+    f.setAttributes([tipo, None])
+    huellas.addFeature(f)
+dibujadas = ([pe.tipo_fila(i) for i in range(pe.tabla.rowCount())] == [ge.PISCINA, ge.EDIFICIO]
+             and [pe.tabla.item(i, pe_mod.COL_ID).text() for i in range(pe.tabla.rowCount())] == [f'{RC2}_Piscina_1', RC2])
+pe.destino.setFilePath(os.path.join(carpeta, 'huellas.gml'))
+sin_plantas = (pe.crear_gml() is None and 'plantas' in pe.tabla.item(1, pe_mod.COL_ESTADO).text()
+               and not os.path.exists(os.path.join(carpeta, 'huellas.gml')))
+edificio = next(f for f in huellas.getFeatures() if f['tipo'] == ge.EDIFICIO)
+huellas.changeAttributeValue(edificio.id(), huellas.fields().indexOf('plantas'), 2)
+con_plantas = pe.tabla.item(1, pe_mod.COL_PLANTAS).text() == '2' and pe.crear_gml() == os.path.join(carpeta, 'huellas.gml')
+huellas.rollBack()
+
 servicios.pedir = original
 for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
@@ -148,8 +179,12 @@ checks = {
     "Crear GML: fichero, estado y resultado en la barra": crear,
     "botón Validar: abre el GML y permite comparar": abierto and boton_cmp,
     "ICUC: construcciones dentro de la parcela": icuc_dentro,
-    "ICUC: en parte fuera (aviso), a más de 100 m (error) y sin referencia": icuc_fuera,
+    "ICUC: en parte fuera y a más de 100 m (errores) y sin referencia": icuc_fuera,
     "sin referencia y capa de Navarra: aviso sin fichero": sin_referencia and navarra and ficheros,
+    "descarga sin construcciones: referencia y explicación": sin_construcciones,
+    "capa de parcelas: no se usa como huellas": de_parcelas,
+    "Dibujar huellas: capa nueva en edición, tabla al dibujar": nueva and dibujadas,
+    "plantas obligatorias (error) y GML al ponerlas": sin_plantas and con_plantas,
     "ninguna ventana emergente": not ventanas,
 }
 
@@ -164,6 +199,6 @@ if not all(checks.values()):
                         'creado': creado, 'barra': texto_barra,
                         'lectura': [(e.local_id, e.plantas) for e in lectura.elementos] if lectura else None,
                         'dentro': [str(i) for i in dentro.incidencias] if dentro else None,
-                        'fuera': [str(i) for i in fuera.incidencias], 'lejos': [str(i) for i in lejos.incidencias], 'sin_rc': [str(i) for i in sin_rc.incidencias]})
+                        'fuera': [str(i) for i in fuera.incidencias], 'res7': pe.resumen.text(), 'filas7': [(pe.tipo_fila(i), pe.tabla.item(i, pe_mod.COL_ID).text(), pe.tabla.item(i, pe_mod.COL_ESTADO).text()) for i in range(pe.tabla.rowCount())], 'n7': (nueva, huellas.name(), huellas.crs().authid()), 'lejos': [str(i) for i in lejos.incidencias], 'sin_rc': [str(i) for i in sin_rc.incidencias]})
 print("RESULTADO:", "TODO CORRECTO" if all(checks.values()) else "HAY FALLOS")
 print("=" * 60)
