@@ -211,13 +211,17 @@ class PestanaDescargar(QWidget):
             self.dock.success(f"Descargada la parcela {descarga.rc} de Navarra", [("Acercar", self.acercar)],
                               detalles=avisos)
         else:
-            self.dock.success(f"Descargada la parcela {descarga.rc}: ya está elegida en la pestaña Parcela",
-                              [("Acercar", self.acercar), ("Ir a Parcela", self.ir_a_parcela)], detalles=avisos)
+            self.dock.success(f"Descargada la parcela {descarga.rc}: ya está elegida en las pestañas Parcela y Edificio",
+                              [("Acercar", self.acercar), ("Ir a Parcela", self.ir_a_parcela),
+                               ("Ir a Edificio", self.ir_a_edificio)], detalles=avisos)
         self.acercar()
         return self.capas
 
     def ir_a_parcela(self, *args):
         self.dock.tabWidget.setCurrentWidget(self.dock.tabParcela)
+
+    def ir_a_edificio(self, *args):
+        self.dock.tabWidget.setCurrentWidget(self.dock.tabEdificio)
 
     def acercar(self, *args):
         capa = self.capas.get('parcela')

@@ -42,8 +42,8 @@ from ..core import refcat
 from ..core.incidencias import AVISO, ERROR
 from .pestana_parcela import AUTOMATICO, MAX_FILAS, PROPIEDAD_TERRITORIO, miles
 
-COL_N, COL_ID, COL_TIPO, COL_PLANTAS, COL_AREA, COL_ESTADO = range(6)
-CABECERAS = ['Nº', 'Identificador (localId)', 'Tipo', 'Plantas', 'Sup. m²', 'Estado']
+COL_N, COL_ID, COL_TIPO, COL_PLANTAS, COL_OBRA, COL_AREA, COL_ESTADO = range(7)
+CABECERAS = ['Nº', 'Identificador (localId)', 'Tipo', 'Plantas', 'Estado', 'Sup. m²', 'Comprobación']
 TIPOS = ((ge.EDIFICIO, 'Edificio'), (ge.PISCINA, 'Piscina'))
 
 
@@ -110,8 +110,8 @@ class PestanaEdificio(QWidget):
         cabecera.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         cabecera.setStretchLastSection(True)
         cabecera.setMinimumSectionSize(40)
-        self.tabla.setToolTip("Una fila por construcción. Puede cambiar el tipo, las plantas sobre rasante y el "
-                              "identificador.\nUn edificio puede tener varias partes (toda su huella sobre rasante); "
+        self.tabla.setToolTip("Una fila por construcción. Puede cambiar el tipo, las plantas sobre rasante, el estado "
+                              "de cada edificio y el identificador.\nUn edificio puede tener varias partes (toda su huella sobre rasante); "
                               "cada piscina, una sola")
         principal.addWidget(self.tabla, 1)
 
@@ -120,11 +120,6 @@ class PestanaEdificio(QWidget):
         principal.addWidget(self.resumen)
 
         salida = QFormLayout()
-        self.estado = QComboBox(self)
-        for estado in ge.ESTADOS:
-            self.estado.addItem(ge.NOMBRES_ESTADO[estado], estado)
-        self.estado.setToolTip("Estado de los edificios (conditionOfConstruction). Las piscinas no lo llevan")
-        salida.addRow("Estado", self.estado)
 
         ahora = QDateTime.currentDateTime()
         ahora.setTime(QTime(ahora.time().hour(), ahora.time().minute()))
@@ -257,6 +252,13 @@ class PestanaEdificio(QWidget):
             combo.currentIndexChanged.connect(self.tipo_cambiado)
             self.tabla.setCellWidget(i, COL_TIPO, combo)
             self.tabla.setItem(i, COL_PLANTAS, QTableWidgetItem('' if fila.plantas is None else str(fila.plantas)))
+            obra = QComboBox(self.tabla)
+            for estado in ge.ESTADOS:
+                obra.addItem(ge.NOMBRES_CORTOS[estado], estado)
+                obra.setItemData(obra.count() - 1, ge.NOMBRES_ESTADO[estado], Qt.ItemDataRole.ToolTipRole)
+            obra.setCurrentIndex(ge.ESTADOS.index(fila.estado))
+            obra.setToolTip("Estado del edificio (conditionOfConstruction). Las piscinas no lo llevan")
+            self.tabla.setCellWidget(i, COL_OBRA, obra)
             for col in (COL_AREA, COL_ESTADO):
                 item = QTableWidgetItem('')
                 item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
@@ -266,6 +268,7 @@ class PestanaEdificio(QWidget):
                                                    f'{fila.partes} partes' if fila.partes > 1 else '')
         self.tabla.blockSignals(False)
         self.proponer_ids()
+        self.actualizar_obras()
         self.tabla.resizeColumnsToContents()
         self.tabla.setColumnWidth(COL_ID, max(self.tabla.columnWidth(COL_ID), 160))
         self.actualizar_superficies()
@@ -274,8 +277,20 @@ class PestanaEdificio(QWidget):
         combo = self.tabla.cellWidget(i, COL_TIPO)
         return combo.currentData() if combo is not None else ge.EDIFICIO
 
+    def estado_fila(self, i):
+        combo = self.tabla.cellWidget(i, COL_OBRA)
+        return combo.currentData() if combo is not None else 'functional'
+
+    def actualizar_obras(self):
+        """Las piscinas no llevan estado: su desplegable se desactiva."""
+        for i in range(len(self.filas)):
+            combo = self.tabla.cellWidget(i, COL_OBRA)
+            if combo is not None:
+                combo.setEnabled(self.tipo_fila(i) == ge.EDIFICIO)
+
     def tipo_cambiado(self, *args):
         """Al cambiar un tipo se vuelven a proponer los identificadores (cambia la numeración)."""
+        self.actualizar_obras()
         self.proponer_ids()
         self.actualizar_superficies()
 
@@ -437,7 +452,7 @@ class PestanaEdificio(QWidget):
         ids = [self.tabla.item(i, COL_ID).text().strip() for i in range(n)]
         tipos = [self.tipo_fila(i) for i in range(n)]
         construcciones = ce.a_construcciones(self.filas, ids, tipos, [self.plantas_fila(i) for i in range(n)],
-                                             self.estado.currentData(), capa.crs(), epsg)
+                                             [self.estado_fila(i) for i in range(n)], capa.crs(), epsg)
         fecha = self.fecha.dateTime().toPyDateTime().replace(second=0, microsecond=0)
         ok, incidencias = ge.escribir(ruta, construcciones, epsg, fecha)
         self.marcar_estados(incidencias, ids)
@@ -451,7 +466,8 @@ class PestanaEdificio(QWidget):
         piscinas = n - edificios
         self.dock.success(f"GML de edificio creado: {os.path.basename(ruta)} · {edificios} edificio"
                           f"{'s' if edificios != 1 else ''} y {piscinas} piscina{'s' if piscinas != 1 else ''} · "
-                          f"EPSG:{epsg}", [("Abrir carpeta", self.abrir_carpeta), ("Validar", self.validar)],
+                          f"EPSG:{epsg}. Siguiente paso: Validar", [("Abrir carpeta", self.abrir_carpeta),
+                                                                    ("Validar", self.validar)],
                           detalles=problemas)
         return ruta
 
