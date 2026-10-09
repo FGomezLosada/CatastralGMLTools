@@ -428,8 +428,15 @@ class TareaEsquema(QgsTask):
 
 def cargar(resultado, ruta, iface=None):
     """Capa con estilo a partir de un resultado de lectura, añadida al proyecto (sin crear ficheros .gfs)."""
-    capa = estilos.aplicar(gl.capa(resultado, os.path.splitext(os.path.basename(ruta))[0]))
+    nombre = os.path.splitext(os.path.basename(ruta))[0]
+    capa = estilos.aplicar(gl.capa(resultado, f"{nombre} (vista del GML)"))
     capa.setCustomProperty(PROPIEDAD_GML, ruta)  #Para poder arrastrar la capa a la pestaña Validar
+    #Es una capa temporal para ver el fichero: el GML válido para la Sede es el fichero, no hay que guardarla con QGIS
+    #(«Guardar como» GML de QGIS escribe un GML genérico, no INSPIRE CadastralParcels 4.0)
+    metadatos = capa.metadata()
+    metadatos.setAbstract(f"Vista del fichero {ruta}. El GML para la Sede es ese fichero: no guarde esta capa con "
+                          "«Guardar como» de QGIS (escribiría un GML genérico, no INSPIRE CadastralParcels 4.0).")
+    capa.setMetadata(metadatos)
     QgsProject.instance().addMapLayer(capa)
     if iface is not None and hasattr(iface, 'mapCanvas'):
         try:
