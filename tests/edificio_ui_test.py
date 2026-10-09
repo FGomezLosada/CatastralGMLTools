@@ -168,6 +168,47 @@ huellas.changeAttributeValue(edificio.id(), huellas.fields().indexOf('plantas'),
 con_plantas = pe.tabla.item(1, pe_mod.COL_PLANTAS).text() == '2' and pe.crear_gml() == os.path.join(carpeta, 'huellas.gml')
 huellas.rollBack()
 
+# 8. Retocar: copia editable de la capa elegida (la original no cambia)
+pe.usar_capa(capa)
+boton_copia = pe.nuevaBoton.text() == 'Editar una copia'
+copia = pe.nueva_capa()
+primera = next(copia.getFeatures())
+copia.changeGeometry(primera.id(), QgsGeometry.fromWkt(wkt(X0 + 2, Y0 + 2, 10, 6)))  #De 8 × 6 a 10 × 6 m
+retocar = (boton_copia and copia is not capa and pe.capa() is copia and copia.isEditable() and copia.featureCount() == 3
+           and capa.featureCount() == 3 and pe.nuevaBoton.text() == 'Seguir dibujando'
+           and [pe.tipo_fila(i) for i in range(3)] == [ge.EDIFICIO, ge.PISCINA, ge.EDIFICIO]
+           and [pe.tabla.item(i, pe_mod.COL_PLANTAS).text() for i in range(3)] == ['2', '', '1']
+           and pe.tabla.item(0, pe_mod.COL_AREA).text() == '60'
+           and next(capa.getFeatures()).geometry().area() == 48)
+copia.rollBack()
+
+# 9. Capa de líneas como la de un DXF: líneas cerradas = huellas; la capa de dibujo «PISCINA» marca la piscina
+def linea(x, y, a, b, cerrada=True):
+    puntos = f"{x} {y}, {x + a} {y}, {x + a} {y + b}, {x} {y + b}" + (f", {x} {y}" if cerrada else '')
+    return f"LINESTRING({puntos})"
+
+
+dxf = QgsVectorLayer("LineString?crs=EPSG:25830&field=Layer:string(30)", "plano.dxf", 'memory')
+for geometria, nombre in ((linea(X0 + 2, Y0 + 2, 8, 6), 'A-EDIFICIO'), (linea(X0 + 2, Y0 + 12, 6, 3), 'PISCINA'),
+                          (linea(X0 + 12, Y0 + 2, 4, 4, False), 'COTAS')):
+    f = QgsFeature(dxf.fields())
+    f.setGeometry(QgsGeometry.fromWkt(geometria))
+    f.setAttributes([nombre])
+    dxf.dataProvider().addFeature(f)
+QgsProject.instance().addMapLayer(dxf)
+pe.referencia.setText(RC)
+pe.capaCombo.setLayer(dxf)
+lineas_dxf = (pe.capa() is dxf and [pe.tipo_fila(i) for i in range(pe.tabla.rowCount())] == [ge.EDIFICIO, ge.PISCINA]
+              and pe.tabla.item(0, pe_mod.COL_AREA).text() == '48' and '1 línea sin cerrar' in pe.resumen.text())
+sin_src = QgsVectorLayer("LineString?crs=EPSG:4326&field=Layer:string(30)", "sin_src.dxf", 'memory')  #UTM en 4326
+f = QgsFeature(sin_src.fields())
+f.setGeometry(QgsGeometry.fromWkt(linea(X0 + 2, Y0 + 2, 8, 6)))
+sin_src.dataProvider().addFeature(f)
+QgsProject.instance().addMapLayer(sin_src)
+pe.capaCombo.setLayer(sin_src)
+pe.destino.setFilePath(os.path.join(carpeta, 'sin_src.gml'))
+sin_crs = 'no encajan con su SRC' in pe.resumen.text() and pe.crear_gml() is None and 'no encajan' in barra(dw)
+
 servicios.pedir = original
 for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
@@ -186,6 +227,9 @@ checks = {
     "capa de parcelas: no se usa como huellas": de_parcelas,
     "Dibujar huellas: capa nueva en edición, tabla al dibujar": nueva and dibujadas,
     "plantas obligatorias (error) y GML al ponerlas": sin_plantas and con_plantas,
+    "retocar: copia editable, la original no cambia": retocar,
+    "capa de líneas (DXF): cerradas = huellas, piscina por capa de dibujo": lineas_dxf,
+    "capa con SRC que no encaja (DXF): aviso y sin fichero": sin_crs,
     "ninguna ventana emergente": not ventanas,
 }
 

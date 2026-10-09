@@ -45,6 +45,7 @@ from .pestana_parcela import AUTOMATICO, MAX_FILAS, PROPIEDAD_TERRITORIO, miles
 COL_N, COL_ID, COL_TIPO, COL_PLANTAS, COL_OBRA, COL_AREA, COL_ESTADO = range(7)
 CABECERAS = ['Nº', 'Identificador (localId)', 'Tipo', 'Plantas', 'Estado', 'Sup. m²', 'Comprobación']
 TIPOS = ((ge.EDIFICIO, 'Edificio'), (ge.PISCINA, 'Piscina'))
+PROPIEDAD_HUELLAS = 'catastral_gml_tools/huellas'  #Capas de huellas creadas por la pestaña
 
 
 class PestanaEdificio(QWidget):
@@ -59,6 +60,7 @@ class PestanaEdificio(QWidget):
         self.capa_conectada = None
         self.destino_automatico = ''
         self.de_parcelas = False
+        self.abiertas = 0
         self.referencia_automatica = ''  #Última referencia propuesta (si el usuario no la cambia, sigue a la capa)
         self.construir()
         self.capaCombo.setLayer(None)  #Se empieza sin capa: la de edificios casi nunca es la activa
@@ -73,16 +75,18 @@ class PestanaEdificio(QWidget):
         formulario = QFormLayout()
 
         self.capaCombo = QgsMapLayerComboBox(self)
-        self.capaCombo.setFilters(Qgis.LayerFilter.PolygonLayer)
+        self.capaCombo.setFilters(Qgis.LayerFilter.PolygonLayer | Qgis.LayerFilter.LineLayer)
         self.capaCombo.setAllowEmptyLayer(True)
-        self.capaCombo.setToolTip("Capa de polígonos con la huella de cada construcción (edificio o piscina).\n"
-                                  "Sirve la capa «Construcciones» de la pestaña Descargar")
+        self.capaCombo.setToolTip("Capa con la huella de cada construcción (edificio o piscina): la «Construcciones» de la\n"
+                                  "pestaña Descargar, una dibujada o una de otro programa (shapefile, GeoPackage, DXF…).\n"
+                                  "En una capa de líneas (DXF), cada línea cerrada es una huella")
         fila_capa = QHBoxLayout()
         fila_capa.addWidget(self.capaCombo, 1)
         self.nuevaBoton = QPushButton(QgsApplication.getThemeIcon('/mActionCapturePolygon.svg'), "Dibujar huellas", self)
-        self.nuevaBoton.setToolTip("Crea una capa temporal para dibujar la huella de cada construcción (contorno a nivel del\n"
-                                   "suelo, sin vuelos ni terrazas) y activa la herramienta de dibujo. Al cerrar cada polígono\n"
-                                   "se elige si es edificio o piscina y sus plantas sobre rasante")
+        self.nuevaBoton.setToolTip("Sin capa elegida: crea una capa temporal vacía y activa la herramienta de dibujo.\n"
+                                   "Con una capa elegida (descargada, shapefile, DXF…): crea una copia editable de sus\n"
+                                   "construcciones para retocarlas sin cambiar la original.\n"
+                                   "Al cerrar cada polígono se elige si es edificio o piscina, sus plantas y su estado")
         fila_capa.addWidget(self.nuevaBoton)
         formulario.addRow("Capa", fila_capa)
 
@@ -168,10 +172,10 @@ class PestanaEdificio(QWidget):
 
     def capa(self):
         capa = self.capaCombo.currentLayer()
-        return capa if cp.es_capa_poligonos(capa) else None
+        return capa if ce.es_capa_huellas(capa) else None
 
     def usar_capa(self, capa):
-        if cp.es_capa_poligonos(capa):
+        if ce.es_capa_huellas(capa):
             self.soloSeleccion.setChecked(False)
             self.capaCombo.setLayer(capa)
 
@@ -229,8 +233,15 @@ class PestanaEdificio(QWidget):
         n = 0 if capa is None else capa.selectedFeatureCount() if self.soloSeleccion.isChecked() else capa.featureCount()
         self.demasiadas = n > MAX_FILAS
         self.de_parcelas = ce.es_capa_de_parcelas(capa)
+        lineas = capa is not None and capa.geometryType() == Qgis.GeometryType.Line
+        if lineas:  #En un DXF hay muchas entidades (textos, cotas…): cuentan solo las líneas cerradas
+            self.demasiadas = False
         self.filas = [] if capa is None or self.demasiadas or self.de_parcelas else \
             ce.leer_capa(capa, self.soloSeleccion.isChecked(), self.campoPlantas.currentField())
+        if len(self.filas) > MAX_FILAS:
+            self.demasiadas, self.filas = True, []
+        self.abiertas = ce.lineas_abiertas(capa, self.soloSeleccion.isChecked()) if lineas and not self.demasiadas else 0
+        self.actualizar_boton_capa(capa)
         #La referencia se propone a partir de la capa (p. ej. la descargada), salvo que la haya escrito el usuario
         actual = self.referencia.text().strip()
         propuesta = ce.referencia_propuesta(self.filas)
@@ -340,6 +351,12 @@ class PestanaEdificio(QWidget):
         texto += f" · {miles(total)} m² de huella"
         if epsg:
             texto += f" · EPSG:{epsg}"
+        if self.abiertas:
+            texto += (f"<br><span style='color:#e67700'>⚠ {self.abiertas} línea{'s' if self.abiertas != 1 else ''} sin cerrar "
+                      f"no se usa{'n' if self.abiertas != 1 else ''}: una huella es una línea cerrada</span>")
+        problema = ce.src_incorrecto(capa)
+        if problema:
+            texto += f"<br><span style='color:#c92a2a'>✖ {problema}</span>"
         if not self.referencia.text().strip():
             texto += "<br><span style='color:#e67700'>⚠ Indique la referencia de la parcela</span>"
         self.resumen.setText(texto)
@@ -379,20 +396,49 @@ class PestanaEdificio(QWidget):
             return crs
         return QgsCoordinateReferenceSystem('EPSG:25830')
 
+    def actualizar_boton_capa(self, capa):
+        """El botón dice lo que hará: dibujar en una capa nueva, seguir dibujando o editar una copia de la capa elegida."""
+        if capa is not None and capa.customProperty(PROPIEDAD_HUELLAS):
+            texto = "Seguir dibujando"
+        elif self.filas:
+            texto = "Editar una copia"
+        else:
+            texto = "Dibujar huellas"
+        self.nuevaBoton.setText(texto)
+
     def nueva_capa(self, *args):
-        """Capa temporal de huellas en edición, con la herramienta de añadir polígono activa."""
-        referencia = self.referencia.text().strip()
-        capa = ce.nueva_capa_huellas(self.crs_huellas(), f"Huellas {referencia}".strip() if referencia else "Huellas")
-        QgsProject.instance().addMapLayer(capa)
+        """
+        Capa temporal de huellas en edición. Vacía, con la herramienta de añadir polígono; con una copia de las
+        construcciones de la capa elegida, con la herramienta de vértices; si ya es una capa de huellas, sigue con ella.
+        """
+        actual = self.capa()
+        iface = self.dock.iface
+        if actual is not None and actual.customProperty(PROPIEDAD_HUELLAS):
+            capa, herramienta = actual, 'actionAddFeature'
+            mensaje = "Siga dibujando: la tabla se actualiza sola"
+        else:
+            referencia = self.referencia.text().strip()
+            nombre = f"Huellas {referencia}".strip() if referencia else "Huellas"
+            copia = list(self.filas) if actual is not None and self.filas else []
+            crs = actual.crs() if copia and geo.epsg_de(actual.crs()) in geo.SRC_ADMITIDOS else self.crs_huellas()
+            capa = ce.nueva_capa_huellas(crs, nombre, copia, actual.crs() if copia else None)
+            capa.setCustomProperty(PROPIEDAD_HUELLAS, True)
+            QgsProject.instance().addMapLayer(capa)
+            if copia:
+                herramienta = 'actionVertexTool'
+                mensaje = (f"Copia editable de {len(copia)} construcci{'ones' if len(copia) != 1 else 'ón'} de «{actual.name()}» "
+                           "(la original no cambia). Retoque los vértices, borre o añada huellas: la tabla se actualiza sola")
+            else:
+                herramienta = 'actionAddFeature'
+                mensaje = ("Dibuje la huella de cada construcción (contorno a nivel del suelo). Al cerrar cada polígono, "
+                           "elija si es edificio o piscina, sus plantas y su estado. La tabla se actualiza sola")
         capa.startEditing()
         self.usar_capa(capa)
-        iface = self.dock.iface
         if iface is not None:
             with contextlib.suppress(AttributeError, TypeError):
                 iface.setActiveLayer(capa)
-                iface.actionAddFeature().trigger()
-        self.dock.notify("Dibuje la huella de cada construcción (contorno a nivel del suelo). Al cerrar cada polígono, elija "
-                         "si es edificio o piscina y sus plantas. La tabla se actualiza sola", Qgis.MessageLevel.Info, 15)
+                getattr(iface, herramienta)().trigger()
+        self.dock.notify(mensaje, Qgis.MessageLevel.Info, 15)
         return capa
 
     # ------------------------------------------------------------------ Crear el GML
@@ -424,6 +470,9 @@ class PestanaEdificio(QWidget):
         if territorio:
             self.dock.warn(f"La capa es de {territorio}, que tiene catastro propio: el GML de edificio de la Dirección "
                            f"General del Catastro no sirve para sus trámites. Consulte al catastro de {territorio}.")
+            return None
+        if ce.src_incorrecto(capa):
+            self.dock.warn(ce.src_incorrecto(capa))
             return None
         if self.de_parcelas:
             self.dock.warn("La capa elegida es de parcelas, no de huellas de construcciones: elija la capa «Construcciones» "
