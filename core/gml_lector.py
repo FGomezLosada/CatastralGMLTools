@@ -56,6 +56,7 @@ class ElementoGML:
     decimales: int = 0          #Máximo de decimales de las coordenadas tal como están escritas
     punto_referencia: object = None  #(x, y) de cp:referencePoint, o None
     descripcion: str = ''       #En las descargas: paraje y uso según el Catastro (p. ej. «Camino · vía de comunicación…»)
+    estado: str = ''            #conditionOfConstruction de los edificios (functional, underConstruction…), si lo trae
 
 
 @dataclass
@@ -214,7 +215,19 @@ def _leer_construccion(el):
     return ElementoGML(tipo, local_id, namespace, geometria_de(lista), plantas=plantas,
                        naturaleza=texto_de(el, 'constructionNature'), gml_id=el.get(f'{{{geo_ns_gml()}}}id', ''),
                        recintos=len(lista), anillos=[a for p in lista for a in p], counts=counts, roles=roles,
-                       decimales=decimales)
+                       decimales=decimales, estado=texto_de(el, 'conditionOfConstruction') if tipo == EDIFICIO else '')
+
+
+def leer_partes(datos):
+    """
+    Partes de edificio (bu-ext2d:BuildingPart) de una respuesta GetBuildingPartByParcel: lista de ElementoGML con sus
+    plantas. Solo se usan para completar las plantas de los edificios descargados; nunca lanza excepciones.
+    """
+    try:
+        raiz = ET.fromstring(datos)
+    except ET.ParseError:
+        return []
+    return [_leer_construccion(e) for e in raiz.iter() if nombre_local(e.tag) == 'BuildingPart']
 
 
 def geo_ns_gml():
@@ -291,7 +304,7 @@ def leer_datos(datos):
 
 CAMPOS = (('tipo', 'string'), ('localId', 'string'), ('namespace', 'string'), ('label', 'string'),
           ('referencia', 'string'), ('sup_gml', 'integer'), ('sup_calc', 'integer'), ('plantas', 'integer'),
-          ('naturaleza', 'string'), ('descripcion', 'string'))
+          ('naturaleza', 'string'), ('descripcion', 'string'), ('estado', 'string'))
 
 
 def capa(resultado, nombre):
@@ -309,7 +322,7 @@ def capa(resultado, nombre):
             f.setGeometry(g)
         f.setAttributes([e.tipo, e.local_id, e.namespace, e.label, e.referencia, e.area_declarada,
                          geo.redondear_m2(e.geometria.area()) if not e.geometria.isNull() else None,
-                         e.plantas, e.naturaleza, e.descripcion])
+                         e.plantas, e.naturaleza, e.descripcion, e.estado])
         entidades.append(f)
     nueva.dataProvider().addFeatures(entidades)
     nueva.updateExtents()
