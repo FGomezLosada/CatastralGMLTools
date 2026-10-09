@@ -98,6 +98,21 @@ identificadores se proponen como pide la Dirección General del Catastro, la ref
 <p>Si la parcela no tiene construcciones en el Catastro (o son otras), pulse <strong>Dibujar huellas</strong>: se crea una
 capa temporal en edición y se activa la herramienta de dibujo; al cerrar cada polígono elija si es edificio o piscina y sus
 plantas. La tabla se actualiza sola. No elija la capa de la parcela: sus polígonos son parcelas, no huellas.</p>
+<p><strong>Retocar construcciones o traerlas de otro programa.</strong></p>
+<ul>
+  <li><strong>Retocar las del Catastro (o las de cualquier capa):</strong> elija la capa y pulse <strong>Editar una
+  copia</strong>. Se crea una capa temporal con una copia de sus construcciones (la original no cambia) y se activa la
+  herramienta de vértices: mueva vértices, borre huellas o dibuje otras. La tabla se actualiza sola.</li>
+  <li><strong>Shapefile, GeoPackage u otra capa de polígonos:</strong> añádala al proyecto y elíjala en <strong>Capa</strong>.
+  Si tiene campos de plantas, tipo o referencia con nombres habituales (<code>plantas</code>, <code>tipo</code>,
+  <code>refcat</code>…) se usan; si no, se completan en la tabla.</li>
+  <li><strong>DXF (o DWG):</strong> añada al proyecto sus líneas y elíjalas en <strong>Capa</strong>. Cada línea cerrada
+  es una huella; las abiertas (cotas, ejes…) no se usan y se avisa de cuántas hay. Si la capa de dibujo se llama algo
+  como «PISCINA», esas huellas se proponen como piscinas. Un DXF no guarda el SRC: si QGIS lo abre en uno que no encaja
+  con las coordenadas, el panel lo avisa y hay que asignarle el correcto (p. ej. EPSG:25830) en sus propiedades. Para
+  quedarse solo con algunas líneas, selecciónelas y marque «Solo los elementos seleccionados», o pulse
+  <strong>Editar una copia</strong>.</li>
+</ul>
 <p>En la tabla puede cambiar el <strong>tipo</strong> (edificio o piscina), las <strong>plantas sobre rasante</strong> (la
 máxima si varía; son obligatorias en los edificios) y el identificador. Un edificio puede tener varias partes (toda su huella); cada piscina, una sola.
 Cada edificio lleva su <strong>estado</strong> en la tabla (terminado, en construcción, proyectado…; las piscinas no lo
