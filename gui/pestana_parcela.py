@@ -164,6 +164,11 @@ class PestanaParcela(QWidget):
         self.crearBoton = QPushButton(QgsApplication.getThemeIcon('/mActionFileSave.svg'), "Crear GML", self)
         self.crearBoton.setDefault(True)
         botones.addWidget(self.recargarBoton)
+        self.unirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionMergeFeatures.svg'), "Unir seleccionadas", self)
+        self.unirBoton.setToolTip("Une en una sola parcela las parcelas seleccionadas en el mapa (agregación o agrupación).\n"
+                                  "La mayor conserva sus datos. La capa queda en edición: Ctrl+Z deshace la unión")
+        self.unirBoton.setEnabled(False)
+        botones.addWidget(self.unirBoton)
         botones.addStretch(1)
         botones.addWidget(self.crearBoton)
         principal.addLayout(botones)
@@ -179,6 +184,7 @@ class PestanaParcela(QWidget):
         self.tabla.itemSelectionChanged.connect(self.seleccionar_en_capa)
         self.tabla.itemChanged.connect(self.celda_cambiada)
         self.recargarBoton.clicked.connect(self.recargar)
+        self.unirBoton.clicked.connect(self.unir_seleccionadas)
         self.crearBoton.clicked.connect(self.crear_gml)
 
     # ------------------------------------------------------------------ Capa y tabla
@@ -196,6 +202,7 @@ class PestanaParcela(QWidget):
     def cambiar_capa(self, *args):
         capa = self.capa()
         self.seguir_seleccion(capa)
+        self.actualizar_unir()
         #Sin señales mientras se rellenan los campos: si no, la tabla se recalculaba 3 o 4 veces seguidas
         for widget in (self.campoId, self.campoLabel, self.soloSeleccion):
             widget.blockSignals(True)
@@ -239,8 +246,32 @@ class PestanaParcela(QWidget):
             capa.selectionChanged.connect(self.seleccion_cambiada)
 
     def seleccion_cambiada(self, *args):
-        if not sip.isdeleted(self) and self.soloSeleccion.isChecked():
+        if sip.isdeleted(self):
+            return
+        self.actualizar_unir()
+        if self.soloSeleccion.isChecked():
             self.recargar()
+
+    def actualizar_unir(self):
+        capa = self.capa()
+        self.unirBoton.setEnabled(capa is not None and capa.selectedFeatureCount() >= 2)
+
+    def unir_seleccionadas(self, *args):
+        """Une las parcelas seleccionadas en una y propone agregación o agrupación en el asistente."""
+        self.dock.messageBar.clearWidgets()
+        capa = self.capa()
+        fid, tipo, incidencias = cp.unir_seleccionadas(capa, self.campoId.currentField())
+        if fid is None:
+            self.dock.warn("\n".join(i.mensaje for i in incidencias))
+            return None
+        self.recargar()
+        if tipo:
+            self.alteracion.setCurrentIndex(alt.TIPOS.index(tipo))  #Lanza aplicar_alteracion
+        self.actualizar_unir()
+        notas = ''.join(f". {i.mensaje}" for i in incidencias[1:])  #Notas informativas, no avisos: el mensaje sigue en verde
+        self.dock.success(incidencias[0].mensaje + f" · propuesta: {alt.NOMBRES[tipo]}{notas}. La capa queda en edición "
+                          "(Ctrl+Z deshace; guarde la capa para conservarla)")
+        return fid
 
     def numero_parcelas(self, capa):
         return capa.selectedFeatureCount() if self.soloSeleccion.isChecked() else capa.featureCount()

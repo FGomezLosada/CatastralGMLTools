@@ -7,7 +7,7 @@ license   : GNU GPL v2 or later
 """
 from dataclasses import dataclass
 
-from qgis.core import Qgis, QgsGeometry
+from qgis.core import Qgis, QgsGeometry, QgsWkbTypes
 
 from . import geometria as geo
 from . import refcat
@@ -123,3 +123,50 @@ def a_parcelas_gml(filas, crs, epsg):
     """ParcelaGML con la geometría transformada al EPSG del fichero."""
     return [ParcelaGML(f.local_id, f.namespace, geo.transformar(f.geometria, crs, epsg), f.label)
             for f in filas]
+
+
+def unir_seleccionadas(capa, campo_id=''):
+    """
+    Une en una sola parcela los polígonos seleccionados de la capa (agregación o agrupación). Edita la capa dentro de
+    un comando de edición (se puede deshacer con Ctrl+Z y no se guarda hasta que el usuario guarde la capa): la parcela
+    mayor recibe la geometría unida y conserva sus atributos; las demás se borran.
+    Devuelve (fid de la parcela resultante o None, tipo de alteración propuesto, incidencias).
+    """
+    from . import alteraciones as alt
+    from .incidencias import ERROR, INFO, Incidencia
+
+    if not es_capa_poligonos(capa):
+        return None, '', [Incidencia(ERROR, 'UNION-CAPA', "Elija una capa de polígonos")]
+    seleccion = list(capa.getSelectedFeatures())
+    if len(seleccion) < 2:
+        return None, '', [Incidencia(ERROR, 'UNION-POCAS', "Seleccione en el mapa dos parcelas o más")]
+    geometrias = [QgsGeometry(f.geometry()) for f in seleccion]
+    union = QgsGeometry.unaryUnion(geometrias)
+    if union.isEmpty() or (union.isMultipart() and len(union.asGeometryCollection()) > 1):
+        return None, '', [Incidencia(ERROR, 'UNION-NO-COLINDANTES', "Las parcelas seleccionadas no forman un solo recinto: "
+                                                                    "para unirlas han de ser colindantes")]
+    principal = max(seleccion, key=lambda f: f.geometry().area())
+    if QgsWkbTypes.isMultiType(capa.wkbType()):  #Capa de multipolígonos: la geometría debe ser del mismo tipo
+        union.convertToMultiType()
+    if not capa.isEditable():
+        capa.startEditing()
+    capa.beginEditCommand("Unir parcelas (Catastral GML Tools)")
+    ok = capa.changeGeometry(principal.id(), union)
+    ok = capa.deleteFeatures([f.id() for f in seleccion if f.id() != principal.id()]) and ok
+    if not ok:
+        capa.destroyEditCommand()
+        return None, '', [Incidencia(ERROR, 'UNION-EDICION', "La capa no permite editar sus parcelas")]
+    capa.endEditCommand()
+    capa.selectByIds([principal.id()])
+
+    total = union.area()
+    id_principal = _texto(principal[campo_id]) if campo_id else ''
+    con_rc = refcat.es_rc_parcela(id_principal)
+    proporcion = principal.geometry().area() / total if total else 0
+    tipo = alt.AGREGACION if con_rc and proporcion >= 0.8 else alt.AGRUPACION
+    incidencias = [Incidencia(INFO, 'UNION-HECHA', f"Unidas {len(seleccion)} parcelas en una de {round(total)} m²; la mayor "
+                                                   f"({round(100 * proporcion)} % del total) conserva sus datos")]
+    if con_rc and tipo == alt.AGRUPACION:
+        incidencias.append(Incidencia(INFO, 'UNION-AGRUPACION', "La mayor no llega al 80 % del total: se propone agrupación "
+                                                                "(parcela nueva). Si conserva su referencia, elija agregación"))
+    return principal.id(), tipo, incidencias

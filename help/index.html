@@ -62,6 +62,9 @@ si la tabla no encaja con la operación. Los nombres que escriba usted se respet
 <p><strong>El fichero que se sube a la Sede es el que crea el botón Crear GML</strong> (el de la casilla «Fichero»). Las capas
 que el plugin añade al mapa (la descargada o la «vista del GML») son temporales, solo para ver y editar: no las guarde con
 «Guardar como» GML de QGIS, que escribe un GML genérico y no el INSPIRE CadastralParcels 4.0 que pide la Sede.</p>
+<p><strong>Agregación o agrupación.</strong> Seleccione en el mapa las parcelas colindantes y pulse <strong>Unir
+seleccionadas</strong>: se unen en una sola, la mayor conserva sus datos y el asistente propone agregación (si la mayor conserva
+su referencia y es al menos el 80 % del total) o agrupación. La capa queda en edición: Ctrl+Z deshace la unión.</p>
 <p>Si algo impide crear el fichero (una parcela con varias partes, un identificador repetido, SDGC sin referencia
 catastral…), no se crea y la columna <em>Estado</em> indica el problema de cada parcela.</p>
 
@@ -84,6 +87,13 @@ las incidencias, un croquis y las coordenadas de cada recinto, y lo abre en el n
 cada parcela o construcción con su identificador, su namespace y su superficie: la declarada en el fichero y la calculada
 a partir de la geometría (en rojo si no coinciden). <strong>Cargar en el mapa</strong> lo añade al proyecto con un estilo
 por tipo y una etiqueta con el identificador, para compararlo con la cartografía.</p>
+
+<h2>Unir varios GML (multiparcela)</h2>
+<p>En la pestaña <strong>Utilidades</strong>, añada (o arrastre) dos o más GML de parcela, elija el fichero de salida y pulse
+<strong>Unir GML</strong>. Las parcelas que estén en varios ficheros se incluyen una sola vez; si un identificador aparece con
+geometrías distintas, no se une. Si los ficheros están en husos distintos, todo se pasa al huso del primero. Con el botón
+<strong>Validar</strong> del resultado se revisa el GML unido (solapes, huecos y comparación con el Catastro). Si las parcelas
+están en zonas separadas, la Sede trata el fichero como una sola operación y no la propone: tendrá que elegirla a mano.</p>
 
 <h2>Descargar una parcela</h2>
 <p>En la pestaña <strong>Descargar</strong> hay dos formas de hacerlo:</p>

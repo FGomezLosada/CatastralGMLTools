@@ -81,7 +81,7 @@ Decisiones técnicas:
 | 4 | Lector y visor de GML | ✅ |
 | 5 | Validador e informe | ✅ |
 | 6 | Servicios: descarga por RC y RC por clic; Navarra y territorios forales | ✅ |
-| 7 | Alteraciones: asistente, multiparcela y unión | En curso (14 y 15 ✅) |
+| 7 | Alteraciones: asistente, multiparcela y unión | ✅ |
 | 8 | GML de edificio y comprobaciones ICUC | — |
 | 9 | Conversor 3.0 → 4.0 y reparación | — |
 | 10 | División de parcelas | — |
@@ -110,8 +110,8 @@ Decisiones técnicas:
 | 13 | RC por clic en el mapa (Consulta_RCCOOR) | Comodidad | ✅ |
 | 14 | Comparación con la parcela de origen: parcelas sin cambios, contorno total (tolerancia ±1 cm en vértices: «IVG positivo cuando el contorno exterior resultante sea igual al original»), parcelas afectadas total o parcialmente (parcial → negativo), NPO, que las RC SDGC existan en el Catastro; avisos de tramitación no automática (esbeltez >15, distinto municipio, polígono o manzana, urbana y rústica mezcladas, diseminado, >30 parcelas por operación); dominio público catastrado afectado: debe ir en el GML delimitando la parte afectada (FAQ DGC); viales urbanos sin parcela: IVG negativo salvo cesión/incorporación con parcela LOCAL; avisar si la nueva geometría ocupa suelo sin parcela (vía pública) o parcelas no incluidas en el GML, o mueve un lindero con dominio público (con superficie en m² y zona en el mapa) | Simular comprobaciones de la SEC | ✅ |
 | 15 | Asistente de alteraciones: desplegable «Tipo de alteración» (segregación, división, agregación, agrupación, subsanación; umbrales del Reglamento Hipotecario como aviso: segregada <20 % de la matriz, resultantes de división y fincas agrupadas >1/5, agregación: principal ≥80 % según el documento de validación de la DGC o quíntuplo según el editor — E-17) que pone identificadores (`Seg_`, `Div_`, `Agrupa_`) y namespaces y comprueba la tabla NPO/NPP/namespace de la Sede. Mientras tanto, las parcelas nuevas se proponen como `Nueva_N` | Evitar errores de identificadores sin presuponer la alteración | ✅ |
-| 16 | Multiparcela: unir varios GML en uno | Equivalente a "multiparcela" | |
-| 17 | Unión/disolución de parcelas seleccionadas en una sola | Agregación y agrupación | |
+| 16 | Multiparcela: unir varios GML en uno | Equivalente a "multiparcela" | ✅ |
+| 17 | Unión/disolución de parcelas seleccionadas en una sola | Agregación y agrupación | ✅ |
 | 18 | Escritor GML de edificio (Building y OtherConstruction; ver INVESTIGACION §7.2: varios PolygonPatch por edificio, piscina con un Polygon, `conditionOfConstruction`, `numberOfFloorsAboveGround` máximo) | GML para el ICUC | |
 | 19 | Pestaña Edificio: capa de huellas, tipo, plantas, estado, RC de parcela | Generar el GML de edificio | |
 | 20 | Comprobaciones ICUC: dentro de la parcela, ≤100 m, sin solapes, ids, nº de ficheros | Simular el ICUC | |
@@ -164,7 +164,8 @@ Decisiones técnicas:
 | E-16 | Según el documento de validación de la DGC (IVG_Operaciones_Parcelario_GMLs, v2.3): la Sede **ya no compara `areaValue` con la geometría** (desde la v2.1) y, si hay más de 2 decimales, **solo tiene en cuenta los dos primeros** (trunca). El validador pasa SUP-DISTINTA a aviso; el escritor sigue poniendo la superficie de la geometría y 2 decimales | Resuelto |
 | E-17 | Umbral de la agregación: la DGC da dos cifras distintas, 80 % de la resultante (documento de validación) y quíntuplo de las agregadas, ≈83,3 % (guía GML y editor). Solo serán avisos (mejora 15) | Por confirmar |
 | E-18 | Navarra (07/10/2026): el Registro de la Riqueza Territorial publica parcelas y edificios en WFS INSPIRE (`inspire.navarra.es/services/CP/wfs` y `/BU/wfs`, CC BY 4.0, cita obligatoria «Servicio proporcionado por el Gobierno de Navarra»). Identificador de 9 dígitos, municipio (3) + polígono (2) + parcela (4), namespace `ES.RRTN.CP`; coordenadas con 3 decimales en EPSG:25830. La parcela se pide con un filtro FES `ResourceId` (`GetFeatureById` y `resourceId` dan error en ese servidor); Consulta_RCCOOR de la DGC devuelve en Navarra la referencia de 9 dígitos. No se ha encontrado un procedimiento equivalente al IVG ni un formato GML de alteraciones propio: el plugin descarga, pero no crea GML para Navarra (la pestaña Parcela lo impide con un aviso). País Vasco: solo se detecta | Decisión |
-| E-19 | La guía GML de la DGC pone `beginLifespanVersion` como `AAAA-MM-DDT00:00:00` y dice que la fecha es de libre elección «siempre y cuando se respete el formato». Desde el 09/10/2026 el plugin escribe también la hora (al minuto). Pendiente de confirmar con un GML subido a la Sede; si lo rechazara, se volvería a 00:00:00 | Por confirmar |
+| E-19 | La guía GML de la DGC pone `beginLifespanVersion` como `AAAA-MM-DDT00:00:00` y dice que la fecha es de libre elección «siempre y cuando se respete el formato». Desde el 09/10/2026 el plugin escribe también la hora (al minuto). Comprobado en la Sede el 09/10/2026: segregación de 29075A00900138 con `2026-10-09T09:25:00` → validación positiva, operación «Segregación» | Resuelto |
+| E-20 | Multiparcela con dos operaciones separadas (segregaciones de 1472010VF2617S y 29075A00900138 en un solo GML), subida a la Sede el 09/10/2026: validación positiva, 2 afectadas y 4 presentadas, pero «Tipo de operación: Seleccione operación» (no propone ninguna). El plugin avisa al unir zonas separadas (UNIR-SEPARADAS) | Comprobado |
 | E-08 | El icono `mActionCheckGeometry.svg` no existe en QGIS 3.34: la pestaña Validar usa `algorithms/mAlgorithmCheckGeometry.svg` | Resuelto (0.1.0) |
 
 ---
