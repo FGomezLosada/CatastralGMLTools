@@ -82,7 +82,7 @@ Decisiones técnicas:
 | 5 | Validador e informe | ✅ |
 | 6 | Servicios: descarga por RC y RC por clic; Navarra y territorios forales | ✅ |
 | 7 | Alteraciones: asistente, multiparcela y unión | ✅ |
-| 8 | GML de edificio y comprobaciones ICUC | — |
+| 8 | GML de edificio y comprobaciones ICUC | ✅ |
 | 9 | Conversor 3.0 → 4.0 y reparación | — |
 | 10 | División de parcelas | — |
 | 11 | Informe de superficies y coordenadas | — |
@@ -114,9 +114,9 @@ Decisiones técnicas:
 | 15 | Asistente de alteraciones: desplegable «Tipo de alteración» (segregación, división, agregación, agrupación, subsanación; umbrales del Reglamento Hipotecario como aviso: segregada <20 % de la matriz, resultantes de división y fincas agrupadas >1/5, agregación: principal ≥80 % según el documento de validación de la DGC o quíntuplo según el editor — E-17) que pone identificadores (`Seg_`, `Div_`, `Agrupa_`) y namespaces y comprueba la tabla NPO/NPP/namespace de la Sede. Mientras tanto, las parcelas nuevas se proponen como `Nueva_N` | Evitar errores de identificadores sin presuponer la alteración | ✅ |
 | 16 | Multiparcela: unir varios GML en uno | Equivalente a "multiparcela" | ✅ |
 | 17 | Unión/disolución de parcelas seleccionadas en una sola | Agregación y agrupación | ✅ |
-| 18 | Escritor GML de edificio (Building y OtherConstruction; ver INVESTIGACION §7.2: varios PolygonPatch por edificio, piscina con un Polygon, `conditionOfConstruction`, `numberOfFloorsAboveGround` máximo) | GML para el ICUC | |
-| 19 | Pestaña Edificio: capa de huellas, tipo, plantas, estado, RC de parcela | Generar el GML de edificio | |
-| 20 | Comprobaciones ICUC: dentro de la parcela, ≤100 m, sin solapes, ids, nº de ficheros | Simular el ICUC | |
+| 18 | Escritor GML de edificio (Building y OtherConstruction; ver INVESTIGACION §7.2: varios PolygonPatch por edificio, piscina con un Polygon, `conditionOfConstruction`, `numberOfFloorsAboveGround` máximo) | GML para el ICUC | ✅ |
+| 19 | Pestaña Edificio: capa de huellas, tipo, plantas, estado, RC de parcela | Generar el GML de edificio | ✅ |
+| 20 | Comprobaciones ICUC: dentro de la parcela, ≤100 m, sin solapes, ids, nº de ficheros | Simular el ICUC | ✅ (el nº de ficheros por solicitud, 60, no aplica: el plugin crea uno) |
 | 21 | Conversor 3.0 → 4.0 y reparaciones (cierre, orientación, `count`, `areaValue`, srsName; lista de cambios del documento «Diferencias GML parcela v3 v4» de la DGC en INVESTIGACION §7.3) | Aprovechar ficheros antiguos | |
 | 22 | División: superficie objetivo, partes iguales, porcentaje | Segregaciones y divisiones | |
 | 23 | División: franja de ancho fijo, línea paralela/perpendicular a un lado, pivote | Casos reales de campo | |

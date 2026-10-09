@@ -20,6 +20,7 @@ from qgis.PyQt.QtWidgets import QHBoxLayout, QLabel, QPushButton, QToolButton, Q
 
 from .core.info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, ruta, version
 from .gui.pestana_descargar import PestanaDescargar
+from .gui.pestana_edificio import PestanaEdificio
 from .gui.pestana_parcela import PestanaParcela
 from .gui.pestana_utilidades import PestanaUtilidades
 from .gui.pestana_validar import PestanaValidar
@@ -48,6 +49,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.setup_tabs()
         self.setup_messages()
         self.setup_parcela()
+        self.setup_edificio()
         self.setup_validar()
         self.setup_descargar()
         self.setup_utilidades()
@@ -90,6 +92,12 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         #Justo debajo del texto de la pestaña y con «stretch»: ocupa todo el alto (el espaciador del .ui se queda sin sitio)
         self.tabParcelaLayout.insertWidget(1, self.pestanaParcela, 1)
 
+    def setup_edificio(self):
+        """Pestaña Edificio: GML de edificios y piscinas (ICUC) a partir de una capa con sus huellas."""
+        self.tabEdificioPendiente.hide()
+        self.pestanaEdificio = PestanaEdificio(self, self.tabEdificio)
+        self.tabEdificioLayout.insertWidget(1, self.pestanaEdificio, 1)
+
     def setup_validar(self):
         """Pestaña Validar: abrir un GML, ver su contenido y cargarlo en el mapa."""
         self.tabValidarPendiente.hide()
@@ -112,6 +120,11 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         """Tras descargar una parcela, la pestaña Parcela pasa a trabajar con ella."""
         if hasattr(self, 'pestanaParcela'):
             self.pestanaParcela.usar_capa(capa)
+
+    def construcciones_descargadas(self, capa):
+        """Tras descargar una parcela con sus construcciones, la pestaña Edificio pasa a trabajar con ellas."""
+        if hasattr(self, 'pestanaEdificio'):
+            self.pestanaEdificio.usar_capa(capa)
 
     def cleanup(self):
         """Al descargar el plugin: devuelve al mapa la herramienta que había antes de la nuestra."""
