@@ -169,7 +169,9 @@ class PestanaValidar(QWidget):
 
     def dragEnterEvent(self, event):  # noqa: N802 (nombre impuesto por Qt)
         if self.rutas_gml(event.mimeData()):
-            event.acceptProposedAction()
+            #Siempre «copiar»: desde el panel de Capas la acción propuesta es «mover» y QGIS quitaba la capa del árbol
+            event.setDropAction(Qt.DropAction.CopyAction)
+            event.accept()
         else:
             event.ignore()
 
@@ -181,7 +183,8 @@ class PestanaValidar(QWidget):
         if not rutas:
             event.ignore()
             return
-        event.acceptProposedAction()
+        event.setDropAction(Qt.DropAction.CopyAction)
+        event.accept()
         self.soltar(rutas)
 
     def soltar(self, rutas):

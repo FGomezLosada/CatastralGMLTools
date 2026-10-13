@@ -153,6 +153,11 @@ desde_capas = pv.rutas_gml(mime_capa) == [ruta]
 pv.dropEvent(QDropEvent(QPointF(10, 10), Qt.DropAction.CopyAction, mime_capa, Qt.MouseButton.LeftButton,
                         Qt.KeyboardModifier.NoModifier))
 desde_capas = desde_capas and os.path.normpath(pv.fichero.filePath()) == os.path.normpath(ruta)
+#Desde el panel de Capas la acción propuesta es «mover»: se responde «copiar» para que QGIS no quite la capa del árbol
+mover = QDropEvent(QPointF(10, 10), Qt.DropAction.MoveAction | Qt.DropAction.CopyAction, mime_capa,
+                   Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+pv.dropEvent(mover)
+desde_capas = desde_capas and mover.dropAction() == Qt.DropAction.CopyAction and capa.isValid()
 leyenda = [c.label() for c in capa.renderer().categories()] == ['Parcela']
 
 # 8. Estilo: relleno naranja casi transparente (no morado opaco)
