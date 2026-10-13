@@ -63,8 +63,11 @@ si la tabla no encaja con la operación. Los nombres que escriba usted se respet
 que el plugin añade al mapa (la descargada o la «vista del GML») son temporales, solo para ver y editar: no las guarde con
 «Guardar como» GML de QGIS, que escribe un GML genérico y no el INSPIRE CadastralParcels 4.0 que pide la Sede.</p>
 <p><strong>Agregación o agrupación.</strong> Seleccione en el mapa las parcelas colindantes y pulse <strong>Unir
-seleccionadas</strong>: se unen en una sola, la mayor conserva sus datos y el asistente propone agregación (si la mayor conserva
+seleccionadas</strong>: se unen en una sola (las rendijas de digitalización de menos de 1 cm entre ellas se cierran), la mayor conserva sus datos y el asistente propone agregación (si la mayor conserva
 su referencia y es al menos el 80 % del total) o agrupación. La capa queda en edición: Ctrl+Z deshace la unión.</p>
+<p><strong>Vértices sobre un lindero.</strong> Las coordenadas van al centímetro. Un vértice nuevo que cae sobre un lindero
+inclinado (donde la línea de una división corta el contorno) se lleva al punto de centímetro más cercano a ese lindero, el
+mismo en las dos parcelas que lo comparten: así no queda fuera de él al redondear.</p>
 <p>Si algo impide crear el fichero (una parcela con varias partes, un identificador repetido, SDGC sin referencia
 catastral…), no se crea y la columna <em>Estado</em> indica el problema de cada parcela.</p>
 
@@ -73,7 +76,8 @@ catastral…), no se crea y la columna <em>Estado</em> indica el problema de cad
 al momento como lo hará la Sede: esquema 4.0, declaración <code>xmlns:xlink</code>, sistema de referencia, identificadores y
 namespaces, un recinto por parcela, anillos cerrados y en el sentido correcto, superficie, solapes y huecos entre parcelas.
 Además, en segundo plano, se comprueba contra el esquema XSD oficial de INSPIRE (la primera vez hace falta internet; después
-se usan los esquemas guardados). El resultado sale en verde, naranja o rojo con la lista de errores y avisos; al elegir uno
+se usan los esquemas guardados). Un GML grande (una manzana o un polígono entero) se lee y se valida en segundo plano:
+QGIS no se queda esperando. El resultado sale en verde, naranja o rojo con la lista de errores y avisos; al elegir uno
 se marca su parcela. Recuerde que la validación definitiva es la de la Sede: hay reglas que la DGC no publica.</p>
 <p>El botón <strong>Comparar con el Catastro</strong> (necesita internet) descarga las parcelas catastrales vigentes que hay
 bajo el GML y hace las comprobaciones del informe de validación gráfica de la Sede: cuántas parcelas catastrales se ven afectadas
@@ -146,8 +150,9 @@ alguna está a más de 100 m de la parcela, la Sede no emite el informe.</p>
 
 <h2>Unir varios GML (multiparcela)</h2>
 <p>En la pestaña <strong>Utilidades</strong>, añada (o arrastre) dos o más GML de parcela, elija el fichero de salida y pulse
-<strong>Unir GML</strong>. Las parcelas que estén en varios ficheros se incluyen una sola vez; si un identificador aparece con
-geometrías distintas, no se une. Si los ficheros están en husos distintos, todo se pasa al huso del primero. Con el botón
+<strong>Unir GML</strong>. Las parcelas que estén en varios ficheros se incluyen una sola vez. Si dos parcelas nuevas (LOCAL) se
+llaman igual pero son distintas (por ejemplo, el <code>Seg_1</code> de dos segregaciones), la segunda se renombra a un nombre
+libre (<code>Seg_2</code>…) y se indica; si es una referencia catastral (SDGC) con geometrías distintas, no se une. Si los ficheros están en husos distintos, todo se pasa al huso del primero. Con el botón
 <strong>Validar</strong> del resultado se revisa el GML unido (solapes, huecos y comparación con el Catastro). Si las parcelas
 están en zonas separadas, la Sede trata el fichero como una sola operación y no la propone: tendrá que elegirla a mano.</p>
 

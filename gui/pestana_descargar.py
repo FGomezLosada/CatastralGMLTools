@@ -8,11 +8,14 @@ No es una herramienta de descarga masiva: una parcela cada vez.
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
+import contextlib
+
 from qgis.core import (
     Qgis,
     QgsApplication,
     QgsCoordinateReferenceSystem,
     QgsCoordinateTransform,
+    QgsFeedback,
     QgsProject,
     QgsTask,
 )
@@ -64,6 +67,7 @@ class PestanaDescargar(QWidget):
         super().__init__(parent)
         self.dock = dock
         self.tarea = None          #Tarea en curso (referencia guardada para que Python no la borre)
+        self.tarea_fondo = None    #Comprobación de los servicios del mapa de fondo (AU-38)
         self.herramienta = None    #Herramienta de mapa para elegir la parcela con un clic
         self.anterior = None       #Herramienta de mapa que había antes, para devolverla
         self.capas = {}            #Capas de la última descarga
@@ -191,14 +195,54 @@ class PestanaDescargar(QWidget):
         opciones = {'colindantes': self.colindantes.isChecked(), 'construcciones': self.construcciones.isChecked()}
         self.resumen.setText(f"<i>Descargando {refcat.comprobar(rc).parcela or refcat.navarra(rc)}…</i>")
         if not segundo_plano:
-            return self.descargada(servicios.descargar(rc, **opciones))
+            return self.descargada(servicios.descargar(rc, **opciones), segundo_plano=False)
         self.descargarBoton.setEnabled(False)
         self.tarea = TareaCatastro("Catastral GML Tools: descargando la parcela", servicios.descargar, (rc,), opciones,
                                    self, 'descargada')
         QgsApplication.taskManager().addTask(self.tarea)
         return None
 
-    def descargada(self, descarga):
+    def poner_fondo(self, segundo_plano=True, aviso=False):
+        """
+        Añade el mapa de fondo si la casilla está marcada. Los servicios aún no comprobados se prueban antes en segundo
+        plano (TareaFondo): si alguno está caído, QGIS no se bloquea (AU-38). Devuelve las capas añadidas ya.
+        """
+        if not self.fondo.isChecked():
+            return []
+        if not segundo_plano or not fondo.pendientes():
+            return fondo.asegurar(self.dock.iface)
+        if self.tarea_fondo is None:
+            self.tarea_fondo = TareaFondo(self, aviso)
+            QgsApplication.taskManager().addTask(self.tarea_fondo)
+        return []
+
+    def fondo_comprobado(self, aviso=False):
+        """Fin de la comprobación de los servicios del fondo: se añaden los que responden."""
+        self.tarea_fondo = None
+        if not self.fondo.isChecked():
+            return
+        vacio = not QgsProject.instance().mapLayers()
+        nuevas = fondo.asegurar(self.dock.iface)
+        if fondo.ESTADO and not any(fondo.ESTADO.values()):
+            self.fondo.setChecked(False)
+            self.dock.notify("Los servicios del mapa de fondo no responden ahora: se sigue sin él", Qgis.MessageLevel.Info, 8)
+        elif aviso and nuevas and vacio:
+            self.dock.notify("Acérquese a la zona (rueda del ratón) y haga clic sobre la parcela que quiere descargar",
+                             Qgis.MessageLevel.Info, 10)
+
+    def motivo(self, texto):
+        """Texto del fallo con el motivo que dejó la tarea (excepción o cancelación), si lo hay."""
+        error, self.error_tarea = getattr(self, 'error_tarea', ''), ''
+        return f"{texto}: {error}" if error else texto
+
+    def cancelar_tareas(self):
+        """Al cerrar o recargar el plugin: las consultas en curso se cortan."""
+        for tarea in (self.tarea, self.tarea_fondo):
+            if tarea is not None and not sip.isdeleted(tarea):
+                with contextlib.suppress(RuntimeError):
+                    tarea.cancel()
+
+    def descargada(self, descarga, segundo_plano=True):
         """Llega de la tarea (en el hilo principal): añade las capas o explica por qué no se ha podido."""
         if sip.isdeleted(self):
             return None
@@ -208,10 +252,9 @@ class PestanaDescargar(QWidget):
         if descarga is None or not descarga.correcta:
             errores = [i.mensaje for i in (descarga.incidencias if descarga else []) if i.nivel == ERROR]
             self.resumen.setText("<span style='color:#c92a2a'>✖ No se ha descargado la parcela</span>")
-            self.dock.warn("\n".join(errores) or "No se ha podido descargar la parcela")
+            self.dock.warn("\n".join(errores) or self.motivo("No se ha podido descargar la parcela"))
             return None
-        if self.fondo.isChecked():
-            fondo.asegurar(self.dock.iface)  #Antes que la parcela: si el proyecto está vacío, fija su SRC
+        self.poner_fondo(segundo_plano)  #Antes que la parcela: si el proyecto está vacío, fija su SRC
         self.capas = cargar_descarga(descarga, self.dock.iface)
         if self.dock.iface is not None and hasattr(self.dock.iface, 'setActiveLayer'):
             self.dock.iface.setActiveLayer(self.capas['parcela'])
@@ -264,7 +307,7 @@ class PestanaDescargar(QWidget):
                 self.herramienta.deactivated.connect(self.herramienta_desactivada)
             if lienzo.mapTool() is not self.herramienta:
                 self.anterior = lienzo.mapTool()
-            nuevo_fondo = fondo.asegurar(self.dock.iface) if self.fondo.isChecked() else []
+            nuevo_fondo = self.poner_fondo(aviso=True)
             lienzo.setMapTool(self.herramienta)
             self.dock.notify("Acérquese a la zona (rueda del ratón) y haga clic sobre la parcela que quiere descargar"
                              if nuevo_fondo else "Haga clic en el mapa sobre la parcela que quiere descargar",
@@ -319,7 +362,7 @@ class PestanaDescargar(QWidget):
         if resultado is None or not resultado.rc or any(i.nivel == ERROR for i in resultado.incidencias):
             self.resumen.clear()
             self.dock.warn("\n".join(i.mensaje for i in (resultado.incidencias if resultado else []))
-                           or "No se ha encontrado ninguna parcela en ese punto")
+                           or self.motivo("No se ha encontrado ninguna parcela en ese punto"))
             self.rc_cambiada(self.rc.text())
             return None
         self.rc.setText(resultado.rc)
@@ -327,6 +370,29 @@ class PestanaDescargar(QWidget):
         if resultado.direccion:
             self.rc.setToolTip(resultado.direccion)
         return self.descargar(segundo_plano=segundo_plano)
+
+
+class TareaFondo(QgsTask):
+    """Comprueba en segundo plano que responden los servicios WMS del mapa de fondo (AU-38)."""
+
+    def __init__(self, pestana, aviso=False):
+        super().__init__("Catastral GML Tools: comprobando el mapa de fondo", QgsTask.Flag.CanCancel)
+        self.pestana = pestana
+        self.aviso = aviso
+        self.feedback = QgsFeedback()
+
+    def cancel(self):
+        self.feedback.cancel()
+        super().cancel()
+
+    def run(self):
+        with contextlib.suppress(Exception):  #Nunca debe cerrar QGIS: el fondo es opcional
+            fondo.comprobar_servicios(self.feedback)
+        return not self.isCanceled()
+
+    def finished(self, correcto):
+        if correcto and self.pestana is not None and not sip.isdeleted(self.pestana):
+            self.pestana.fondo_comprobado(self.aviso)
 
 
 class TareaCatastro(QgsTask):
@@ -340,16 +406,24 @@ class TareaCatastro(QgsTask):
         self.pestana = pestana
         self.metodo = metodo
         self.resultado = None
+        self.error = ''
+        self.feedback = QgsFeedback()  #Cancelar en el gestor de tareas corta la petición en curso (AU-38)
+
+    def cancel(self):
+        self.feedback.cancel()
+        super().cancel()
 
     def run(self):
         try:
-            self.resultado = self.funcion(*self.argumentos, **self.opciones)
-        except Exception:  #Nunca debe cerrar QGIS: el resultado vacío se explica en el panel
-            self.resultado = None
+            with servicios.en_tarea(self.feedback):
+                self.resultado = self.funcion(*self.argumentos, **self.opciones)
+        except Exception as e:  #Nunca debe cerrar QGIS: se explica en el panel con el motivo (B14)
+            self.resultado, self.error = None, str(e) or type(e).__name__
         return True
 
     def finished(self, correcto):
         if self.pestana is not None and not sip.isdeleted(self.pestana):
+            self.pestana.error_tarea = "cancelada" if self.isCanceled() else self.error
             getattr(self.pestana, self.metodo)(self.resultado)
 
 

@@ -9,7 +9,7 @@ license   : GNU GPL v2 or later
 import contextlib
 import os
 
-from qgis.core import Qgis, QgsApplication, QgsMimeDataUtils, QgsProject, QgsTask
+from qgis.core import Qgis, QgsApplication, QgsFeedback, QgsMimeDataUtils, QgsProject, QgsTask
 from qgis.gui import QgsFileWidget
 from qgis.PyQt import sip
 from qgis.PyQt.QtCore import Qt
@@ -34,6 +34,7 @@ from ..core import geometria as geo
 from ..core import gml_lector as gl
 from ..core import informe as informe_html
 from ..core import validador
+from ..core import servicios
 from ..core.incidencias import AVISO, ERROR, INFO, Incidencia
 from ..core.info import FUENTE_DGC
 from . import estilos
@@ -45,6 +46,9 @@ ICONOS_CODIGO = {'XSD-VALIDO': '/mIconSuccess.svg', 'CMP-CONTORNO-OK': '/mIconSu
 TEXTO_ESTADO = {ERROR: 'Con errores', AVISO: 'Con avisos', 'correcta': 'Correcta'}
 PROPIEDAD_GML = 'catastral_gml_tools/gml'  #Propiedad de las capas que carga el plugin: ruta del GML del que salen
 COMPARABLES = ('CP 4.0', 'BU 2.0')  #Parcela: operación y contorno; edificio: dentro de la parcela (ICUC)
+
+
+UMBRAL_SEGUNDO_PLANO = 2_000_000  #bytes: por encima (unas 1.000 parcelas), Validar lee y valida en una QgsTask
 
 
 def comparar(lectura):
@@ -60,6 +64,7 @@ class PestanaValidar(QWidget):
         self.informe = None
         self.tarea = None  #Comprobación XSD en curso (se guarda la referencia para que Python no la borre)
         self.tarea_cmp = None  #Comparación con el Catastro en curso
+        self.tarea_lectura = None  #Lectura y validación de un fichero grande en curso (AU-37)
         self.comparacion = None
         self.ruta = ''
         self.generacion = 0  #Sube al abrir otro fichero: lo que llegue de tareas anteriores se descarta (AU-02)
@@ -196,14 +201,22 @@ class PestanaValidar(QWidget):
 
     # ------------------------------------------------------------------ Abrir
 
-    def limpiar(self):
-        #Las tareas del fichero anterior se cancelan y su resultado, si llega, se descarta (no se mezcla con el nuevo)
+    def cancelar_tareas(self):
+        """Al cerrar o recargar el plugin: las tareas en curso se cancelan y su resultado se descarta."""
         self.generacion += 1
-        for tarea in (self.tarea, self.tarea_cmp):
+        for tarea in (self.tarea, self.tarea_cmp, self.tarea_lectura):
             if tarea is not None and not sip.isdeleted(tarea):
                 with contextlib.suppress(RuntimeError):
                     tarea.cancel()
-        self.tarea = self.tarea_cmp = None
+
+    def limpiar(self):
+        #Las tareas del fichero anterior se cancelan y su resultado, si llega, se descarta (no se mezcla con el nuevo)
+        self.generacion += 1
+        for tarea in (self.tarea, self.tarea_cmp, self.tarea_lectura):
+            if tarea is not None and not sip.isdeleted(tarea):
+                with contextlib.suppress(RuntimeError):
+                    tarea.cancel()
+        self.tarea = self.tarea_cmp = self.tarea_lectura = None
         self.tabla.setRowCount(0)
         self.lista.clear()
         self.estado.clear()
@@ -227,8 +240,30 @@ class PestanaValidar(QWidget):
             self.dock.warn(f"No existe el fichero: {ruta}")
             return None
         self.ruta = ruta
-        self.resultado = gl.leer(ruta)
-        self.informe = validador.validar(ruta, self.resultado)
+        if segundo_plano and os.path.getsize(ruta) > UMBRAL_SEGUNDO_PLANO:
+            #Un GML grande (una manzana, un polígono entero) se lee y se valida en segundo plano: QGIS no se bloquea
+            self.resumen.setText(f"<b>{os.path.basename(ruta)}</b> · leyendo y validando…")
+            self.tarea_lectura = TareaLectura(ruta, self, self.generacion)
+            QgsApplication.taskManager().addTask(self.tarea_lectura)
+            return None
+        resultado = gl.leer(ruta)
+        return self.mostrar_lectura(ruta, resultado, validador.validar(ruta, resultado), segundo_plano)
+
+    def leido(self, ruta, resultado, informe, generacion=None):
+        """Fin de la lectura en segundo plano (se descarta si entretanto se ha abierto otro fichero)."""
+        if generacion is not None and generacion != self.generacion:
+            return
+        self.tarea_lectura = None
+        if resultado is None:
+            self.resumen.clear()
+            self.dock.warn(f"No se ha podido leer el fichero: {informe}")
+            return
+        self.mostrar_lectura(ruta, resultado, informe, True)
+
+    def mostrar_lectura(self, ruta, resultado, informe, segundo_plano=True):
+        """Rellena la tabla, la lista y el resumen con un GML ya leído y validado."""
+        self.resultado = resultado
+        self.informe = informe
         r = self.resultado
         self.tabla.setRowCount(len(r.elementos))
         for i, e in enumerate(r.elementos):
@@ -423,6 +458,32 @@ class PestanaValidar(QWidget):
         return cargar(self.resultado, self.ruta, self.dock.iface)
 
 
+class TareaLectura(QgsTask):
+    """Lectura y validación de un GML grande en segundo plano (AU-37)."""
+
+    def __init__(self, ruta, pestana, generacion=None):
+        super().__init__("Catastral GML Tools: leyendo y validando el GML", QgsTask.Flag.CanCancel)
+        self.ruta = ruta
+        self.pestana = pestana
+        self.generacion = generacion
+        self.lectura = None
+        self.informe = None
+
+    def run(self):
+        try:
+            self.lectura = gl.leer(self.ruta)
+            if self.isCanceled():
+                return False
+            self.informe = validador.validar(self.ruta, self.lectura)
+        except Exception as e:  #Nunca debe cerrar QGIS: se dice en la barra
+            self.lectura, self.informe = None, str(e)
+        return not self.isCanceled()
+
+    def finished(self, resultado):
+        if resultado and self.pestana is not None and not sip.isdeleted(self.pestana):
+            self.pestana.leido(self.ruta, self.lectura, self.informe, self.generacion)
+
+
 class TareaComparacion(QgsTask):
     """Comparación con el Catastro en segundo plano (descarga las parcelas catastrales del WFS de la DGC)."""
 
@@ -432,12 +493,18 @@ class TareaComparacion(QgsTask):
         self.pestana = pestana
         self.generacion = generacion
         self.comparacion = None
+        self.feedback = QgsFeedback()  #Cancelar corta la petición en curso y las siguientes (AU-38)
+
+    def cancel(self):
+        self.feedback.cancel()
+        super().cancel()
 
     def run(self):
         if self.isCanceled():
             return False
         try:
-            self.comparacion = comparar(self.resultado_lectura)
+            with servicios.en_tarea(self.feedback):
+                self.comparacion = comparar(self.resultado_lectura)
         except Exception as e:  #Nunca debe cerrar QGIS: se informa como incidencia
             self.comparacion = cmp.Comparacion(incidencias=[Incidencia(AVISO, 'CMP-FALLO',
                                                                        f"No se ha podido comparar con el Catastro: {e}")])

@@ -5,6 +5,16 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 ## [Sin publicar]
 
 ### Añadido
+- **Auditoría, bloque C (robustez, rendimiento y compatibilidad)** — el plugin no se bloquea ni se rompe con ficheros grandes, servicios caídos o datos raros:
+  - Validar: solapes con índice espacial (4.900 parcelas en 0,7 s; antes 15 s) y lectura y validación en segundo plano para ficheros de más de 2 MB; los huecos entre parcelas se reconocen por su geometría (un patio relleno ya no compensa un hueco real) (AU-37, AU-40).
+  - Tareas de red cancelables (cancelar en el gestor de tareas corta la petición en curso y las siguientes) y con un tiempo máximo de 3 minutos; al descargar o recargar el plugin se cancelan las tareas en marcha. El mapa de fondo comprueba antes en segundo plano que sus servicios responden: con uno caído, QGIS ya no se queda esperando y la casilla se desmarca (AU-38).
+  - Caché de esquemas XSD: solo guarda esquemas de verdad (no páginas de error ni de un proxy), escribe de forma atómica y, si un esquema guardado no sirve, vacía la caché y lo vuelve a intentar (AU-39).
+  - Unir GML: dos parcelas nuevas con el mismo nombre y distinta geometría (el `Seg_1` de dos segregaciones) ya no son un error: la segunda se renombra a un nombre libre; un namespace desconocido se avisa (AU-41).
+  - Unir seleccionadas: las rendijas de digitalización de menos de 1 cm entre las parcelas se cierran (antes: «no colindantes») y un patio de verdad se conserva (AU-42).
+  - Descargar: al cerrar el panel se suelta «Elegir en el mapa»; un fallo de la tarea dice el motivo; una respuesta del servicio que no es del WFS se explica como «puede estar en mantenimiento» (AU-44).
+  - Qt6: `setFilters` con `Qgis.LayerFilters` (sin aviso de API obsoleta) (AU-45). «Solo los elementos seleccionados» ya no se queda marcado al cambiar de capa (AU-46).
+  - Vértices nuevos sobre un lindero inclinado: van al punto de la rejilla de 1 cm más cercano al lindero (en el caso más desfavorable, de 0,93 cm a 0,03 cm), el mismo en las parcelas que lo comparten; aviso si aun así queda a más de 0,5 cm (AU-61).
+  - Prueba nueva `robustez_test.py` (DXF con varias líneas, utilidades de capas, respuestas raras de la DGC, croquis, zonas separadas, comparación demasiado extensa, referencias con Ñ, punto interior, descarga del plugin con tareas en marcha) y casos nuevos en las demás (AU-47).
 - **Auditoría, bloque B (normativa y avisos)** — el plugin dice lo que diría la Sede según la normativa vigente:
   - Ya no se habla de «informe negativo» (la Sede no lo certifica desde el 12/03/2025: muestra los errores) (AU-20).
   - Viario y cesiones: una parcela nueva (LOCAL) que ocupa suelo sin parcela da aviso de «positivo condicionado»; con una SDGC sigue siendo error (AU-21).

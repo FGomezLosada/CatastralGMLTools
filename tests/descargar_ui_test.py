@@ -155,6 +155,32 @@ pes.mapaBoton.setChecked(True)
 dw.cleanup()
 devuelta = lienzo.mapTool() is pan
 herramienta = sin_parcela and desmarcado and devuelta
+#Cerrar el panel con la × suelta «Elegir en el mapa» (B6)
+pes.mapaBoton.setChecked(True)
+dw.visibilidad_cambiada(False)
+herramienta = herramienta and lienzo.mapTool() is pan and not pes.mapaBoton.isChecked()
+
+# 5a. Robustez de las tareas (AU-38, AU-44): motivo real del fallo, cancelación y respuesta que no es del WFS
+from qgis.core import QgsFeedback  # noqa: E402
+
+dw.messageBar.clearWidgets()
+_rota = pd.TareaCatastro("prueba", lambda rc: {}[rc], ('X',), {}, pes, 'descargada')  #Lanza KeyError
+_rota.run()
+_rota.finished(True)
+motivo = 'No se ha podido descargar la parcela' in textos_barra() and "'X'" in textos_barra()
+_cancelado = QgsFeedback()
+_cancelado.cancel()
+with pd.servicios.en_tarea(_cancelado):
+    _datos, _error = original('https://ovc.catastro.meh.es/no-se-pide')
+_lento = QgsFeedback()
+with pd.servicios.en_tarea(_lento, tiempo_maximo=-1):
+    _datos2, _error2 = original('https://ovc.catastro.meh.es/no-se-pide')
+cancelable = _error == pd.servicios.CANCELADO and 'tarda demasiado' in _error2 and _datos == _datos2 == b''
+pd.servicios.pedir = lambda url: (b'<html><body>Servicio en mantenimiento</body></html>', '')
+_, _inc_html = pd.servicios.consultar_wfs(pd.servicios.url_parcela(sim.RC), 'la parcela')
+pd.servicios.pedir = sim.pedir
+mantenimiento = [i.codigo for i in _inc_html] == ['WFS-RESPUESTA'] and 'mantenimiento' in _inc_html[0].mensaje
+tareas = motivo and cancelable and mantenimiento
 
 # 5b. Navarra: se descarga del Gobierno de Navarra, no pasa a la pestaña Parcela y no deja crear el GML de la Sede
 pp = dw.pestanaParcela
@@ -200,6 +226,20 @@ else:
     modo_fondo = "sin conexión"
     fondo_ok = raiz.findGroup(fondo.GRUPO) is None and not fondo.capas_fondo()
 
+# 6b. Servicios del fondo que no responden en esta sesión: no se intentan (QGIS no se bloquea) y la casilla se desmarca
+_estado = dict(fondo.ESTADO)
+fondo.ESTADO.clear()
+fondo.ESTADO.update({c[0]: False for c in fondo.CAPAS})
+proyecto.removeMapLayers([c.id() for c in proyecto.mapLayers().values()])
+raiz.removeAllChildren()
+pes.fondo.setChecked(True)
+caido = fondo.asegurar(iface) == [] and not fondo.pendientes() and pes.poner_fondo() == [] and pes.tarea_fondo is None
+pes.fondo_comprobado()
+fondo_caido = caido and not pes.fondo.isChecked() and 'no responden' in textos_barra()
+fondo.ESTADO.clear()
+fondo.ESTADO.update(_estado)
+pes.fondo.setChecked(True)
+
 pd.servicios.pedir = original
 for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
@@ -217,7 +257,9 @@ checks = {
     "sin colindantes: nota en verde, no aviso": isla,
     "errores en la barra: parcela inexistente y sin red": errores,
     "clic en el mapa: consulta la RC, descarga y devuelve la herramienta": clic,
-    "clic sin parcela y cambio de herramienta": herramienta,
+    "clic sin parcela, cambio de herramienta y panel cerrado": herramienta,
+    "tareas: motivo del fallo, cancelación, tiempo máximo y servicio en mantenimiento": tareas,
+    "mapa de fondo con los servicios caídos: no se intenta y se desmarca": fondo_caido,
     "Navarra: descarga del Gobierno de Navarra y sin GML de la Sede": navarra_ui,
     f"mapa de fondo ({modo_fondo})": fondo_ok,
     "ninguna ventana emergente": not ventanas,

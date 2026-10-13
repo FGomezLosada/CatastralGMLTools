@@ -74,6 +74,31 @@ multipoligono = (fid_m is not None and multi.featureCount() == 1 and tipo_m == a
                  and multi.getFeature(fid_m).geometry().isMultipart() and abs(multi.getFeature(fid_m).geometry().area() - 1200) < 0.01)
 multi.rollBack()
 
+# Rendijas de digitalización (AU-42): B empieza 4 mm a la derecha de A (antes «no colindantes») y C deja un hueco de 3 mm
+rendija = capa('rendija', [(rect(X0, Y0, 20, 30), 'A'), (rect(X0 + 20.004, Y0, 20, 30), 'B')])
+rendija.selectAll()
+fid_r, _, inc_r = cp.unir_seleccionadas(rendija, 'refcat')
+g_r = rendija.getFeature(fid_r).geometry() if fid_r is not None else QgsGeometry()
+hueco = capa('hueco', [(rect(X0, Y0, 20, 30), 'A'),
+                       (f"POLYGON(({X0 + 20} {Y0}, {X0 + 40} {Y0}, {X0 + 40} {Y0 + 30}, {X0 + 20} {Y0 + 30}, {X0 + 20} {Y0 + 20}, "
+                        f"{X0 + 20.003} {Y0 + 20}, {X0 + 20.003} {Y0 + 10}, {X0 + 20} {Y0 + 10}, {X0 + 20} {Y0}))", 'B')])
+hueco.selectAll()
+fid_h, _, inc_h = cp.unir_seleccionadas(hueco, 'refcat')
+g_h = hueco.getFeature(fid_h).geometry() if fid_h is not None else QgsGeometry()
+#Un patio de verdad (2 × 2 m) se conserva
+patio = capa('patio', [(f"POLYGON(({X0} {Y0}, {X0 + 20} {Y0}, {X0 + 20} {Y0 + 30}, {X0} {Y0 + 30}, {X0} {Y0}), "
+                        f"({X0 + 5} {Y0 + 5}, {X0 + 5} {Y0 + 7}, {X0 + 7} {Y0 + 7}, {X0 + 7} {Y0 + 5}, {X0 + 5} {Y0 + 5}))", 'A'),
+                       (rect(X0 + 20, Y0, 20, 30), 'B')])
+patio.selectAll()
+fid_p, _, inc_p = cp.unir_seleccionadas(patio, 'refcat')
+g_p = patio.getFeature(fid_p).geometry() if fid_p is not None else QgsGeometry()
+rendijas = (fid_r is not None and 'UNION-RENDIJAS' in codigos(inc_r) and not g_r.isMultipart()
+            and abs(g_r.area() - 1200) < 0.2 and fid_h is not None and len(g_h.asPolygon()) == 1
+            and 'UNION-RENDIJAS' in codigos(inc_h) and fid_p is not None and len(g_p.asPolygon()) == 2
+            and 'UNION-RENDIJAS' not in codigos(inc_p))
+for _c in (rendija, hueco, patio):
+    _c.rollBack()
+
 # 2. Pestaña Parcela: botón, agrupación propuesta (mitades iguales) y tabla resultante
 agrupar = capa('agrupar', [(rect(X0, Y0, 20, 30), '1907401VK4810H'), (rect(X0 + 20, Y0, 20, 30), '1907402VK4810H'),
                            (rect(X0 + 100, Y0, 10, 10), '1907409VK4810H')])  #Otra parcela de la capa, no seleccionada
@@ -102,6 +127,7 @@ checks = {
     "se deshace con la pila de edición de QGIS": deshacer,
     "errores: no colindantes y una sola seleccionada": errores,
     "capa de multipolígonos": multipoligono,
+    "rendijas de digitalización de menos de 1 cm: se cierran; un patio se conserva": rendijas,
     "pestaña Parcela: botón, agrupación propuesta y tabla": interfaz,
     "ninguna ventana emergente": not ventanas,
 }

@@ -12,8 +12,10 @@ Hay que llamar a validar() fuera del hilo principal (en una QgsTask): la primera
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
+import contextlib
 import hashlib
 import os
+import threading
 
 from qgis.core import QgsApplication, QgsBlockingNetworkRequest
 from qgis.PyQt.QtCore import QUrl
@@ -46,12 +48,46 @@ def _fichero_cache(url):
     return os.path.join(carpeta_cache(), hashlib.sha1(url.encode('utf-8')).hexdigest()[:12] + '_' + nombre)
 
 
+XS_SCHEMA = '{http://www.w3.org/2001/XMLSchema}schema'
+
+
+def es_esquema(datos):
+    """
+    True si los bytes son un XSD de verdad (raíz xs:schema). Una página de error, la de un proxy o un portal cautivo,
+    o un fichero cortado a medias no lo son: no se guardan en la caché ni se usan (AU-39).
+    """
+    if not datos or not datos.lstrip().startswith(b'<'):
+        return False
+    try:
+        from lxml import etree
+        raiz = etree.fromstring(datos, etree.XMLParser(resolve_entities=False, no_network=True))
+    except Exception:  # noqa: BLE001  (sin lxml o XML roto: no es un esquema utilizable)
+        return False
+    return raiz.tag == XS_SCHEMA
+
+
+def _guardar(cache, datos):
+    """Escritura atómica: se escribe aparte y se renombra (dos validaciones a la vez o un cierre a medias no la dejan rota)."""
+    temporal = f"{cache}.{os.getpid()}.{threading.get_ident()}.tmp"
+    try:
+        with open(temporal, 'wb') as f:
+            f.write(datos)
+        os.replace(temporal, cache)
+    except OSError:
+        with contextlib.suppress(OSError):
+            os.remove(temporal)
+
+
 def descargar(url):
     """Contenido de un esquema: de la caché o, si no está, de internet con la red de QGIS. b'' si no se puede."""
     cache = _fichero_cache(url)
     if os.path.isfile(cache) and os.path.getsize(cache) > 0:
         with open(cache, 'rb') as f:
-            return f.read()
+            datos = f.read()
+        if es_esquema(datos):
+            return datos
+        with contextlib.suppress(OSError):  #Caché estropeada (de una versión anterior del plugin): se vuelve a bajar
+            os.remove(cache)
     peticion = QNetworkRequest(QUrl(url))
     peticion.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
                           QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
@@ -59,11 +95,18 @@ def descargar(url):
     if red.get(peticion, True) != QgsBlockingNetworkRequest.ErrorCode.NoError:
         return b''
     datos = bytes(red.reply().content())
-    if datos.lstrip().startswith(b'<'):
-        with open(cache, 'wb') as f:
-            f.write(datos)
-        return datos
-    return b''
+    if not es_esquema(datos):
+        return b''
+    _guardar(cache, datos)
+    return datos
+
+
+def vaciar_cache():
+    """Borra los esquemas guardados (se vuelven a descargar la próxima vez)."""
+    carpeta = carpeta_cache()
+    for nombre in os.listdir(carpeta):
+        with contextlib.suppress(OSError):
+            os.remove(os.path.join(carpeta, nombre))
 
 
 def _resolver_clase(etree, faltan):
@@ -103,15 +146,20 @@ def validar(datos, version):
         esquemas = ESQUEMA_EDIFICIO
     else:
         return [Incidencia(AVISO, 'XSD-VERSION', f"No se comprueba el esquema de un GML {version or 'desconocido'}")]
-    faltan = []
-    parser = etree.XMLParser(no_network=True, resolve_entities=False)
-    parser.resolvers.add(_resolver_clase(etree, faltan)())
-    try:
-        esquema = etree.XMLSchema(etree.fromstring(envoltorio(esquemas), parser, base_url='urn:envoltorio'))
-    except etree.XMLSchemaParseError as e:
-        if faltan:
-            return [_sin_comprobar(faltan)]
-        return [Incidencia(AVISO, 'XSD-ESQUEMA', f"No se han podido cargar los esquemas oficiales: {str(e)[:200]}")]
+    for intento in (1, 2):
+        faltan = []
+        parser = etree.XMLParser(no_network=True, resolve_entities=False)
+        parser.resolvers.add(_resolver_clase(etree, faltan)())
+        try:
+            esquema = etree.XMLSchema(etree.fromstring(envoltorio(esquemas), parser, base_url='urn:envoltorio'))
+            break
+        except etree.XMLSchemaParseError as e:
+            if faltan:
+                return [_sin_comprobar(faltan)]
+            if intento == 1:  #Algún esquema guardado no sirve: se vacía la caché y se prueba otra vez (AU-39)
+                vaciar_cache()
+                continue
+            return [Incidencia(AVISO, 'XSD-ESQUEMA', f"No se han podido cargar los esquemas oficiales: {str(e)[:200]}")]
     if faltan:
         return [_sin_comprobar(faltan)]
     try:

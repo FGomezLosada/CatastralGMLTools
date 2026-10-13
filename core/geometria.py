@@ -29,6 +29,7 @@ from qgis.core import (
     QgsGeometry,
     QgsPointXY,
     QgsProject,
+    QgsSpatialIndex,
     QgsWkbTypes,
 )
 
@@ -255,11 +256,21 @@ def solapes(geometrias):
     mida 0,03 m² (auditoría AU-11, AU-40).
     """
     resultado = []
-    validas = [(i, v) for i, v in ((i, poligonal(g)) for i, g in enumerate(geometrias)) if v is not None]
-    for n, (i, a) in enumerate(validas):
-        caja = a.boundingBox()
-        for j, b in validas[n + 1:]:
-            if not caja.intersects(b.boundingBox()):
+    validas = {i: v for i, v in ((i, poligonal(g)) for i, g in enumerate(geometrias)) if v is not None}
+    #Índice espacial: solo se cruzan las que se tocan por la caja (con miles de parcelas no se prueban todas con todas)
+    indice = QgsSpatialIndex()
+    for i, g in validas.items():
+        indice.addFeature(i, g.boundingBox())
+    for i, a in validas.items():
+        motor = None
+        for j in sorted(indice.intersects(a.boundingBox())):
+            if j <= i:
+                continue
+            b = validas[j]
+            if motor is None:
+                motor = QgsGeometry.createGeometryEngine(a.constGet())
+                motor.prepareGeometry()
+            if not motor.intersects(b.constGet()):
                 continue
             comun = a.intersection(b)
             if comun.isEmpty() or comun.area() <= 1e-6:
@@ -268,6 +279,81 @@ def solapes(geometrias):
             if anchura > SOLAPE_MINIMO:
                 resultado.append((i, j, comun.area(), anchura))
     return resultado
+
+
+ALINEADO = 0.001      #m: un vértice a menos de 1 mm de la recta entre sus vecinos está «sobre el lindero» (no es esquina)
+LINDERO_AVISO = 0.005  #m: aviso si, aun así, un vértice nuevo queda a más de 0,5 cm del lindero tras redondear
+
+
+def _distancia_recta(p, a, b):
+    """Distancia del punto p al segmento ab (tuplas x, y)."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    largo2 = dx * dx + dy * dy
+    if largo2 == 0:
+        return math.hypot(p[0] - a[0], p[1] - a[1])
+    t = max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / largo2))
+    return math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy)
+
+
+def _clave(x, y):
+    return round(x, 6), round(y, 6)
+
+
+def ajustar_a_lindero(geometrias):
+    """
+    Vértices que caen sobre un lindero recto del conjunto (p. ej. donde la línea de una división corta el contorno de la
+    parcela): al redondear al centímetro podían quedar hasta 0,7 cm fuera del lindero. Se elige, de los cuatro puntos de
+    la rejilla de 1 cm que lo rodean, el más cercano a la recta entre las esquinas (ya redondeadas) de ese lindero; todas
+    las parcelas que comparten el vértice reciben el mismo punto (AU-61).
+    Devuelve (geometrías ajustadas, distancia máxima en m de un vértice ajustado a su lindero).
+    """
+    validas = [g for g in geometrias if g is not None and not g.isNull() and not g.isEmpty()
+               and QgsWkbTypes.geometryType(g.wkbType()) == Qgis.GeometryType.Polygon and not tiene_curvas(g)]
+    if not validas:
+        return list(geometrias), 0.0
+    union = QgsGeometry.unaryUnion(validas)
+    poligonos = union.asMultiPolygon() if union.isMultipart() else [union.asPolygon()]
+    paso = 10 ** -DECIMALES
+    cambios, peor = {}, 0.0
+    for poligono in poligonos:
+        for anillo in poligono:
+            puntos = [(p.x(), p.y()) for p in anillo[:-1]]
+            n = len(puntos)
+            if n < 4:
+                continue
+            esquina = [_distancia_recta(puntos[i], puntos[i - 1], puntos[(i + 1) % n]) > ALINEADO for i in range(n)]
+            if not any(esquina):
+                continue
+            for i in range(n):
+                if esquina[i]:
+                    continue
+                a = next(puntos[(i - k) % n] for k in range(1, n) if esquina[(i - k) % n])
+                b = next(puntos[(i + k) % n] for k in range(1, n) if esquina[(i + k) % n])
+                a, b = (redondear(a[0]), redondear(a[1])), (redondear(b[0]), redondear(b[1]))
+                x, y = puntos[i]
+                x0, y0 = math.floor(x / paso) * paso, math.floor(y / paso) * paso
+                candidatos = [(round(x0 + dx * paso, DECIMALES), round(y0 + dy * paso, DECIMALES))
+                              for dx in (0, 1) for dy in (0, 1)]
+                elegido = min(candidatos, key=lambda c: (_distancia_recta(c, a, b), math.hypot(c[0] - x, c[1] - y)))
+                cambios[_clave(x, y)] = elegido
+                peor = max(peor, _distancia_recta(elegido, a, b))
+    if not cambios:
+        return list(geometrias), 0.0
+
+    def mover(punto):
+        nuevo = cambios.get(_clave(punto.x(), punto.y()))
+        return QgsPointXY(*nuevo) if nuevo else QgsPointXY(punto)
+
+    resultado = []
+    for g in geometrias:
+        if g is None or not any(g is v for v in validas):
+            resultado.append(g)
+            continue
+        multi = g.asMultiPolygon() if g.isMultipart() else [g.asPolygon()]
+        partes = [[[mover(p) for p in anillo] for anillo in poligono] for poligono in multi if poligono]
+        resultado.append(QgsGeometry.fromPolygonXY(partes[0]) if not g.isMultipart()
+                         else QgsGeometry.fromMultiPolygonXY(partes))
+    return resultado, peor
 
 
 def truncar(geometria, decimales=DECIMALES):
@@ -317,7 +403,7 @@ def anchura_maxima(geometria):
     return mayor
 
 
-def huecos(geometrias, huecos_propios=0, franja=0.5):
+def huecos(geometrias, franja=0.5):
     """
     Superficie (m²) de los huecos entre parcelas contiguas: huecos cerrados (anillos interiores de la unión que no son
     patios de ninguna parcela) y franjas abiertas de menos de «franja» m de ancho que llegan al borde (AU-40).
@@ -327,9 +413,17 @@ def huecos(geometrias, huecos_propios=0, franja=0.5):
         return 0.0
     union = QgsGeometry.unaryUnion(validas)
     poligonos = union.asMultiPolygon() if union.isMultipart() else [union.asPolygon()]
-    cerrados = sorted((QgsGeometry.fromPolygonXY([anillo]).area() for p in poligonos for anillo in p[1:]), reverse=True)
-    #Los patios propios de las parcelas también son anillos interiores de la unión: se descuentan los mayores
-    total = sum(h for h in cerrados[huecos_propios:] if h > 1e-4) if len(cerrados) > huecos_propios else 0.0
+    #Los patios propios de una parcela (que ninguna otra rellena) también son anillos interiores de la unión: se
+    #reconocen por su geometría, no por cuántos hay (si no, un patio relleno y un hueco real se compensaban; AU-40)
+    propios = [QgsGeometry.fromPolygonXY([anillo]) for g in validas
+               for p in (g.asMultiPolygon() if g.isMultipart() else [g.asPolygon()]) for anillo in p[1:]]
+    total = 0.0
+    for p in poligonos:
+        for anillo in p[1:]:
+            hueco = QgsGeometry.fromPolygonXY([anillo])
+            punto = hueco.pointOnSurface()
+            if hueco.area() > 1e-4 and not any(abs(h.area() - hueco.area()) < 1e-3 and h.contains(punto) for h in propios):
+                total += hueco.area()
     cierre = union.buffer(franja / 2, 8).buffer(-franja / 2, 8)  #Cierra las franjas estrechas abiertas al exterior
     abiertas = cierre.difference(union.buffer(0.001, 4))
     if not abiertas.isEmpty():

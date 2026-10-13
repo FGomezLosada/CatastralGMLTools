@@ -7,7 +7,8 @@ Reglas:
   - un único SRC: si los ficheros vienen en husos distintos, se transforman al del primero (y se avisa);
   - si las parcelas forman zonas separadas se avisa: la Sede trata el GML como una sola operación (no automática);
   - una parcela repetida en dos ficheros (mismo identificador y misma geometría, ±1 cm) se incluye una sola vez;
-    el mismo identificador con geometrías distintas es un error;
+    dos parcelas nuevas (LOCAL) con el mismo nombre y distinta geometría: la segunda se renombra (Seg_1 → Seg_2);
+    una referencia catastral (SDGC) con geometrías distintas es un error;
   - el fichero resultante se escribe con el escritor del plugin (xmlns:xlink, 2 decimales, superficie…) y se puede
     revisar después en la pestaña Validar (solapes y huecos entre parcelas, comparación con el Catastro).
 
@@ -34,9 +35,10 @@ def reunir(rutas):
     """
     incidencias, parcelas, vistas = [], [], {}
     epsg = None
-    for ruta in rutas:
+    lecturas = [(ruta, gl.leer(ruta)) for ruta in rutas]
+    usados = {e.local_id for _, lectura in lecturas for e in lectura.elementos}  #Para no renombrar a uno que ya existe
+    for ruta, lectura in lecturas:
         nombre = os.path.basename(ruta)
-        lectura = gl.leer(ruta)
         errores = [i for i in lectura.incidencias if i.nivel == ERROR]
         if errores:
             incidencias += [Incidencia(ERROR, i.codigo, f"{nombre}: {i.mensaje}") for i in errores]
@@ -60,18 +62,30 @@ def reunir(rutas):
                 incidencias.append(Incidencia(ERROR, 'UNIR-SRC-FALLO', f"{nombre}: {e.local_id} no se puede pasar a "
                                                                        f"EPSG:{epsg}", e.local_id))
                 continue
-            namespace = NAMESPACES.get(e.namespace, gp.LOCAL)
-            previa = vistas.get(e.local_id)
+            namespace = NAMESPACES.get(e.namespace)
+            if namespace is None:
+                namespace = gp.LOCAL
+                incidencias.append(Incidencia(AVISO, 'UNIR-NAMESPACE', f"{nombre}: {e.local_id} tiene el namespace "
+                                                                       f"«{e.namespace or 'vacío'}»: se escribe como "
+                                                                       "parcela nueva (LOCAL)", e.local_id))
+            local_id = e.local_id
+            previa = vistas.get(local_id)
             if previa is not None:
                 if previa.geometria.hausdorffDistance(geometria) <= TOLERANCIA:
-                    incidencias.append(Incidencia(INFO, 'UNIR-REPETIDA', f"{e.local_id} está en varios ficheros: se "
-                                                                         "incluye una vez", e.local_id))
-                else:
-                    incidencias.append(Incidencia(ERROR, 'UNIR-ID-DISTINTO', f"{e.local_id} aparece en varios ficheros con "
-                                                                             "geometrías distintas", e.local_id))
-                continue
-            parcela = gp.ParcelaGML(e.local_id, namespace, geometria, e.label, e.referencia)
-            vistas[e.local_id] = parcela
+                    incidencias.append(Incidencia(INFO, 'UNIR-REPETIDA', f"{local_id} está en varios ficheros: se "
+                                                                         "incluye una vez", local_id))
+                    continue
+                if namespace == gp.SDGC or previa.namespace == gp.SDGC:
+                    incidencias.append(Incidencia(ERROR, 'UNIR-ID-DISTINTO', f"{local_id} aparece en varios ficheros con "
+                                                                             "geometrías distintas", local_id))
+                    continue
+                #Dos parcelas nuevas con el mismo nombre (p. ej. Seg_1 de dos segregaciones): se renombra la segunda (AU-41)
+                local_id = nombre_libre(local_id, usados)
+                usados.add(local_id)
+                incidencias.append(Incidencia(INFO, 'UNIR-RENOMBRADA', f"{nombre}: {e.local_id} ya está en otro fichero con "
+                                                                       f"otra geometría: se llama {local_id}", local_id))
+            parcela = gp.ParcelaGML(local_id, namespace, geometria, e.label, e.referencia)
+            vistas[local_id] = parcela
             parcelas.append(parcela)
     if not parcelas and not hay_errores(incidencias):
         incidencias.append(Incidencia(ERROR, 'UNIR-VACIO', "No hay parcelas que unir"))
@@ -83,6 +97,17 @@ def reunir(rutas):
                                                                "que elegirla a mano) ni la tramita de forma automática. Para "
                                                                "operaciones independientes, mejor un GML por finca"))
     return parcelas, epsg, incidencias
+
+
+def nombre_libre(local_id, usados):
+    """Identificador nuevo que no esté en usados: Seg_1 → Seg_2, Seg_3…; Parcela → Parcela_2…"""
+    raiz, _, numero = local_id.rpartition('_')
+    if not (raiz and numero.isdigit()):
+        raiz, numero = local_id, '1'
+    n = int(numero) + 1
+    while f"{raiz}_{n}" in usados:
+        n += 1
+    return f"{raiz}_{n}"
 
 
 def zonas_separadas(parcelas):

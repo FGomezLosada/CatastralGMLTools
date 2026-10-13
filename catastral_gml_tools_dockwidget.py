@@ -53,6 +53,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.setup_validar()
         self.setup_descargar()
         self.setup_utilidades()
+        self.visibilityChanged.connect(self.visibilidad_cambiada)
 
     # ------------------------------------------------------------------ Cabecera: aviso legal y ayuda
 
@@ -127,8 +128,22 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             self.pestanaEdificio.descarga_hecha(rc, capa)
 
     def cleanup(self):
-        """Al descargar el plugin: devuelve al mapa la herramienta que había antes de la nuestra."""
-        if not sip.isdeleted(self) and hasattr(self, 'pestanaDescargar'):
+        """
+        Al descargar el plugin: devuelve al mapa la herramienta que había antes de la nuestra y cancela las tareas en
+        curso (si no, seguirían vivas con el código antiguo al recargarlo; AU-38).
+        """
+        if sip.isdeleted(self):
+            return
+        if hasattr(self, 'pestanaDescargar'):
+            self.pestanaDescargar.soltar_herramienta()
+        for nombre in ('pestanaDescargar', 'pestanaValidar'):
+            pestana = getattr(self, nombre, None)
+            if pestana is not None and hasattr(pestana, 'cancelar_tareas'):
+                pestana.cancelar_tareas()
+
+    def visibilidad_cambiada(self, visible):
+        """Al cerrar el panel (también con la ×), «Elegir en el mapa» deja de estar activa (B6)."""
+        if not visible and hasattr(self, 'pestanaDescargar') and not sip.isdeleted(self.pestanaDescargar):
             self.pestanaDescargar.soltar_herramienta()
 
     # ------------------------------------------------------------------ Avisos dentro del panel
