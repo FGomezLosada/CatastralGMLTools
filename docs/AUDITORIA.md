@@ -136,8 +136,8 @@ aviso con el quíntuplo y mención del 80 % (AU-25); ED50 → aviso, no bloqueo 
 
 | Bloque | Estado |
 |---|---|
-| A · Fiabilidad | Pendiente (siguiente) |
-| B · Normativa y avisos | Pendiente |
+| A · Fiabilidad | ✅ 13/10/2026 (AU-01…AU-19; también AU-43 y parte de AU-40) |
+| B · Normativa y avisos | Pendiente (siguiente) |
 | C · Robustez | Pendiente |
 | D · Documentación | Pendiente (se avanza con cada bloque) |
 | E · Fases pendientes | Pendiente (tras A-C; luego manual, usabilidad y publicación) |

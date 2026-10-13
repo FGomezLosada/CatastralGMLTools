@@ -135,7 +135,12 @@ for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
 dw.deleteLater()
 
+#Agregación con dos filas que traen la misma RC: solo la mayor la conserva (AU-16)
+agr2 = alt.proponer(alt.AGREGACION, ['1907401VK4810H', '1907401VK4810H'], [800, 200])
+agregacion_filas = agr2 == [('1907401VK4810H', 'SDGC'), ('Nueva_1', 'LOCAL')]
+
 checks = {
+    "agregación con varias filas: la RC solo para la mayor": agregacion_filas,
     "propuestas de identificador y namespace por operación": propuestas,
     "comprobación NPP/namespace y notas de superficie": comprobaciones,
     "resumen con superficies y porcentajes": resumen_ok,

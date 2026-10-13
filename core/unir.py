@@ -21,6 +21,7 @@ from qgis.core import QgsCoordinateReferenceSystem, QgsGeometry
 from . import geometria as geo
 from . import gml_lector as gl
 from . import gml_parcela as gp
+from .ficheros import comprobar_destino, misma_ruta
 from .incidencias import AVISO, ERROR, INFO, Incidencia, hay_errores
 
 NAMESPACES = {'ES.SDGC.CP': gp.SDGC, 'ES.LOCAL.CP': gp.LOCAL}
@@ -55,6 +56,10 @@ def reunir(rutas):
         origen = QgsCoordinateReferenceSystem(f'EPSG:{lectura.epsg}')
         for e in lectura.elementos:
             geometria = geo.transformar(e.geometria, origen, epsg) if transformar else e.geometria
+            if geometria is None:
+                incidencias.append(Incidencia(ERROR, 'UNIR-SRC-FALLO', f"{nombre}: {e.local_id} no se puede pasar a "
+                                                                       f"EPSG:{epsg}", e.local_id))
+                continue
             namespace = NAMESPACES.get(e.namespace, gp.LOCAL)
             previa = vistas.get(e.local_id)
             if previa is not None:
@@ -93,8 +98,11 @@ def unir(rutas, destino, fecha=None):
     """Une los GML en el fichero destino. Devuelve (escrito, número de parcelas, incidencias)."""
     if len(rutas) < 2:
         return False, 0, [Incidencia(ERROR, 'UNIR-POCOS', "Elija al menos dos ficheros GML")]
-    if any(os.path.abspath(r) == os.path.abspath(destino) for r in rutas):
+    if any(misma_ruta(r, destino) for r in rutas):
         return False, 0, [Incidencia(ERROR, 'UNIR-DESTINO', "El fichero de salida no puede ser uno de los que se unen")]
+    problema = comprobar_destino(destino)  #Carpeta que no existe, ruta que es una carpeta… (AU-07)
+    if problema is not None:
+        return False, 0, [problema]
     parcelas, epsg, incidencias = reunir(rutas)
     if hay_errores(incidencias):
         return False, 0, incidencias

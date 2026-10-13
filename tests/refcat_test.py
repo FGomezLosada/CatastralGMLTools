@@ -32,7 +32,14 @@ navarra = (refcat.navarra('201-4-112') == '201040112' and refcat.navarra('201040
            and refcat.navarra('201/04/0112') == '201040112' and refcat.navarra('73 2 577') == '073020577'
            and refcat.navarra('0-1-1') == '' and refcat.navarra('9872023VH5797S') == '' and refcat.navarra('') == ''
            and refcat.navarra_partes('201040112') == (201, 4, 112))
+#RC tal como va en el GML (AU-04) y parcela de una RC de inmueble o mal escrita (AU-05)
+exacta = (refcat.es_rc_exacta('9872023VH5797S') and not refcat.es_rc_exacta('9872023vh5797s')
+          and not refcat.es_rc_exacta('9872023-VH5797S') and not refcat.es_rc_exacta(None))
+parcela_de = (refcat.parcela_de('9872023vh5797s') == '9872023VH5797S' and refcat.parcela_de('9872023-VH-5797S') == '9872023VH5797S'
+              and refcat.parcela_de('9872023VH5797S0001WX') == '9872023VH5797S' and refcat.parcela_de('9872023VH5797S0001') == '9872023VH5797S'
+              and refcat.parcela_de('9872023VH5797S0001AA') == '' and refcat.parcela_de('Seg_1') == '' and refcat.parcela_de('') == '')
 checks = {
+    "RC exacta para el GML y parcela de una RC de inmueble o mal escrita": exacta and parcela_de,
     "Navarra: municipio-polígono-parcela y sus 9 dígitos": navarra,
     "dominio público de rústica (parcelas 9001-9999; la 9000 no)": dominio,
     "las RC reales tienen los caracteres de control correctos": all(refcat.comprobar(rc).nivel == refcat.CORRECTA for rc in reales),

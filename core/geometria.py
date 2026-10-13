@@ -25,6 +25,7 @@ from qgis.core import (
     QgsAbstractGeometry,
     QgsCoordinateReferenceSystem,
     QgsCoordinateTransform,
+    QgsCsException,
     QgsGeometry,
     QgsPointXY,
     QgsProject,
@@ -148,15 +149,20 @@ def densificar(geometria, flecha=FLECHA_MAXIMA):
     return QgsGeometry(geometria.constGet().segmentize(flecha, tipo))
 
 
-def preparar(geometria, elemento=''):
+def preparar(geometria, elemento='', area_entera=True):
     """
     Convierte una geometría de polígono en la lista de Recinto que irá al GML, con sus incidencias.
     Una geometría multiparte da varios recintos y una incidencia (cada parte debe ser una parcela distinta).
     Devuelve (recintos, incidencias).
     """
     incidencias = []
-    if geometria is None or geometria.isNull() or geometria.isEmpty():
+    if geometria is None:
+        return [], [Incidencia(ERROR, 'GEO-SRC', "No se ha podido pasar al SRC del GML: las coordenadas no encajan con el "
+                                                 "SRC de la capa (revíselo en sus propiedades, pestaña Fuente)", elemento)]
+    if geometria.isNull() or geometria.isEmpty():
         return [], [Incidencia(ERROR, 'GEO-VACIA', "La geometría está vacía", elemento)]
+    if not finita(geometria):
+        return [], [Incidencia(ERROR, 'GEO-SRC', "Coordenadas no válidas (infinitas): revise el SRC de la capa", elemento)]
     if QgsWkbTypes.geometryType(geometria.wkbType()) != Qgis.GeometryType.Polygon:
         return [], [Incidencia(ERROR, 'GEO-TIPO', "La geometría no es un polígono", elemento)]
 
@@ -213,9 +219,93 @@ def preparar(geometria, elemento=''):
             incidencias.append(Incidencia(ERROR, 'GEO-INVALIDA',
                                           f"La geometría no es válida (autointersección o anillos que se tocan){detalle}",
                                           elemento))
-        if recinto.area_m2() <= 0:
+        #La parcela declara su superficie en m² enteros; el edificio no lleva superficie (basta con que no sea nula, AU-18)
+        if (recinto.area_m2() if area_entera else recinto.area()) <= 0:
             incidencias.append(Incidencia(ERROR, 'GEO-AREA', "La superficie es 0 m²", elemento))
     return recintos, incidencias
+
+
+SOLAPE_MINIMO = 0.01  #m: un solape más estrecho que 1 cm entra en la tolerancia de la Sede (±1 cm)
+
+
+def solapes(geometrias):
+    """
+    Solapes entre geometrías (lista de QgsGeometry): [(i, j, superficie, anchura)]. Cuenta la anchura del solape
+    (diámetro del mayor círculo que cabe en él), no solo su superficie: una franja de 3 cm × 1 m es un solape aunque
+    mida 0,03 m² (auditoría AU-11, AU-40).
+    """
+    resultado = []
+    validas = [(i, v) for i, v in ((i, poligonal(g)) for i, g in enumerate(geometrias)) if v is not None]
+    for n, (i, a) in enumerate(validas):
+        caja = a.boundingBox()
+        for j, b in validas[n + 1:]:
+            if not caja.intersects(b.boundingBox()):
+                continue
+            comun = a.intersection(b)
+            if comun.isEmpty() or comun.area() <= 1e-6:
+                continue
+            anchura = anchura_maxima(comun)
+            if anchura > SOLAPE_MINIMO:
+                resultado.append((i, j, comun.area(), anchura))
+    return resultado
+
+
+def poligonal(geometria):
+    """
+    La geometría válida y solo con sus partes de superficie (makeValid puede devolver colecciones con líneas o puntos),
+    o None si no queda nada. Para operar sin excepciones con geometrías de ficheros ajenos.
+    """
+    if geometria is None or geometria.isNull() or geometria.isEmpty():
+        return None
+    g = geometria if geometria.isGeosValid() else geometria.makeValid()
+    if g.isNull() or g.isEmpty():
+        return None
+    partes = [p for p in (g.asGeometryCollection() if g.isMultipart() or g.type() != Qgis.GeometryType.Polygon else [g])
+              if QgsWkbTypes.geometryType(p.wkbType()) == Qgis.GeometryType.Polygon and p.area() > 0]
+    if not partes:
+        return None
+    return partes[0] if len(partes) == 1 else QgsGeometry.unaryUnion(partes)
+
+
+def anchura_maxima(geometria):
+    """Diámetro del mayor círculo inscrito en una geometría poligonal (0 si no es de superficie)."""
+    partes = geometria.asGeometryCollection() if geometria.isMultipart() else [geometria]
+    mayor = 0.0
+    for parte in partes:
+        if QgsWkbTypes.geometryType(parte.wkbType()) != Qgis.GeometryType.Polygon or parte.area() <= 0:
+            continue
+        polo = parte.poleOfInaccessibility(0.001)
+        if polo and polo[0] is not None:
+            mayor = max(mayor, 2 * polo[1])
+    return mayor
+
+
+def huecos(geometrias, huecos_propios=0, franja=0.5):
+    """
+    Superficie (m²) de los huecos entre parcelas contiguas: huecos cerrados (anillos interiores de la unión que no son
+    patios de ninguna parcela) y franjas abiertas de menos de «franja» m de ancho que llegan al borde (AU-40).
+    """
+    validas = [v for v in (poligonal(g) for g in geometrias) if v is not None]
+    if len(validas) < 2:
+        return 0.0
+    union = QgsGeometry.unaryUnion(validas)
+    poligonos = union.asMultiPolygon() if union.isMultipart() else [union.asPolygon()]
+    cerrados = sorted((QgsGeometry.fromPolygonXY([anillo]).area() for p in poligonos for anillo in p[1:]), reverse=True)
+    #Los patios propios de las parcelas también son anillos interiores de la unión: se descuentan los mayores
+    total = sum(h for h in cerrados[huecos_propios:] if h > 1e-4) if len(cerrados) > huecos_propios else 0.0
+    cierre = union.buffer(franja / 2, 8).buffer(-franja / 2, 8)  #Cierra las franjas estrechas abiertas al exterior
+    abiertas = cierre.difference(union.buffer(0.001, 4))
+    if not abiertas.isEmpty():
+        cerrados_geom = [QgsGeometry.fromPolygonXY([anillo]) for p in poligonos for anillo in p[1:]]
+        for g in cerrados_geom:  #Lo cerrado ya está contado
+            abiertas = abiertas.difference(g)
+        for pieza in (abiertas.asGeometryCollection() if abiertas.isMultipart() else [abiertas]):
+            anchura = anchura_maxima(pieza)
+            #Franja entre parcelas: alargada (no el redondeo de una esquina) y tocando al menos a dos de ellas
+            if pieza.area() > 1e-3 and anchura > 0.001 and pieza.area() / anchura ** 2 > 8 \
+                    and sum(1 for g in validas if g.distance(pieza) < 0.002) >= 2:
+                total += pieza.area()
+    return total
 
 
 def punto_interior(recinto):
@@ -284,12 +374,26 @@ def epsg_recomendado(geometria, crs):
 
 
 def transformar(geometria, crs_origen, epsg_destino):
-    """Copia de la geometría transformada al EPSG de destino."""
+    """
+    Copia de la geometría transformada al EPSG de destino, o None si no se puede transformar (coordenadas que no encajan
+    con el SRC de la capa: p. ej. UTM en una capa marcada como EPSG:4326, AU-06). preparar(None) da el error GEO-SRC.
+    """
     destino = QgsCoordinateReferenceSystem(f'EPSG:{epsg_destino}')
     copia = QgsGeometry(geometria)
-    if crs_origen != destino:
-        copia.transform(QgsCoordinateTransform(crs_origen, destino, QgsProject.instance()))
+    if crs_origen != destino and not copia.isNull():
+        try:
+            copia.transform(QgsCoordinateTransform(crs_origen, destino, QgsProject.instance()))
+        except QgsCsException:
+            return None
+        if not finita(copia):
+            return None
     return copia
+
+
+def finita(geometria):
+    """True si todas las coordenadas son números finitos (una transformación imposible da inf o nan)."""
+    caja = geometria.boundingBox()
+    return all(math.isfinite(v) for v in (caja.xMinimum(), caja.yMinimum(), caja.xMaximum(), caja.yMaximum()))
 
 
 def comprobar_src(crs, geometria=None, codigo_provincia=''):

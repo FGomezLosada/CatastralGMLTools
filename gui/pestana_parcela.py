@@ -37,6 +37,7 @@ from ..core import geometria as geo
 from ..core import gml_lector as gl
 from ..core import gml_parcela as gp
 from ..core import refcat
+from ..core.ficheros import misma_ruta
 from ..core.incidencias import AVISO, ERROR
 from .pestana_validar import cargar
 
@@ -230,9 +231,12 @@ class PestanaParcela(QWidget):
         actual = self.destino.filePath().strip()
         if actual and actual != self.destino_automatico:
             return
-        carpeta = os.path.dirname(actual) if actual else (QgsProject.instance().homePath() or os.path.expanduser('~'))
+        carpeta = os.path.dirname(actual) if actual else (os.path.dirname(cp.fichero_de_capa(capa)) or QgsProject.instance().homePath()
+                                                          or os.path.expanduser('~'))
         nombre = re.sub(r'[^0-9A-Za-z_.-]+', '_', capa.name()).strip('._') or 'parcelas'
         self.destino_automatico = os.path.join(carpeta, f"{nombre}.gml")
+        if misma_ruta(self.destino_automatico, cp.fichero_de_capa(capa)):  #Nunca el fichero del que sale la capa (AU-09)
+            self.destino_automatico = os.path.join(carpeta, f"{nombre}_nuevo.gml")
         self.destino.setFilePath(self.destino_automatico)
 
     def seguir_seleccion(self, capa):
@@ -359,6 +363,9 @@ class PestanaParcela(QWidget):
         if epsg:
             origen = geo.epsg_de(capa.crs())
             texto += f" · EPSG:{epsg}" + ('' if origen == epsg else f" (se transforma desde {capa.crs().authid()})")
+        problema = cp.src_incorrecto(capa)  #UTM en una capa marcada como geográfica, o sin SRC (AU-06)
+        if problema:
+            texto += f"<br><span style='color:#c92a2a'>✖ {problema}</span>"
         self.resumen.setText(texto)
 
     # ------------------------------------------------------------------ Asistente de alteraciones
@@ -433,6 +440,12 @@ class PestanaParcela(QWidget):
                 self.actualizar_label(fila)
         elif item.column() == COL_ID:
             texto = item.text().strip()
+            rc = refcat.parcela_de(texto)
+            if rc and rc != texto:  #RC escrita en minúsculas, con guiones o de inmueble: la de la parcela (AU-04, AU-05)
+                self.tabla.blockSignals(True)
+                item.setText(rc)
+                self.tabla.blockSignals(False)
+                texto = rc
             combo = self.tabla.cellWidget(fila, COL_NS)
             if combo is not None and texto:
                 combo.blockSignals(True)
@@ -499,6 +512,9 @@ class PestanaParcela(QWidget):
         if capa is None:
             self.dock.warn("Elija una capa de polígonos")
             return
+        if cp.src_incorrecto(capa):
+            self.dock.warn(cp.src_incorrecto(capa))
+            return
         territorio = capa.customProperty(PROPIEDAD_TERRITORIO)
         if territorio:  #Capa descargada de un catastro foral: el GML de la Sede de la DGC no sirve allí
             self.dock.warn(f"La capa es de {territorio}, que tiene catastro propio: el GML para la Sede Electrónica de la "
@@ -526,14 +542,18 @@ class PestanaParcela(QWidget):
             return
         filas = self.filas_editadas()
         fecha = self.fecha.dateTime().toPyDateTime().replace(second=0, microsecond=0)
-        ok, incidencias = gp.escribir(ruta, cp.a_parcelas_gml(filas, capa.crs(), epsg), epsg, fecha)
+        ok, incidencias = gp.escribir(ruta, cp.a_parcelas_gml(filas, capa.crs(), epsg), epsg, fecha,
+                                      origenes=[cp.fichero_de_capa(capa)])
         self.marcar_estados(incidencias)
         problemas = [str(i) for i in incidencias if i.nivel in (ERROR, AVISO)]
         if ok:  #Los avisos del asistente de alteraciones no impiden crear el GML, pero se recuerdan
             self.mostrar_alteracion()
             problemas += [i.mensaje for i in getattr(self, 'incidencias_alteracion', []) if i.nivel == AVISO]
         if not ok:
-            self.dock.notify("No se ha creado el GML: corrija estos errores\n\n" + "\n".join(f"- {p}" for p in problemas),
+            errores = [str(i) for i in incidencias if i.nivel == ERROR]
+            texto = (f"No se ha creado el GML: {errores[0]}" if len(errores) == 1 else
+                     "No se ha creado el GML: corrija estos errores\n\n" + "\n".join(f"- {p}" for p in problemas))
+            self.dock.notify(texto,
                              Qgis.MessageLevel.Critical, 0)
             return
         self.ultimo_gml = ruta

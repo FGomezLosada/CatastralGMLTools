@@ -78,8 +78,10 @@ se marca su parcela. Recuerde que la validación definitiva es la de la Sede: ha
 <p>El botón <strong>Comparar con el Catastro</strong> (necesita internet) descarga las parcelas catastrales vigentes que hay
 bajo el GML y hace las comprobaciones del informe de validación gráfica de la Sede: cuántas parcelas catastrales se ven afectadas
 (NPO) y cuántas trae el GML (NPP), qué operación resulta (segregación, división, agregación, agrupación o subsanación), si el
-contorno exterior coincide con el de las parcelas afectadas (±1 cm), si alguna parcela queda afectada solo en parte (informe
-negativo), si el GML ocupa suelo sin parcela (una calle) y si las referencias catastrales existen. En el mapa se añade el grupo
+contorno exterior coincide con el de las parcelas afectadas (±1 cm medido como distancia: un vértice movido 2 cm ya no
+coincide), si alguna parcela queda afectada solo en parte (la Sede no emitiría el informe; dice hasta cuántos cm se separa),
+si alguna parcela del GML es igual a la catastral (no cambia nada: hay que quitarla), si el GML ocupa suelo sin parcela (una
+calle) y si las referencias catastrales existen. En el mapa se añade el grupo
 «Comparación» con las parcelas catastrales afectadas y las diferencias: en rojo lo que sobra y en azul lo que falta.</p>
 <p>El botón <strong>Informe</strong> guarda junto al GML un informe en HTML (<code>nombre_informe.html</code>) con el resultado,
 las incidencias, un croquis y las coordenadas de cada recinto, y lo abre en el navegador; se puede imprimir o adjuntar.</p>
@@ -128,9 +130,17 @@ fichero) y «Comparar con el Catastro» dice que todas las construcciones están
 «Informe catastral de ubicación de las construcciones», indique los 14 primeros caracteres de la referencia de la parcela,
 rellene los datos del técnico y de la obra y suba el fichero <code>…_edificio.gml</code> creado por el plugin (no una capa
 guardada desde QGIS). El informe que emite la Sede va firmado: use solo construcciones reales.</p>
-<p>Si la cartografía catastral está desplazada respecto a la realidad, el GML lleva las construcciones en su posición real y
-el desplazamiento se indica en el propio ICUC («¿Existe desplazamiento de la cartografía?», parámetros CX y CY), según la
-ayuda de la Sede. Las parcelas con bienes de características especiales (BICE) no tienen ICUC.</p>
+<p><strong>Cartografía desplazada.</strong> Según la ayuda de la Sede (desplazamientos en el ICUC):</p>
+<ul>
+  <li>Si la parcela está bien y alguna construcción está desplazada en el Catastro, el ICUC se pide con el GML de las
+  construcciones en su posición real.</li>
+  <li>Si la parcela y todas las construcciones están desplazadas igual (toda la cartografía de la zona), se marca «Sí» en
+  «¿Existe desplazamiento de la cartografía?», se indican los parámetros (CX y CY, o los seis de una transformación afín)
+  y el ICUC se pide con el GML desplazado como la cartografía catastral; el GML en posición real se aporta como
+  documentación. (El cálculo de esos parámetros y de los dos GML está previsto en el plugin.)</li>
+</ul>
+<p>Las parcelas con bienes de características especiales (BICE) no tienen ICUC. Si hay construcciones solapadas o
+alguna está a más de 100 m de la parcela, la Sede no emite el informe.</p>
 
 <h2>Unir varios GML (multiparcela)</h2>
 <p>En la pestaña <strong>Utilidades</strong>, añada (o arrastre) dos o más GML de parcela, elija el fichero de salida y pulse
@@ -158,7 +168,7 @@ casillas marcadas. Si la parcela está rodeada de calles, no tiene colindantes e
 la parcela, el panel lo indica. En urbana las
 calles no son parcelas, por eso una parcela rodeada de calles no tiene colindantes. En los dos casos, la nueva geometría no
 debe ocupar ese suelo. Cada capa lleva en sus metadatos la fuente y la fecha de descarga. Si vuelve a descargar la misma
-parcela, el grupo se sustituye. La parcela descargada queda elegida en la pestaña <strong>Parcela</strong>.</p>
+parcela, el grupo se sustituye (si ha editado alguna de sus capas, no se borra: la nueva descarga va en «Catastro … (2)»). La parcela descargada queda elegida en la pestaña <strong>Parcela</strong>.</p>
 <p>Es una copia para trabajar (por ejemplo, para dividir la parcela y crear después su GML en la pestaña Parcela), no
 cartografía oficial. Se descarga una parcela cada vez: no es una herramienta de descarga masiva.</p>
 

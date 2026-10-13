@@ -11,12 +11,13 @@ import os
 import tempfile
 
 import qgis.utils
-from qgis.core import Qgis, QgsProject, QgsRectangle
+from qgis.core import Qgis, QgsGeometry, QgsProject, QgsRectangle
 from qgis.PyQt.QtWidgets import QLabel, QMessageBox
 
 qgis.utils.reloadPlugin('catastral_gml_tools')
 import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa: E402
 from catastral_gml_tools.core import comparacion as cmp  # noqa: E402
+from catastral_gml_tools.core import gml_edificio as ge  # noqa: E402
 from catastral_gml_tools.core import gml_lector as gl  # noqa: E402
 from catastral_gml_tools.core import gml_parcela as gp  # noqa: E402
 from catastral_gml_tools.core import servicios  # noqa: E402
@@ -103,6 +104,40 @@ tabla = (len(trozos) == 6 and all(t.width() <= 1000 and t.height() <= 1000 for t
          == 'Subsanación de discrepancias'
          and 'no se tramita' in cmp.operacion(2, 2, [gl.ElementoGML(gl.PARCELA, 'A', 'ES.LOCAL.CP', None)], ['A'])[0])
 
+# 11. Tolerancia de 1 cm medida en distancia (AU-01) y parcelas sin cambios (AU-03)
+def nueva(dx=0.0, entrante=False):
+    """La parte norte de la segregación con el vértice NE desplazado dx hacia el este, o con un entrante de 4 cm × 1 m."""
+    xs = X0 + 20 + dx
+    if entrante:
+        anillo = (f"{X0} {Y0 + 18}, {X0 + 20} {Y0 + 18}, {X0 + 20} {Y0 + 30}, {X0 + 10} {Y0 + 30}, {X0 + 10} {Y0 + 29.96}, "
+                  f"{X0 + 9} {Y0 + 29.96}, {X0 + 9} {Y0 + 30}, {X0} {Y0 + 30}, {X0} {Y0 + 18}")
+    else:
+        anillo = f"{X0} {Y0 + 18}, {X0 + 20} {Y0 + 18}, {xs} {Y0 + 30}, {X0} {Y0 + 30}, {X0} {Y0 + 18}"
+    return QgsGeometry.fromWkt(f"POLYGON(({anillo}))")
+
+
+def seg_con(nombre, geometria):
+    return comparar(nombre, [(sim.RC, 'S', rect(X0, Y0, 20, 18)), ('Nueva_1', 'L', geometria)])
+
+
+medio = seg_con('medio_cm', nueva(0.005))
+dos = seg_con('dos_cm', nueva(0.02))
+entra = seg_con('entrante', nueva(entrante=True))
+igual = comparar('igual', [(sim.RC, 'S', rect(X0, Y0, 20, 30))])
+tolerancia = ('CMP-CONTORNO-OK' in codigos(medio.incidencias) and not [i for i in medio.incidencias if i.nivel == ERROR]
+              and 'CMP-PARCIAL' in codigos(dos.incidencias) and 'CMP-CONTORNO-OK' not in codigos(dos.incidencias)
+              and 'CMP-PARCIAL' in codigos(entra.incidencias) and 'CMP-CONTORNO-OK' not in codigos(entra.incidencias)
+              and 'hasta 4.0 cm' in str(entra.incidencias) and 'hasta 2.0 cm' in str(dos.incidencias))
+sin_cambios = ('CMP-SIN-CAMBIOS' in codigos(igual.incidencias) and 'CMP-SIN-CAMBIOS' not in codigos(seg.incidencias)
+               and 'CMP-SIN-CAMBIOS' not in codigos(medio.incidencias))
+#Edificio: 2 cm fuera de la parcela es fuera; 0,5 cm, dentro
+ruta_bu = os.path.join(carpeta, 'bu.gml')
+ge.escribir(ruta_bu, [ge.Construccion(sim.RC, rect(X0 + 15, Y0 + 5, 5.02, 4), plantas=1)], 25830)
+bu_fuera = cmp.comparar_edificio(gl.leer(ruta_bu))
+ge.escribir(ruta_bu, [ge.Construccion(sim.RC, rect(X0 + 15, Y0 + 5, 5.005, 4), plantas=1)], 25830)
+bu_dentro = cmp.comparar_edificio(gl.leer(ruta_bu))
+tolerancia_bu = codigos(bu_fuera.incidencias) == ['CMP-BU-FUERA'] and codigos(bu_dentro.incidencias) == ['CMP-BU-DENTRO']
+
 # 10. Pestaña Validar: botón, lista, aviso en la barra y capas de la comparación
 dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
 pv = dw.pestanaValidar
@@ -140,6 +175,9 @@ tramite = (cmp._clave_tramite('9872023VH5797S') == 'manzana 98720, hoja VH5797S'
            and cmp._clave_tramite('9872023VH5797S') != cmp._clave_tramite('9872124VH5797S')
            and cmp._clave_tramite('Nueva_1') == '')
 checks = {
+    "tolerancia de 1 cm en distancia (0,5 cm bien; 2 cm y entrante de 4 cm, no)": tolerancia,
+    "parcela igual a la catastral: error «sin cambios»": sin_cambios,
+    "edificio 2 cm fuera de la parcela: fuera; 0,5 cm: dentro": tolerancia_bu,
     "segregación: NPO 1, NPP 2, contorno coincidente y sin errores": segregacion,
     "división, agregación y agrupación según NPO/NPP/namespace": operaciones,
     "no permitida: dos SDGC de una parcela, y RC que no es de las afectadas": no_permitida,
@@ -159,6 +197,9 @@ print("QGIS", Qgis.version(), "· comparación con el Catastro")
 for nombre, ok in checks.items():
     print(("  OK   " if ok else "  FALLO") + "  " + nombre)
 if not all(checks.values()):
+    print("Tolerancia:", {n: [str(i) for i in c.incidencias] for n, c in (('medio', medio), ('dos', dos), ('entra', entra),
+                                                                         ('igual', igual), ('bu_fuera', bu_fuera),
+                                                                         ('bu_dentro', bu_dentro))})
     print("Detalles:", {n: [(c.operacion, c.npo, c.npp, [str(i) for i in c.incidencias],
                              c.exceso.area() if c.exceso else None, c.defecto.area() if c.defecto else None)]
                         for n, c in (('seg', seg), ('div', div), ('agr', agr), ('agp', agp), ('np', np_), ('par', par),

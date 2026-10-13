@@ -22,8 +22,11 @@ import re
 from dataclasses import dataclass
 from xml.sax.saxutils import escape, quoteattr
 
+from qgis.core import QgsGeometry
+
 from . import geometria as geo
 from . import refcat
+from .ficheros import comprobar_destino, escribir_texto
 from .incidencias import ERROR, Incidencia, hay_errores
 
 EDIFICIO = 'edificio'
@@ -93,7 +96,7 @@ def _edificio_xml(c, recintos, epsg, fecha):
     gid = f"{NAMESPACE}.{c.local_id}"
     parches = ''.join("                <gml:PolygonPatch>\n" + _anillos(r, ' ' * 18) + "                </gml:PolygonPatch>\n"
                       for r in recintos)
-    plantas = (f"      <bu-ext2d:numberOfFloorsAboveGround>{int(c.plantas)}</bu-ext2d:numberOfFloorsAboveGround>\n"
+    plantas = (f"      <bu-ext2d:numberOfFloorsAboveGround>{plantas_validas(c.plantas)}</bu-ext2d:numberOfFloorsAboveGround>\n"
                if c.plantas not in (None, '') else '')
     return (
         "  <gml:featureMember>\n"
@@ -171,16 +174,17 @@ def comprobar(construcciones, epsg):
         vistos.add(c.local_id)
         if c.tipo == EDIFICIO and c.estado not in ESTADOS:
             incidencias.append(Incidencia(ERROR, 'BU-ESTADO', f"Estado «{c.estado}» no válido", nombre))
-        if c.tipo == EDIFICIO and c.plantas not in (None, ''):
-            try:
-                if int(c.plantas) < 1:
-                    raise ValueError
-            except (TypeError, ValueError):
-                incidencias.append(Incidencia(ERROR, 'BU-PLANTAS', f"Plantas sobre rasante no válidas: {c.plantas}", nombre))
+        if c.tipo == EDIFICIO and c.plantas not in (None, '') and plantas_validas(c.plantas) is None:
+            incidencias.append(Incidencia(ERROR, 'BU-PLANTAS', f"Plantas sobre rasante no válidas: {c.plantas} (un número "
+                                                               "entero de 1 en adelante)", nombre))
         if c.tipo == EDIFICIO and c.plantas in (None, ''):
             incidencias.append(Incidencia(ERROR, 'BU-SIN-PLANTAS', "Falta el número de plantas sobre rasante: es obligatorio "
                                                                    "en el esquema de edificio de la DGC", nombre))
-        recintos, inc = geo.preparar(c.geometria, nombre)
+        geometria = c.geometria
+        if c.tipo == EDIFICIO and geometria is not None and geometria.isMultipart():
+            #Partes del mismo edificio que se tocan o se solapan: una sola huella (un PolygonPatch por recinto, AU-11)
+            geometria = QgsGeometry.unaryUnion(geometria.asGeometryCollection())
+        recintos, inc = geo.preparar(geometria, nombre, area_entera=False)
         #El edificio admite varios recintos (huella de construcciones separadas); la piscina, uno
         incidencias += [i for i in inc if not (i.codigo == 'GEO-MULTIPARTE' and c.tipo == EDIFICIO)]
         if c.tipo == PISCINA and len(recintos) > 1:
@@ -191,7 +195,22 @@ def comprobar(construcciones, epsg):
         if refcat.es_rc_parcela(rc) and refcat.comprobar(rc).foral:
             incidencias.append(Incidencia(ERROR, 'RC-FORAL', refcat.comprobar(rc).mensaje, nombre))
         todos.append(recintos)
+    #El ICUC no admite construcciones que se solapen (ayuda del ICUC): error ya al crear el GML
+    huellas = [QgsGeometry.unaryUnion([r.geometria() for r in rs]) if rs else None for rs in todos]
+    for i, j, area, anchura in geo.solapes(huellas):
+        incidencias.append(Incidencia(ERROR, 'BU-SOLAPE', f"Se superpone con {construcciones[j].local_id} ({area:.2f} m², "
+                                                          f"hasta {anchura * 100:.0f} cm de ancho): el ICUC no admite "
+                                                          "construcciones solapadas", construcciones[i].local_id))
     return todos, incidencias
+
+
+def plantas_validas(valor):
+    """Número entero de plantas (≥ 1) o None. «2,7» o 2.7 no valen: no se trunca a 2 (AU-18)."""
+    try:
+        numero = float(str(valor).replace(',', '.'))
+    except ValueError:
+        return None
+    return int(numero) if numero.is_integer() and numero >= 1 else None
 
 
 def construir(construcciones, epsg, fecha=None):
@@ -215,11 +234,13 @@ def construir(construcciones, epsg, fecha=None):
     return texto, incidencias
 
 
-def escribir(ruta, construcciones, epsg, fecha=None):
+def escribir(ruta, construcciones, epsg, fecha=None, origenes=()):
     """Escribe el GML de edificio en ISO-8859-1. Devuelve (escrito, incidencias)."""
+    problema = comprobar_destino(ruta, origenes)
+    if problema is not None:
+        return False, [problema]
     texto, incidencias = construir(construcciones, epsg, fecha)
     if texto is None:
         return False, incidencias
-    with open(ruta, 'w', encoding='iso-8859-1', errors='xmlcharrefreplace', newline='\n') as f:
-        f.write(texto)
-    return True, incidencias
+    problema = escribir_texto(ruta, texto, 'iso-8859-1', 'xmlcharrefreplace', origenes)
+    return problema is None, incidencias + ([problema] if problema else [])

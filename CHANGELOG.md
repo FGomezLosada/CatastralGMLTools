@@ -5,6 +5,18 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 ## [Sin publicar]
 
 ### Añadido
+- **Auditoría, bloque A (fiabilidad)** — el plugin ya no da por bueno lo que la Sede rechazaría ni se rompe con datos raros:
+  - *Comparar con el Catastro* mide la tolerancia de ±1 cm como **distancia**, no como superficie: un vértice movido 2 cm, un escalón o un entrante estrecho ya no salen como «contorno coincidente», y el mensaje dice hasta cuántos cm se separa; una construcción que sobresale 2 cm ya no sale «dentro» (AU-01).
+  - Una parcela del GML igual a la catastral da error «sin cambios: quítela del GML» (AU-03).
+  - Validar descarta el resultado de las tareas lanzadas para otro fichero y las cancela al abrir uno nuevo; «Listo para el ICUC» solo con el esquema XSD comprobado (AU-02, AU-12).
+  - RC en minúsculas, con guiones o de inmueble (18/20) se normalizan a la RC de la parcela; el escritor y el validador exigen la RC exacta en SDGC (AU-04, AU-05).
+  - Capas cuyas coordenadas no encajan con su SRC: aviso y sin excepciones en Parcela y Edificio (AU-06).
+  - Escritura segura (`core/ficheros.py`): carpeta inexistente, ruta que es una carpeta, sin permiso o fichero abierto dan un aviso en la barra; nunca se sobrescribe el fichero del que sale la capa (AU-07, AU-09).
+  - Lector a prueba de ficheros anómalos (coma decimal, srsDimension raro o heredado, `pos` incompleto, curvas, 3D, geometría que no es MultiSurface, UTF-16, xlink con espacios): incidencias claras en vez de excepciones; informe HTML con anillos degenerados (AU-08, AU-43).
+  - Volver a descargar no borra capas editadas: la nueva descarga va en «Catastro <RC> (2)» (AU-10).
+  - Solapes (error) y huecos o franjas (aviso) entre parcelas ya al crear el GML; en edificios, las partes que se tocan se unen en una huella y las construcciones solapadas dan error (AU-11).
+  - Textos del ICUC corregidos: solo con parcelas vigentes; cartografía desplazada explicada como en la ayuda de la Sede (AU-13, AU-14). GML de territorios forales: se dice al comparar (AU-15).
+  - Agregación con varias filas: la RC solo para la mayor (AU-16). Edificio: la tabla conserva lo escrito al editar la capa (AU-17); plantas con decimales dan error en vez de truncarse; huellas pequeñas admitidas (AU-18); patios de un DXF como huecos (AU-19).
 - **Auditoría completa** (`docs/AUDITORIA.md` y `docs/auditoria/`): documentos oficiales de la DGC y del curso, fuentes oficiales actuales (BOE, ayudas de la Sede, WFS, territorios forales, Check4SEC), revisión del código con experimentos y 277 escenarios probados. Plan de corrección en bloques (fiabilidad, normativa, robustez, documentación y fases pendientes ampliadas).
 - `core/refcat.py`: comprobación de referencias catastrales de 14, 18 y 20 caracteres (limpieza de espacios y guiones, formato urbano o rústico, provincia y municipio en rústica, caracteres de control y cálculo de los que faltan) con aviso para Navarra y los territorios forales del País Vasco. Prueba `refcat_test.py` con referencias reales.
 - `core/geometria.py`: preparación de recintos para el GML (coordenadas con 2 decimales y redondeo aritmético, cierre de anillos, vértices repetidos, exterior en sentido horario y huecos en antihorario, superficie al m², punto interior aunque el centroide caiga fuera, curvas densificadas con flecha menor de 2 cm, Z y M eliminadas), detección de parcelas multiparte y geometrías no válidas, SRC admitidos por la Sede, huso recomendado según la posición (incluida Canarias) y husos por provincia. Prueba `geometria_test.py`.

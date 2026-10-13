@@ -100,7 +100,19 @@ xsd = esquemas.validar(datos, 'BU 2.0')
 conexion = 'XSD-SIN-COMPROBAR' not in codigos(xsd) and 'XSD-ESQUEMA' not in codigos(xsd)
 esquema_ok = codigos(xsd) == ['XSD-VALIDO'] if conexion else 'XSD-VALIDO' not in codigos(xsd)
 
+# 5. Solapes, partes contiguas, plantas con decimales y huellas diminutas (AU-11, AU-18)
+_, inc_sol = ge.construir([ge.Construccion(f'{RC}_Edificio_1', QgsGeometry.fromWkt('POLYGON' + rect(X0, Y0, 10, 10)), plantas=1),
+                           ge.Construccion(f'{RC}_Edificio_2', QgsGeometry.fromWkt('POLYGON' + rect(X0 + 8, Y0, 10, 10)), plantas=1)],
+                          25830)
+contiguas = QgsGeometry.fromWkt(f"MULTIPOLYGON({rect(X0, Y0, 10, 10)}, {rect(X0 + 10, Y0, 5, 10)})")
+texto_cont, inc_cont = ge.construir([ge.Construccion(RC, contiguas, plantas=2)], 25830)
+_, inc_dec = ge.construir([ge.Construccion(RC, piscina, plantas=2.7)], 25830)
+texto_min, inc_min = ge.construir([ge.Construccion(RC, QgsGeometry.fromWkt('POLYGON' + rect(X0, Y0, 0.5, 0.5)), plantas=1)], 25830)
+casos_nuevos = ('BU-SOLAPE' in codigos(inc_sol) and texto_cont is not None and texto_cont.count('<gml:PolygonPatch>') == 1
+                and 'BU-PLANTAS' in codigos(inc_dec) and texto_min is not None)
+
 checks = {
+    "solapes (error), partes contiguas (una huella), plantas 2,7 (error), huella de 0,25 m²": casos_nuevos,
     "identificadores según el formato de la DGC": identificadores,
     "escribe y el lector lo lee (BU 2.0, recintos, hueco, plantas, piscina)": lectura_ok,
     "formato: ISO-8859-1, PolygonPatch por recinto, srsName urn, fecha y hora": formato,

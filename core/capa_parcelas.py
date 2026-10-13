@@ -40,6 +40,30 @@ def _texto(valor):
     return '' if texto.upper() == 'NULL' else texto
 
 
+def src_incorrecto(capa):
+    """
+    Texto del problema si la capa no tiene SRC o si sus coordenadas no encajan con él (lo típico de un DXF en UTM que
+    QGIS abre en un SRC geográfico); '' si está bien.
+    """
+    if capa is None:
+        return ''
+    crs = capa.crs()
+    if not crs.isValid():
+        return "La capa no tiene SRC: asígnelo en sus propiedades (pestaña Fuente)"
+    extension = capa.extent()
+    if crs.isGeographic() and not extension.isEmpty() and (abs(extension.xMaximum()) > 180 or abs(extension.yMaximum()) > 90):
+        return (f"Las coordenadas de la capa no encajan con su SRC ({crs.authid()}): parecen UTM. Asigne el SRC correcto en "
+                "sus propiedades (pestaña Fuente), p. ej. EPSG:25830")
+    return ''
+
+
+def fichero_de_capa(capa):
+    """Ruta del fichero del que sale la capa ('' si es de memoria o de un servicio). Sirve para no sobrescribirlo (AU-09)."""
+    if capa is None or capa.providerType() not in ('ogr', 'delimitedtext'):
+        return ''
+    return capa.source().split('|')[0]
+
+
 def namespace_propuesto(local_id):
     """SDGC si el identificador es una referencia catastral de parcela; LOCAL en otro caso."""
     return SDGC if refcat.es_rc_parcela(local_id) else LOCAL
@@ -58,7 +82,8 @@ def leer_capa(capa, solo_seleccion=False, campo_id='', campo_label=''):
     for n, entidad in enumerate(entidades, start=1):
         geometria = QgsGeometry(entidad.geometry())
         valor = _texto(entidad[campo_id]) if campo_id else ''
-        local_id = refcat.limpiar(valor) if refcat.es_rc_parcela(valor) else valor.replace(' ', '_')
+        #Una RC (también en minúsculas, con guiones o de inmueble de 18/20) se normaliza a la de la parcela (AU-04, AU-05)
+        local_id = refcat.parcela_de(valor) or valor.replace(' ', '_')
         label = _texto(entidad[campo_label]) if campo_label else ''
         leidas.append([entidad.id(), local_id or f"Parcela_{n}", label, geometria])
 

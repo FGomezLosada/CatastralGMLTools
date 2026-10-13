@@ -9,6 +9,7 @@ que leerá la Sede: identificadores, namespace, superficie declarada…).
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
+import io
 import os
 import re
 import xml.etree.ElementTree as ET
@@ -57,6 +58,10 @@ class ElementoGML:
     punto_referencia: object = None  #(x, y) de cp:referencePoint, o None
     descripcion: str = ''       #En las descargas: paraje y uso según el Catastro (p. ej. «Camino · vía de comunicación…»)
     estado: str = ''            #conditionOfConstruction de los edificios (functional, underConstruction…), si lo trae
+    problema: str = ''          #Coordenadas que no se han podido leer (coma decimal, pos incompleto…): geometría vacía
+    curvas: bool = False        #Lleva arcos o círculos (gml:Arc…): la Sede no los admite, hay que densificarlos
+    dimension: int = 2          #srsDimension (3 si trae Z: la DGC exige 2)
+    estructura: str = ''        #Parcela 4.0 cuya geometría no es gml:MultiSurface (qué trae en su lugar)
 
 
 @dataclass
@@ -113,58 +118,109 @@ def decimales_de(textos):
     return max((len(v.split('.', 1)[1]) for v in textos if '.' in v), default=0)
 
 
-def coordenadas(elemento_anillo):
+CURVAS = ('Arc', 'ArcString', 'ArcByBulge', 'ArcStringByBulge', 'ArcByCenterPoint', 'Circle', 'CircleByCenterPoint',
+          'CubicSpline', 'BSpline', 'Bezier', 'Clothoid', 'GeodesicString', 'OffsetCurve')
+
+
+def _dimension(nodo, padres, defecto=2):
+    """srsDimension del nodo o, si no lo trae, la del primer antecesor que la declare (Surface, MultiSurface…)."""
+    while nodo is not None:
+        valor = (nodo.get('srsDimension') or '').strip()
+        if valor:
+            if not valor.isdigit() or int(valor) not in (2, 3):
+                raise ValueError(f"srsDimension no válido: «{valor}»")
+            return int(valor)
+        nodo = padres.get(nodo)
+    return defecto
+
+
+def _numeros(textos):
+    """Números de una lista de textos; un valor no numérico (p. ej. con coma decimal) es un error claro."""
+    try:
+        return [float(v) for v in textos]
+    except ValueError:
+        malos = [v for v in textos if not re.fullmatch(r'[-+]?\d+(\.\d*)?([eE][-+]?\d+)?', v)]
+        raise ValueError(f"coordenada no numérica «{malos[0] if malos else '?'}» (¿coma decimal?)") from None
+
+
+def coordenadas(elemento_anillo, padres=None):
     """
-    Vértices de un anillo (LinearRing) como lista de (x, y). Admite gml:posList (con srsDimension 2 o 3),
-    una serie de gml:pos y el antiguo gml:coordinates ('x,y x,y').
-    Devuelve (vertices, count_declarado, decimales).
+    Vértices de un anillo (LinearRing, o Ring con varios curveMember) como lista de (x, y). Admite gml:posList (con
+    srsDimension 2 o 3, propia o heredada), una serie de gml:pos y el antiguo gml:coordinates ('x,y x,y').
+    Devuelve (vertices, count_declarado, decimales, dimension). Lanza ValueError si las coordenadas no se pueden leer.
     """
+    padres = padres or {}
     pos_list = descendientes(elemento_anillo, 'posList')
     if pos_list:
-        nodo = pos_list[0]
-        dimension = int(nodo.get('srsDimension') or 2)
-        textos = (nodo.text or '').split()
-        valores = [float(v) for v in textos]
-        vertices = [tuple(valores[i:i + 2]) for i in range(0, len(valores) - dimension + 1, dimension)]
-        count = nodo.get('count')
-        return vertices, int(count) if count and count.isdigit() else None, decimales_de(textos)
+        vertices, textos_todos, count, dimension = [], [], None, 2
+        for nodo in pos_list:  #Un Ring trae un posList por segmento: se concatenan sin repetir el punto de unión
+            dimension = _dimension(nodo, padres)
+            textos = (nodo.text or '').split()
+            if len(textos) % dimension:
+                raise ValueError(f"posList con {len(textos)} números, que no es múltiplo de srsDimension={dimension}")
+            valores = _numeros(textos)
+            puntos = [tuple(valores[i:i + 2]) for i in range(0, len(valores), dimension)]
+            vertices += puntos[1:] if vertices and puntos and puntos[0] == vertices[-1] else puntos
+            textos_todos += textos
+            texto_count = nodo.get('count')
+            count = int(texto_count) if len(pos_list) == 1 and texto_count and texto_count.isdigit() else None
+        return vertices, count, decimales_de(textos_todos), dimension
     posiciones = descendientes(elemento_anillo, 'pos')
     if posiciones:
         textos = [p.text or '' for p in posiciones]
-        return ([tuple(float(v) for v in tx.split()[:2]) for tx in textos], None,
-                decimales_de(' '.join(textos).split()))
+        vertices = []
+        for tx in textos:
+            valores = _numeros(tx.split())
+            if len(valores) < 2:
+                raise ValueError(f"gml:pos con {len(valores)} coordenada(s): hacen falta x e y")
+            vertices.append(tuple(valores[:2]))
+        dimension = max(len(tx.split()) for tx in textos)
+        return vertices, None, decimales_de(' '.join(textos).split()), dimension
     coords = descendientes(elemento_anillo, 'coordinates')
     if coords:
         vertices, textos = [], []
         for par in (coords[0].text or '').split():
             partes = par.split(',')
             if len(partes) >= 2:
-                vertices.append((float(partes[0]), float(partes[1])))
+                vertices.append(tuple(_numeros(partes[:2])))
                 textos += partes[:2]
-        return vertices, None, decimales_de(textos)
-    return [], None, 0
+        return vertices, None, decimales_de(textos), 2
+    return [], None, 0, 2
 
 
 def poligonos(elemento):
     """
     Polígonos (lista de anillos: exterior y huecos) bajo un elemento de geometría: PolygonPatch (Surface) o Polygon.
-    Devuelve (poligonos, counts, roles, decimales).
+    Devuelve (poligonos, counts, roles, decimales, dimension, curvas). Lanza ValueError si hay coordenadas ilegibles.
     """
-    resultado, counts, roles, decimales = [], [], [], 0
+    resultado, counts, roles, decimales, dimension = [], [], [], 0, 2
+    padres = {h: p for p in elemento.iter() for h in p}
+    curvas = any(nombre_local(d.tag) in CURVAS for d in elemento.iter())
     contenedores = descendientes(elemento, 'PolygonPatch') + descendientes(elemento, 'Polygon')
     for contenedor in contenedores:
         anillos = []
         for parte in ('exterior', 'interior', 'outerBoundaryIs', 'innerBoundaryIs'):
             for borde in hijos(contenedor, parte):
-                vertices, count, dec = coordenadas(borde)
+                vertices, count, dec, dim = coordenadas(borde, padres)
                 if vertices:
                     anillos.append(vertices)
                     counts.append(count)
                     roles.append('exterior' if parte in ('exterior', 'outerBoundaryIs') else 'interior')
                     decimales = max(decimales, dec)
+                    dimension = max(dimension, dim)
         if anillos:
             resultado.append(anillos)
-    return resultado, counts, roles, decimales
+    return resultado, counts, roles, decimales, dimension, curvas
+
+
+def _geometria_segura(elemento):
+    """poligonos() sin excepciones: devuelve también el problema (texto) si las coordenadas no se pueden leer."""
+    if elemento is None:
+        return [], [], [], 0, 2, False, ''
+    try:
+        return (*poligonos(elemento), '')
+    except (ValueError, TypeError, IndexError) as e:
+        return [], [], [], 0, 2, False, str(e)
 
 
 def geometria_de(lista_poligonos):
@@ -180,8 +236,10 @@ def _leer_parcela(cp_el):
     local_id = texto_de(ident[0], 'localId') if ident else ''
     namespace = texto_de(ident[0], 'namespace') if ident else ''
     geom_el = hijo(cp_el, 'geometry')
-    lista, counts, roles, decimales = poligonos(geom_el) if geom_el is not None else ([], [], [], 0)
+    lista, counts, roles, decimales, dimension, curvas, problema = _geometria_segura(geom_el)
     recintos = len(descendientes(geom_el, 'surfaceMember')) if geom_el is not None else 0
+    primera = next(iter(geom_el), None) if geom_el is not None else None
+    estructura = '' if primera is None or nombre_local(primera.tag) == 'MultiSurface' else nombre_local(primera.tag)
     area_txt = texto_de(cp_el, 'areaValue')
     try:
         area = int(round(float(area_txt))) if area_txt else None
@@ -191,7 +249,8 @@ def _leer_parcela(cp_el):
                        texto_de(cp_el, 'nationalCadastralReference'), area,
                        cp_el.get(f'{{{geo_ns_gml()}}}id', ''), recintos=max(recintos, len(lista)),
                        anillos=[a for p in lista for a in p], counts=counts, roles=roles, decimales=decimales,
-                       punto_referencia=_punto_referencia(cp_el))
+                       punto_referencia=_punto_referencia(cp_el), problema=problema, curvas=curvas, dimension=dimension,
+                       estructura=estructura)
 
 
 def _punto_referencia(cp_el):
@@ -208,14 +267,15 @@ def _leer_construccion(el):
     ident = descendientes(el, 'Identifier')
     local_id = texto_de(ident[0], 'localId') if ident else ''
     namespace = texto_de(ident[0], 'namespace') if ident else ''
-    lista, counts, roles, decimales = poligonos(el)
+    lista, counts, roles, decimales, dimension, curvas, problema = _geometria_segura(el)
     tipo = EDIFICIO if nombre_local(el.tag) == 'Building' else OTRA
     plantas_txt = texto_de(el, 'numberOfFloorsAboveGround')
     plantas = int(plantas_txt) if plantas_txt.isdigit() else None
     return ElementoGML(tipo, local_id, namespace, geometria_de(lista), plantas=plantas,
                        naturaleza=texto_de(el, 'constructionNature'), gml_id=el.get(f'{{{geo_ns_gml()}}}id', ''),
                        recintos=len(lista), anillos=[a for p in lista for a in p], counts=counts, roles=roles,
-                       decimales=decimales, estado=texto_de(el, 'conditionOfConstruction') if tipo == EDIFICIO else '')
+                       decimales=decimales, estado=texto_de(el, 'conditionOfConstruction') if tipo == EDIFICIO else '',
+                       problema=problema, curvas=curvas, dimension=dimension)
 
 
 def leer_partes(datos):
@@ -232,6 +292,37 @@ def leer_partes(datos):
 
 def geo_ns_gml():
     return 'http://www.opengis.net/gml/3.2'
+
+
+XLINK = 'http://www.w3.org/1999/xlink'
+
+
+def _espacios_raiz(datos):
+    """Espacios de nombres declarados en la etiqueta raíz (según el parser)."""
+    espacios = set()
+    try:
+        for evento, valor in ET.iterparse(io.BytesIO(datos), events=('start-ns', 'start')):
+            if evento == 'start':
+                break
+            espacios.add(valor[1])
+    except ET.ParseError:
+        pass
+    return espacios
+
+
+def _texto(datos):
+    """Texto del fichero con la codificación que declare (o la de su BOM); latin-1 si no se puede."""
+    if datos[:2] in (b'\xff\xfe', b'\xfe\xff'):
+        codificacion = 'utf-16'
+    elif datos[:3] == b'\xef\xbb\xbf':
+        codificacion = 'utf-8-sig'
+    else:
+        m = re.match(rb'<\?xml[^>]*encoding=["\']([A-Za-z0-9._-]+)', datos[:200])
+        codificacion = m.group(1).decode('ascii') if m else 'utf-8'
+    try:
+        return datos.decode(codificacion)
+    except (LookupError, UnicodeDecodeError):
+        return datos.decode('latin-1')
 
 
 def leer(ruta):
@@ -257,10 +348,10 @@ def leer_datos(datos):
         return resultado
     resultado.datos = datos
     resultado.raiz = raiz.tag
-    resultado.texto = datos.decode('utf-8', 'replace') if b'utf-8' in datos[:100].lower() else datos.decode('latin-1')
-    #xmlns:xlink en la etiqueta raíz: la Sede lo exige en el GML de parcela (docs/DESARROLLO.md, E-11)
-    inicio_raiz = re.search(r'<(?:\w+:)?FeatureCollection\b[^>]*>', resultado.texto[:6000])
-    resultado.xlink_declarado = bool(inicio_raiz) and 'xmlns:xlink=' in inicio_raiz.group(0)
+    resultado.texto = _texto(datos)
+    #xmlns:xlink en la etiqueta raíz: la Sede lo exige en el GML de parcela (docs/DESARROLLO.md, E-11). Se pregunta al
+    #parser (no a una expresión regular): vale con espacios alrededor del «=», en UTF-16, etc. (AU-43)
+    resultado.xlink_declarado = XLINK in _espacios_raiz(datos)
 
     parcelas = [e for e in raiz.iter() if nombre_local(e.tag) == 'CadastralParcel']
     construcciones = [e for e in raiz.iter() if nombre_local(e.tag) in ('Building', 'OtherConstruction')
@@ -288,9 +379,25 @@ def leer_datos(datos):
                                                 f"El fichero mezcla sistemas de referencia: {', '.join(map(str, sorted(srs)))}"))
     else:
         resultado.incidencias.append(Incidencia(ERROR, 'SRC-FALTA', "El fichero no indica el sistema de referencia (srsName)"))
-    vacios = [e for e in resultado.elementos if e.geometria.isNull() or e.geometria.isEmpty()]
-    for e in vacios:
-        resultado.incidencias.append(Incidencia(ERROR, 'GEO-VACIA', "Elemento sin geometría", e.local_id))
+    for e in resultado.elementos:  #Problemas de lectura de cada elemento (AU-08): nunca excepciones
+        if e.problema:
+            resultado.incidencias.append(Incidencia(ERROR, 'COORDENADAS', f"Coordenadas que no se pueden leer: {e.problema}",
+                                                    e.local_id))
+        elif e.geometria.isNull() or e.geometria.isEmpty():
+            resultado.incidencias.append(Incidencia(ERROR, 'GEO-VACIA', "Elemento sin geometría", e.local_id))
+        if e.curvas:
+            resultado.incidencias.append(Incidencia(ERROR, 'GEO-CURVAS-GML', "Tiene arcos o curvas (gml:Arc…): la Sede solo "
+                                                                             "admite segmentos rectos. Densifique las "
+                                                                             "curvas (flecha < 2 cm) y vuelva a crear el GML",
+                                                    e.local_id))
+        if e.dimension == 3:
+            resultado.incidencias.append(Incidencia(ERROR, 'DIMENSION', "Coordenadas con Z (srsDimension=3): la Sede exige "
+                                                                        "2D (srsDimension=\"2\")", e.local_id))
+        if e.estructura and resultado.version == 'CP 4.0':
+            resultado.incidencias.append(Incidencia(ERROR, 'GEO-ESTRUCTURA', f"La geometría es gml:{e.estructura}: en el "
+                                                                             "esquema 4.0 debe ser gml:MultiSurface "
+                                                                             "(surfaceMember › Surface › PolygonPatch)",
+                                                    e.local_id))
     n = len(resultado.elementos)
     resultado.incidencias.append(Incidencia(INFO, 'GML-LEIDO', f"{resultado.version} · {n} elemento{'s' if n != 1 else ''}"
                                             + (f" · EPSG:{resultado.epsg}" if resultado.epsg else '')))
