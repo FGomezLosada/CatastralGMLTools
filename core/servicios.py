@@ -388,7 +388,7 @@ def ficha(rc):
     """
     Datos no protegidos de una parcela (Consulta_DNPRC) para la comparación: {'municipio': (provincia, municipio) o None,
     'clases': {'UR', 'RU', 'BI'…} (clase de los inmuebles: BI es un bien inmueble de características especiales, BICE),
-    'diseminado': True si es urbana en diseminado (referencia de rústica con inmuebles urbanos, o vía de tipo «DS»)}.
+    'diseminado': True si es urbana en diseminado (referencia urbana con vía de tipo «DS», o de rústica con clase UR)}.
     None si no se puede consultar. Nunca titulares ni valores.
     """
     parcela = refcat.limpiar(rc)[:14]
@@ -412,8 +412,11 @@ def ficha(rc):
     if refcat.tipo_parcela(parcela) == 'rústica':
         municipio = int(parcela[:2]), int(parcela[2:5])
     clases = set(_valores(resultado, 'cn')) - {''}
-    diseminado = ((refcat.tipo_parcela(parcela) == 'rústica' and 'UR' in clases)
-                  or 'DS' in set(_valores(resultado, 'tv')))
+    #Comprobado con parcelas reales el 13/10/2026: BICE = cn «BI» (central de Almaraz 1N10176P04ALMA, aeropuerto de
+    #Málaga 7693901UF6579S); urbana en diseminado = RC urbana con vía «DS» (Murcia 1782503XH6018S). Una parcela de
+    #rústica con una construcción en una dirección «DS» (Murcia 30030A10200152) sigue siendo rústica: no es diseminado
+    urbana = refcat.tipo_parcela(parcela) == 'urbana'
+    diseminado = (urbana and 'DS' in set(_valores(resultado, 'tv'))) or (not urbana and 'UR' in clases)
     return {'municipio': municipio, 'clases': clases, 'diseminado': diseminado}
 
 
