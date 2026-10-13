@@ -127,6 +127,23 @@ def es_rc_parcela(texto):
     return len(limpia) == 14 and bool(tipo_parcela(limpia))
 
 
+def es_rc_exacta(texto):
+    """
+    True si el texto ya es una RC de parcela de 14 caracteres tal como debe ir en el GML (mayúsculas, sin espacios,
+    guiones ni puntos). La Sede compara el localId SDGC literalmente (auditoría AU-04).
+    """
+    return isinstance(texto, str) and texto == limpiar(texto) and es_rc_parcela(texto)
+
+
+def parcela_de(texto):
+    """
+    Los 14 caracteres de la parcela, normalizados, si el texto es una RC de 14, 18 o 20 caracteres con formato de
+    parcela (urbana o rústica) y control correcto; '' si no lo es. Una RC de inmueble identifica su parcela (AU-05).
+    """
+    r = comprobar(texto)
+    return r.parcela if r.valida and r.tipo else ''
+
+
 def es_dominio_publico(rc):
     """
     True si la RC es de una parcela de dominio público de rústica (antiguos «descuentos»): número de parcela entre

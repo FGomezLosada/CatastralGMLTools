@@ -22,14 +22,14 @@ license   : GNU GPL v2 or later
 import math
 from dataclasses import dataclass, field
 
-from qgis.core import QgsGeometry, QgsRectangle
+from qgis.core import QgsGeometry, QgsPointXY, QgsRectangle
 
 from . import gml_lector as gl
 from . import refcat, servicios
 from .incidencias import AVISO, ERROR, INFO, Incidencia
 
 TOLERANCIA = 0.01        #m: tolerancia en vértices de la Sede (±1 cm)
-AREA_MINIMA = 0.05       #m²: diferencias menores (tras aplicar la tolerancia) se consideran ruido de redondeo
+RUIDO = 1e-6             #m²: por debajo, la diferencia es ruido numérico (la tolerancia se mide en distancia, AU-01)
 MARGEN = 2.0             #m alrededor del parcelario propuesto al pedir las parcelas catastrales
 LADO_MAXIMO = 1000.0     #m: el WFS no admite rectángulos de más de ~1 km² («Area of extension out of limits»)
 MAX_TROZOS = 25          #Como mucho, tantas peticiones por comparación (parcelarios de hasta ~5 × 5 km)
@@ -63,6 +63,28 @@ def _trozos(caja):
     return [QgsRectangle(caja.xMinimum() + i * ancho, caja.yMinimum() + j * alto,
                          caja.xMinimum() + (i + 1) * ancho, caja.yMinimum() + (j + 1) * alto)
             for i in range(nx) for j in range(ny)]
+
+
+def fuera_de(a, b):
+    """
+    Parte de la geometría a que está a más de 1 cm de b (None si no hay ninguna). La tolerancia se mide en distancia,
+    no en superficie: un vértice movido 2 cm o una franja de 3 cm, por estrecha que sea, cuentan (auditoría AU-01).
+    """
+    resto = a.difference(b.buffer(TOLERANCIA, 8))
+    return resto if not resto.isEmpty() and resto.area() > RUIDO else None
+
+
+def desvio(resto, b):
+    """
+    Distancia máxima (m) de lo que queda fuera (resto) a b: cuánto se separa. El contorno de resto se densifica (el
+    punto más lejano puede caer entre dos vértices, p. ej. en el fondo de un entrante).
+    """
+    if resto is None or resto.isEmpty():
+        return 0.0
+    paso = max(0.005, resto.length() / 4000)
+    densa = resto.densifyByDistance(paso)  #Con referencia: el iterador de vértices no guarda la geometría (segfault)
+    puntos = [QgsPointXY(v.x(), v.y()) for v in densa.vertices()]
+    return max((b.distance(QgsGeometry.fromPointXY(p)) for p in puntos), default=0.0)
 
 
 def parcelas_catastrales(caja, epsg):
@@ -114,7 +136,11 @@ def comparar(lectura):
     if lectura.epsg not in EPSG_DGC:
         c.incidencias.append(Incidencia(AVISO, 'CMP-SRC', "No se compara con el Catastro: el SRC no es uno de los de la Sede"))
         return c
-    if any(i.codigo == 'RC-FORAL' for i in getattr(lectura, 'incidencias', [])):
+    forales = {refcat.comprobar(e.local_id).foral for e in propuestas if e.namespace == 'ES.SDGC.CP'} - {''}
+    if forales:  #La RC dice que es de un territorio con catastro propio: el WFS de la DGC no tiene sus parcelas (AU-15)
+        c.incidencias.append(Incidencia(AVISO, 'RC-FORAL', f"No se compara con el Catastro: parcelas de {', '.join(forales)}, "
+                                                           "que tiene catastro propio (no el de la Dirección General del "
+                                                           "Catastro)"))
         return c
     union = QgsGeometry.unaryUnion([e.geometria for e in propuestas])
     caja = union.boundingBox()
@@ -127,8 +153,9 @@ def comparar(lectura):
 
     #Parcelas afectadas: las que comparten superficie con el parcelario (no basta con tocarlo por un lindero)
     interior = union.buffer(-TOLERANCIA, 4)
+    #(el interior está 1 cm hacia dentro: cualquier invasión de más de 1 cm cuenta, por estrecha que sea; AU-01)
     afectadas = [e for e in catastrales if e.geometria.intersects(interior)
-                 and e.geometria.intersection(interior).area() > AREA_MINIMA]
+                 and e.geometria.intersection(interior).area() > RUIDO]
     c.origen = afectadas
     c.npo, c.npp = len(afectadas), len(propuestas)
     if not afectadas:
@@ -139,35 +166,50 @@ def comparar(lectura):
 
     union_origen = QgsGeometry.unaryUnion([e.geometria for e in afectadas])
     union_todas = QgsGeometry.unaryUnion([e.geometria for e in catastrales])
-    holgura = union.buffer(TOLERANCIA, 4)
-    #Afectadas solo en parte: la Sede da IVG negativo
+    #Afectadas solo en parte: la Sede no emite el informe
     parciales = []
     for e in afectadas:
-        fuera = e.geometria.difference(holgura)
-        if not fuera.isEmpty() and fuera.area() > AREA_MINIMA:
-            parciales.append((e, fuera.area()))
-    for e, area in parciales:
+        fuera = fuera_de(e.geometria, union)
+        if fuera is not None:
+            parciales.append((e, fuera.area(), desvio(fuera, union)))
+    for e, area, distancia in parciales:
+        ajuste = (f"; se separa hasta {distancia * 100:.1f} cm del GML (la Sede admite ±{TOLERANCIA * 100:.0f} cm): si no es "
+                  "intencionado, ajuste esos vértices" if distancia < 1 else '')
+        otras = [o.geometria for o in afectadas if o is not e]
+        if not ajuste and otras:  #El GML apenas entra en ella (un vértice o un lindero desplazado unos cm)
+            entra = desvio(e.geometria.intersection(union), QgsGeometry.unaryUnion(otras))
+            if entra < 1:
+                ajuste = (f"; el GML solo entra en ella hasta {entra * 100:.1f} cm (la Sede admite ±"
+                          f"{TOLERANCIA * 100:.0f} cm): si no es intencionado, ajuste el lindero común")
         c.incidencias.append(Incidencia(
             ERROR, 'CMP-PARCIAL', f"La parcela catastral {e.local_id} queda afectada solo en parte ({area:.2f} m² fuera del "
-                                  "GML): inclúyala entera, con la parte afectada y la no afectada, o ajuste el lindero",
-            e.local_id))
+                                  f"GML{ajuste}): inclúyala entera, con la parte afectada y la no afectada, o ajuste el "
+                                  "lindero", e.local_id))
     #Suelo sin parcela ocupado (calles en urbana)
-    sin_parcela = union.difference(union_todas.buffer(TOLERANCIA, 4))
-    if not sin_parcela.isEmpty() and sin_parcela.area() > AREA_MINIMA:
+    sin_parcela = fuera_de(union, union_todas)
+    if sin_parcela is not None:
         c.incidencias.append(Incidencia(
             ERROR, 'CMP-SIN-PARCELA', f"El GML ocupa {sin_parcela.area():.2f} m² de suelo sin parcela catastral (en urbana, "
                                       "vía pública): la Sede dará informe negativo salvo cesión o incorporación del viario "
                                       "con una parcela propia (LOCAL)"))
-    exceso = union.difference(union_origen.buffer(TOLERANCIA, 4))
-    defecto = union_origen.difference(holgura)
-    c.exceso = exceso if not exceso.isEmpty() and exceso.area() > AREA_MINIMA else None
-    c.defecto = defecto if not defecto.isEmpty() and defecto.area() > AREA_MINIMA else None
+    c.exceso = fuera_de(union, union_origen)
+    c.defecto = fuera_de(union_origen, union)
     if not parciales and c.exceso is None and c.defecto is None:
         c.incidencias.append(Incidencia(INFO, 'CMP-CONTORNO-OK',
                                         "El contorno exterior coincide con el de "
                                         + ("la parcela catastral afectada" if c.npo == 1
                                            else f"las {c.npo} parcelas catastrales afectadas")
                                         + f" (±{TOLERANCIA * 100:.0f} cm)"))
+
+    #Parcelas sin cambios: una parcela del GML idéntica (±1 cm) a una catastral no altera nada (AU-03; Check4SEC)
+    for p in propuestas:
+        for e in afectadas:
+            if fuera_de(p.geometria, e.geometria) is None and fuera_de(e.geometria, p.geometria) is None:
+                c.incidencias.append(Incidencia(
+                    ERROR, 'CMP-SIN-CAMBIOS', f"La parcela {p.local_id} es igual a la catastral {e.local_id} (±"
+                                              f"{TOLERANCIA * 100:.0f} cm): no cambia nada. Quítela del GML (solo van las "
+                                              "parcelas que se alteran)", p.local_id))
+                break
 
     #Referencias catastrales del GML
     ids_origen = [e.local_id for e in afectadas]
@@ -228,8 +270,10 @@ def comparar_edificio(lectura):
     if len(referencias) != 1:
         texto = ("los identificadores no empiezan por la referencia catastral de la parcela" if not referencias
                  else f"hay construcciones de varias parcelas ({', '.join(sorted(referencias))})")
-        c.incidencias.append(Incidencia(AVISO, 'CMP-BU-SIN-RC', f"No se compara con el Catastro: {texto}. Si la parcela "
-                                                                "aún no existe, el ICUC usa la del GML de parcela"))
+        c.incidencias.append(Incidencia(AVISO, 'CMP-BU-SIN-RC', f"No se compara con el Catastro: {texto}. El ICUC solo "
+                                                                "trabaja con parcelas catastrales vigentes (por su "
+                                                                "referencia): si la parcela aún no existe, tramite antes "
+                                                                "la alteración"))
         return c
     rc = referencias.pop()
     if refcat.comprobar(rc).foral:
@@ -249,7 +293,6 @@ def comparar_edificio(lectura):
     c.origen = parcelas
     c.npo, c.npp = 1, len(construcciones)
     exacta = QgsGeometry.unaryUnion([e.geometria for e in parcelas])
-    parcela = exacta.buffer(TOLERANCIA, 4)
     fuera = []
     for e in construcciones:
         distancia = e.geometria.distance(exacta)
@@ -261,14 +304,17 @@ def comparar_edificio(lectura):
                                                                    "referencia y el SRC",
                                             e.local_id))
             continue
-        resto = e.geometria.difference(parcela)
-        if not resto.isEmpty() and resto.area() > AREA_MINIMA:
+        geometria = e.geometria if e.geometria.isGeosValid() else e.geometria.makeValid()  #Partes solapadas (AU-11)
+        resto = fuera_de(geometria, exacta)
+        if resto is not None:
             fuera.append(resto)
-            c.incidencias.append(Incidencia(ERROR, 'CMP-BU-FUERA', f"{resto.area():.2f} m² de la construcción quedan fuera de "
-                                                                   f"la parcela catastral {rc}: el ICUC saldrá negativo (exige "
-                                                                   "que esté entera dentro, sin extralimitarla). Si el lindero "
-                                                                   "no es correcto, tramite antes el GML de parcela; si la "
-                                                                   "cartografía está desplazada, indíquelo en el ICUC",
+            c.incidencias.append(Incidencia(ERROR, 'CMP-BU-FUERA', f"La construcción sale de la parcela catastral {rc} "
+                                                                   f"({_medida(resto.area(), desvio(resto, exacta))}): el "
+                                                                   "ICUC exige que esté entera dentro, sin extralimitarla "
+                                                                   f"(±{TOLERANCIA * 100:.0f} cm). Si el lindero no es "
+                                                                   "correcto, tramite antes la alteración de la parcela; si "
+                                                                   "la cartografía catastral está desplazada, vea la ayuda "
+                                                                   "(el ICUC se pide con el GML desplazado como el Catastro)",
                                             e.local_id))
     if fuera:
         c.exceso = QgsGeometry.unaryUnion(fuera)
@@ -279,6 +325,12 @@ def comparar_edificio(lectura):
         c.incidencias.append(Incidencia(INFO, 'CMP-BU-DENTRO', f"Todas las construcciones están dentro de la parcela "
                                                                f"catastral {rc} (±{TOLERANCIA * 100:.0f} cm)"))
     return c
+
+
+def _medida(area, distancia):
+    """Texto de una diferencia: superficie si es apreciable y, siempre, cuánto se separa."""
+    sup = f"{area:.2f} m², " if area >= 0.01 else ''
+    return f"{sup}hasta {distancia * 100:.1f} cm"
 
 
 def _clave_tramite(rc):

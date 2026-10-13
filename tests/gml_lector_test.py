@@ -5,12 +5,14 @@ Prueba de core/gml_lector.py: lee el GML de parcela 4.0 que escribe el plugin, u
 Uso: tools\\probar.bat (o tools\\run_tests.py gml_lector_test.py)
 """
 import os
+import re
 import tempfile
 
 from qgis.core import Qgis, QgsGeometry
 
 from catastral_gml_tools.core import gml_lector as gl
 from catastral_gml_tools.core import gml_parcela as gp
+from catastral_gml_tools.core import informe, validador
 from catastral_gml_tools.core.incidencias import codigos
 from catastral_gml_tools.core.info import RAIZ
 
@@ -85,7 +87,50 @@ capa_ok = (capa.isValid() and capa.featureCount() == 2 and capa.crs().authid() =
            and capa_bu.featureCount() == 2 and [f['tipo'] for f in capa_bu.getFeatures()] == [gl.EDIFICIO, gl.OTRA]
            and not os.path.exists(os.path.splitext(ruta4)[0] + '.gfs'))
 
+# 8. Ficheros anómalos (AU-08, AU-43): nunca excepciones, siempre una incidencia clara
+with open(ruta4, encoding='utf-8') as f:
+    base = f.read()
+
+
+def leer_texto(texto, codificacion='utf-8'):
+    return gl.leer_datos(texto.encode(codificacion))
+
+
+coma = leer_texto(base.replace('421500.00 4070500.00', '421500,00 4070500,00', 1))
+dimension_mala = leer_texto(base.replace('srsDimension="2"', 'srsDimension="dos"', 1))
+def con_z(m):
+    numeros = m.group(2).split()
+    return m.group(1) + ' '.join(f"{numeros[i]} {numeros[i + 1]} 0" for i in range(0, len(numeros), 2)) + m.group(3)
+
+
+#3D con la dimensión declarada en gml:Surface (heredada por el posList)
+tres_d = leer_texto(re.sub(r'(<gml:posList[^>]*>)([^<]*)(</gml:posList>)', con_z,
+                           base.replace('<gml:Surface ', '<gml:Surface srsDimension="3" ').replace(' srsDimension="2"', '')))
+curva = leer_texto(base.replace('</gml:LinearRing>', '<gml:Arc/></gml:LinearRing>', 1))
+poligono = leer_texto(base.replace('<gml:MultiSurface ', '<gml:Polygon ', 1).replace('</gml:MultiSurface>', '</gml:Polygon>', 1))
+utf16 = leer_texto(base.replace('encoding="UTF-8"', 'encoding="UTF-16"').replace('encoding="utf-8"', 'encoding="UTF-16"'), 'utf-16')
+espacios = leer_texto(base.replace('xmlns:xlink=', 'xmlns:xlink = ', 1))
+anomalos = ('COORDENADAS' in codigos(coma.incidencias) and 'COORDENADAS' in codigos(dimension_mala.incidencias)
+            and 'DIMENSION' in codigos(tres_d.incidencias) and 'COORDENADAS' not in codigos(tres_d.incidencias)
+            and abs(tres_d.elementos[0].geometria.area() - 600) < 1 and 'GEO-CURVAS-GML' in codigos(curva.incidencias)
+            and 'GEO-ESTRUCTURA' in codigos(poligono.incidencias) and utf16.xlink_declarado and len(utf16.elementos) == 2
+            and espacios.xlink_declarado)
+
+#Informe HTML con un anillo degenerado (dos vértices): no debe fallar (AU-08)
+degenerado = re.sub(r'(<gml:posList[^>]*>)[^<]*(</gml:posList>)', r'\g<1>421500.00 4070500.00 421510.00 4070500.00\2', base,
+                    count=1)
+ruta_deg = os.path.join(carpeta, 'degenerado.gml')
+with open(ruta_deg, 'w', encoding='utf-8') as f:
+    f.write(degenerado)
+try:
+    html_deg = informe.html(validador.validar(ruta_deg))
+except Exception as error:  # noqa: BLE001
+    html_deg = f'FALLO {error}'
+informe_ok = html_deg.startswith('<!DOCTYPE') or html_deg.lower().startswith('<!doctype')
+
 checks = {
+    "informe HTML con un anillo degenerado": informe_ok,
+    "ficheros anómalos: coma decimal, srsDimension, 3D, curvas, Polygon suelto, UTF-16, xlink con espacios": anomalos,
     "lee el GML 4.0 del plugin: identificadores, superficies, label, count y xlink": lectura4,
     "lee un GML 3.0 (posList y coordinates) y avisa de que está obsoleto": lectura3,
     "lee un GML de edificio en ISO-8859-1: edificio en dos partes y piscina": lectura_bu,
@@ -104,5 +149,9 @@ if not all(checks.values()):
                         'bu': (rb.version, [(x.tipo, x.plantas, x.recintos, x.naturaleza, x.geometria.area()) for x in rb.elementos], codigos(rb.incidencias)),
                         'mal': codigos(r_mal.incidencias), 'vacio': codigos(r_vacio.incidencias), 'mezcla': codigos(r_mezcla.incidencias),
                         'srs': srs})
+if not anomalos:
+    print("Anómalos:", {n: codigos(r.incidencias) for n, r in (('coma', coma), ('dim', dimension_mala), ('3d', tres_d),
+                                                           ('curva', curva), ('poligono', poligono), ('utf16', utf16))},
+          utf16.xlink_declarado, espacios.xlink_declarado)
 print("RESULTADO:", "TODO CORRECTO" if all(checks.values()) else "HAY FALLOS")
 print("=" * 60)

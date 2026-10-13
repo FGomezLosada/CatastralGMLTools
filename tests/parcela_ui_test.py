@@ -23,6 +23,7 @@ from qgis.PyQt.QtWidgets import QLabel, QMessageBox, QPushButton
 
 qgis.utils.reloadPlugin('catastral_gml_tools')
 import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa: E402
+from catastral_gml_tools.core import gml_parcela as gp  # noqa: E402
 from catastral_gml_tools.gui import pestana_parcela as pp  # noqa: E402
 
 ventanas = []
@@ -217,7 +218,52 @@ from qgis.PyQt.QtWidgets import QHeaderView  # noqa: E402
 columnas = (all(pt.tabla.horizontalHeader().sectionResizeMode(c) == QHeaderView.ResizeMode.Interactive
                 for c in range(pt.tabla.columnCount()))
             and pt.tabla.columnWidth(pp.COL_ID) >= 130 and pt.fecha.displayFormat() == 'dd/MM/yyyy HH:mm')
+#RC en minúsculas, con guiones o de inmueble en la capa: SDGC con la RC de la parcela (AU-04, AU-05)
+mal_escritas = capa_parcelas('mal_escritas', 'EPSG:25830', [
+    (rect(X0, Y0, 20, 30), '1907401vk4810h', None),
+    (rect(X0 + 20, Y0, 20, 30), '9872023VH5797S0001WX', None),
+])
+pt.capaCombo.setLayer(mal_escritas)
+pt.campoId.setField('refcat')
+ids_mal = [(pt.tabla.item(i, pp.COL_ID).text(), pt.namespace_fila(i)) for i in range(pt.tabla.rowCount())]
+pt.tabla.item(1, pp.COL_ID).setText('1907402-vk4810h')
+escrita = pt.tabla.item(1, pp.COL_ID).text() == '1907402VK4810H' and pt.namespace_fila(1) == 'SDGC'
+rc_normalizada = ids_mal == [('1907401VK4810H', 'SDGC'), ('9872023VH5797S', 'SDGC')] and escrita
+
+#Capa con coordenadas UTM marcada como EPSG:4326 (DXF o shape sin .prj): aviso, sin excepción (AU-06)
+utm_4326 = capa_parcelas('utm_4326', 'EPSG:4326', [(rect(X0, Y0, 20, 30), '1907401VK4810H', None)])
+pt.capaCombo.setLayer(utm_4326)
+pt.srcCombo.setCurrentIndex(pt.srcCombo.findData(25830))  #Antes: decimal.InvalidOperation
+dw.messageBar.clearWidgets()
+pt.destino.setFilePath(os.path.join(carpeta, 'utm_4326.gml'))
+pt.crear_gml()
+texto_barra_src = texto_barra(dw.messageBar)
+src_mal = ('no encajan' in pt.resumen.text() and 'no encajan' in texto_barra_src
+           and not os.path.exists(os.path.join(carpeta, 'utm_4326.gml')))
+pt.srcCombo.setCurrentIndex(0)
+
+#La capa sale de un fichero GML: no se propone ni se deja sobrescribir (AU-09); carpeta inexistente (AU-07)
+origen_gml = os.path.join(carpeta, 'origen.gml')
+gp.escribir(origen_gml, [gp.ParcelaGML('1907401VK4810H', gp.SDGC, QgsGeometry.fromWkt(rect(X0, Y0, 20, 30)))], 25830)
+capa_fichero = QgsVectorLayer(origen_gml, 'origen', 'ogr')
+QgsProject.instance().addMapLayer(capa_fichero)
+pt.destino.setFilePath('')
+pt.capaCombo.setLayer(capa_fichero)
+propuesto = pt.destino.filePath()
+pt.destino.setFilePath(origen_gml)
+dw.messageBar.clearWidgets()
+pt.crear_gml()
+no_sobrescribe = (capa_fichero.isValid() and propuesto.endswith('_nuevo.gml')
+                  and 'mismo del que salen los datos' in texto_barra(dw.messageBar))
+pt.destino.setFilePath(os.path.join(carpeta, 'no_existe', 'x.gml'))
+dw.messageBar.clearWidgets()
+pt.crear_gml()
+sin_carpeta = 'No existe la carpeta' in texto_barra(dw.messageBar)
+
 checks = {
+    "capa UTM marcada como 4326: aviso y sin excepción": src_mal,
+    "no sobrescribe el fichero de la capa ni falla sin carpeta": no_sobrescribe and sin_carpeta,
+    "RC mal escritas o de inmueble: SDGC con la RC de la parcela": rc_normalizada,
     "columnas que se pueden ensanchar a mano y fecha con hora": columnas,
     "la pestaña Parcela sustituye al texto provisional": pestana_visible,
     "propone el campo refcat": campo_propuesto,

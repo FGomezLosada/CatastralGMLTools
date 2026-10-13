@@ -11,6 +11,7 @@ import os
 from html import escape
 
 from . import geometria as geo
+from .ficheros import escribir_texto
 from .incidencias import AVISO, ERROR, INFO
 from .info import AVISO_LEGAL, NOMBRE, version
 from .validador import resumen
@@ -52,7 +53,10 @@ def croquis_svg(elementos, ancho=640, alto=420, margen=24):
             d = ' '.join('M ' + ' L '.join(punto(p.x(), p.y()) for p in anillo) + ' Z' for anillo in poligono)
             partes.append(f'<path d="{d}" fill="{color}" fill-opacity="0.15" stroke="{color}" stroke-width="2" '
                           'fill-rule="evenodd"/>')
-        centro = e.geometria.pointOnSurface().asPoint()
+        interior = e.geometria.pointOnSurface()
+        if interior.isNull():  #Anillo degenerado (2 vértices, todos alineados…): sin etiqueta, pero sin fallar (AU-08)
+            continue
+        centro = interior.asPoint()
         x, y = punto(centro.x(), centro.y()).split(',')
         partes.append(f'<text x="{x}" y="{y}" text-anchor="middle" class="etiqueta">{escape(e.local_id)}</text>')
     partes.append('</svg>')
@@ -171,8 +175,9 @@ def html(informe, ahora=None):
 
 
 def escribir(informe, ruta=None):
-    """Escribe el informe HTML (por defecto junto al GML) y devuelve su ruta."""
+    """Escribe el informe HTML (por defecto junto al GML) y devuelve su ruta; lanza OSError si no se puede escribir."""
     ruta = ruta or ruta_por_defecto(informe.ruta)
-    with open(ruta, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(html(informe))
+    problema = escribir_texto(ruta, html(informe), 'utf-8')
+    if problema is not None:
+        raise OSError(problema.mensaje)
     return ruta

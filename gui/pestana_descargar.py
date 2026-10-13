@@ -18,7 +18,7 @@ from qgis.core import (
 )
 from qgis.gui import QgsMapToolEmitPoint
 from qgis.PyQt import sip
-from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtCore import QObject, Qt
 from qgis.PyQt.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
@@ -38,6 +38,24 @@ from . import estilos, fondo
 
 PROPIEDAD_FUENTE = 'catastral_gml_tools/fuente'  #Cita de la fuente guardada en cada capa descargada
 PROPIEDAD_TERRITORIO = 'catastral_gml_tools/territorio'  #'Navarra' en las capas de Navarra (el GML de la DGC no sirve)
+PROPIEDAD_EDITADA = 'catastral_gml_tools/editada'  #La pone el vigía cuando el usuario empieza a editar una capa descargada
+
+
+class _Vigia(QObject):
+    """Marca las capas descargadas que el usuario edita, para no borrarlas al volver a descargar (AU-10)."""
+
+    def editada(self):
+        capa = self.sender()
+        if capa is not None and not sip.isdeleted(capa):
+            capa.setCustomProperty(PROPIEDAD_EDITADA, True)
+
+
+VIGIA = _Vigia()
+
+
+def con_cambios(capa):
+    """True si la capa se está editando, tiene cambios sin guardar o se ha editado alguna vez."""
+    return capa.isEditable() or capa.isModified() or bool(capa.customProperty(PROPIEDAD_EDITADA))
 COLORES_NIVEL = {refcat.CORRECTA: '#2b8a3e', refcat.AVISO: '#e67700', refcat.ERROR: '#c92a2a'}
 
 
@@ -356,7 +374,7 @@ def _con_fuente(capa, descarga, que):
 
 def cargar_descarga(descarga, iface=None):
     """
-    Añade la descarga al proyecto en un grupo «Catastro <RC>» (si ya existía, lo sustituye): construcciones, parcela
+    Añade la descarga al proyecto en un grupo «Catastro <RC>» (si ya existía, lo sustituye, salvo que alguna de sus capas se haya editado: entonces la nueva va en «Catastro <RC> (2)»): construcciones, parcela
     y colindantes, con estilo y la fuente en los metadatos. Devuelve {'parcela': capa, 'colindantes': …, …}.
     """
     proyecto = QgsProject.instance()
@@ -364,8 +382,16 @@ def cargar_descarga(descarga, iface=None):
     nombre = f"Catastro {descarga.rc}"
     viejo = raiz.findGroup(nombre)
     if viejo is not None:
-        proyecto.removeMapLayers(viejo.findLayerIds())
-        raiz.removeChildNode(viejo)
+        capas_viejas = [proyecto.mapLayer(i) for i in viejo.findLayerIds()]
+        if any(c is not None and con_cambios(c) for c in capas_viejas):
+            #El usuario ha editado alguna capa de la descarga anterior: no se borra; la nueva va en otro grupo (AU-10)
+            n = 2
+            while raiz.findGroup(f"{nombre} ({n})") is not None:
+                n += 1
+            nombre = f"{nombre} ({n})"
+        else:
+            proyecto.removeMapLayers(viejo.findLayerIds())
+            raiz.removeChildNode(viejo)
     grupo = raiz.insertGroup(0, nombre)
     capas = {}
     if descarga.construcciones is not None and descarga.construcciones.elementos:
@@ -384,6 +410,7 @@ def cargar_descarga(descarga, iface=None):
     for capa in capas.values():  #En este orden: construcciones encima y entorno debajo
         proyecto.addMapLayer(capa, False)
         grupo.addLayer(capa)
+        capa.editingStarted.connect(VIGIA.editada)
     return capas
 
 

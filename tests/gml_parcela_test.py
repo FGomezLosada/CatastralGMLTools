@@ -118,7 +118,13 @@ fichero = ok and ET.fromstring(leido.encode('utf-8')).tag.endswith('FeatureColle
 no_escribe, _ = gp.escribir(os.path.join(carpeta, 'mal.gml'), [], 25830)
 no_escribe = not no_escribe and not os.path.exists(os.path.join(carpeta, 'mal.gml'))
 
+#RC SDGC mal escrita: no se escribe tal cual (AU-04)
+_, inc_min = gp.construir([gp.ParcelaGML('1907401vk4810h', gp.SDGC, rect(X0, Y0, 10, 10))], 25830)
+_, inc_guion = gp.construir([gp.ParcelaGML('1907401-VK4810H', gp.SDGC, rect(X0, Y0, 10, 10))], 25830)
+rc_mal = 'NS-SDGC-SIN-RC' in codigos(inc_min) and 'NS-SDGC-SIN-RC' in codigos(inc_guion)
+
 checks = {
+    "RC SDGC en minúsculas o con guiones: error": rc_mal,
     "cabecera, raíz WFS 2.0, xlink declarado, número de parcelas y esquema 4.0": cabecera,
     "un member por parcela, orden de elementos y gml:id": estructura,
     "inspireId con base 3.3: SDGC con RC y LOCAL con identificador propio": identificador,

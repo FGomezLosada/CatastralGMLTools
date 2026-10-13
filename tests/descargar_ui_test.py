@@ -10,6 +10,7 @@ import importlib.util
 import os
 
 import qgis.utils
+from qgis.PyQt import sip
 from qgis.core import Qgis, QgsPointXY, QgsProject
 from qgis.gui import QgsMapToolPan
 from qgis.PyQt.QtWidgets import QLabel, QMessageBox
@@ -97,6 +98,15 @@ pes.descargar(segundo_plano=False)
 grupos = [g for g in raiz.findGroups() if g.name() == f'Catastro {sim.RC}']
 repetida = (len(grupos) == 1 and [n.name() for n in grupos[0].children()] == [f'Parcela {sim.RC}']
             and len(proyecto.mapLayers()) == n_capas - 3)
+#Con la capa de la parcela en edición, volver a descargar no la borra: la nueva va en «Catastro <RC> (2)» (AU-10)
+editada = proyecto.mapLayersByName(f'Parcela {sim.RC}')[0]
+editada.startEditing()
+pes.descargar(segundo_plano=False)
+conserva = (raiz.findGroup(f'Catastro {sim.RC}') is not None and raiz.findGroup(f'Catastro {sim.RC} (2)') is not None
+            and not sip.isdeleted(editada) and editada.isEditable())
+editada.rollBack()
+proyecto.removeMapLayers(raiz.findGroup(f'Catastro {sim.RC} (2)').findLayerIds())
+raiz.removeChildNode(raiz.findGroup(f'Catastro {sim.RC} (2)'))
 pes.colindantes.setChecked(True)
 pes.construcciones.setChecked(True)
 
@@ -196,6 +206,7 @@ for _n, _f in _originales.items():
 dw.deleteLater()
 
 checks = {
+    "volver a descargar no borra capas editadas": conserva,
     "comprueba y explica la referencia (corta, foral, rústica, inmueble y urbana)": comprobacion,
     "grupo «Catastro <RC>» con construcciones, parcela y colindantes": orden,
     "fuente y fecha en los metadatos de cada capa": fuente,

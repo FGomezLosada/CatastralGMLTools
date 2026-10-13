@@ -68,9 +68,10 @@ ok_c, _, inc_c = un.unir([a, conflicto], os.path.join(carpeta, 'mal.gml'))
 ok_e, _, inc_e = un.unir([a, edificio], os.path.join(carpeta, 'mal2.gml'))
 ok_1, _, inc_1 = un.unir([a], os.path.join(carpeta, 'mal3.gml'))
 ok_d, _, inc_d = un.unir([a, b], a)
+ok_f, _, inc_f = un.unir([a, b], os.path.join(carpeta, 'no_existe', 'x.gml'))  #Antes: FileNotFoundError (AU-07)
 errores = (not ok_c and 'UNIR-ID-DISTINTO' in codigos(inc_c) and not ok_e and 'UNIR-NO-PARCELA' in codigos(inc_e)
            and not ok_1 and codigos(inc_1) == ['UNIR-POCOS'] and not ok_d and codigos(inc_d) == ['UNIR-DESTINO']
-           and not os.path.exists(os.path.join(carpeta, 'mal.gml')))
+           and not os.path.exists(os.path.join(carpeta, 'mal.gml')) and not ok_f and codigos(inc_f) == ['FICHERO'])
 
 # 3. Husos distintos: se pasa al del primer fichero, con aviso
 ok_h, n_h, inc_h = un.unir([a, huso29], os.path.join(carpeta, 'husos.gml'))
@@ -80,7 +81,8 @@ husos = (ok_h and n_h == 3 and lectura_h.epsg == 25830 and 'UNIR-SRC' in codigos
          and abs(lectura_h.elementos[-1].geometria.boundingBox().xMinimum() - (X0 + 50)) < 0.05)
 
 # 4. Un GML 3.0 se reescribe en 4.0
-ok_3, n_3, inc_3 = un.unir([cp30, b], os.path.join(carpeta, 'con30.gml'))
+lejos = gml('lejos.gml', [gp.ParcelaGML('Lejos_1', gp.LOCAL, rect(X0 + 500, Y0, 10, 10))])  #Sin solapes con el 3.0
+ok_3, n_3, inc_3 = un.unir([cp30, lejos], os.path.join(carpeta, 'con30.gml'))
 version_3 = gl.leer(os.path.join(carpeta, 'con30.gml')).version if ok_3 else ''
 cp30_ok = ok_3 and version_3 == 'CP 4.0' and 'UNIR-CP30' in codigos(inc_3)
 

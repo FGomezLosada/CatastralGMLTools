@@ -40,7 +40,7 @@ AYUDA = {
     AGRUPACION: "Varias parcelas forman una nueva (LOCAL, Agrupa_1)",
     SUBSANACION: "Corrección de linderos: las mismas parcelas, cada una con su referencia catastral (SDGC)",
 }
-PREFIJO = {SEGREGACION: 'Seg_', DIVISION: 'Div_', AGRUPACION: 'Agrupa_'}
+PREFIJO = {SEGREGACION: 'Seg_', DIVISION: 'Div_', AGRUPACION: 'Agrupa_', AGREGACION: 'Nueva_'}
 #Nombres que pone el plugin (se pueden cambiar sin pisar los del usuario)
 AUTOMATICO = re.compile(r'^(Nueva|Parcela|Seg|Div|Agrupa)_\d+$')
 UMBRAL_SEGREGACION = 0.20  #Segregada menor del 20 % de la matriz (editor de la Sede)
@@ -89,7 +89,18 @@ def proponer(tipo, ids, areas, rc=''):
     if tipo == DIVISION:
         return [(nuevo(i, i + 1), LOCAL) for i in range(len(ids))]
     if tipo == AGREGACION:
-        return [(rc, SDGC) if rc else (ids[i], LOCAL) for i in range(len(ids))]
+        #Una sola parcela resultante conserva la RC (la mayor); si hay más filas, las demás quedan como estaban (AU-16)
+        mayor = _mayor(areas)
+        resultado, n = [], 0
+        for i in range(len(ids)):
+            if rc and i == mayor:
+                resultado.append((rc, SDGC))
+            elif refcat.es_rc_exacta(ids[i]) and ids[i] != rc:
+                resultado.append((ids[i], SDGC))
+            else:
+                n += 1
+                resultado.append((nuevo(i, n), LOCAL))
+        return resultado
     if tipo == AGRUPACION:
         return [(nuevo(i, i + 1), LOCAL) for i in range(len(ids))]
     if tipo == SUBSANACION:

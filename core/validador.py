@@ -47,7 +47,6 @@ NS_EDIFICIO = ('ES.SDGC.BU', 'ES.LOCAL.BU')
 ID_VALIDO = re.compile(r'^[A-Za-z0-9_.\-]+$')
 MAX_PARCELAS = 30
 MAX_ESBELTEZ = 15
-TOLERANCIA_SOLAPE = 0.01  #m²: por debajo se considera ruido de redondeo
 MAX_DECIMALES = 2
 
 
@@ -125,9 +124,10 @@ def validar_elemento(e, es_parcela):
         inc.append(Incidencia(ERROR, 'NS-DESCONOCIDO', f"Namespace «{e.namespace}» no válido: debe ser {' o '.join(nss)}",
                               nombre))
     elif es_parcela and e.namespace == 'ES.SDGC.CP':
-        if not refcat.es_rc_parcela(e.local_id):
+        if not refcat.es_rc_exacta(e.local_id):
             inc.append(Incidencia(ERROR, 'NS-SDGC-SIN-RC', "Con ES.SDGC.CP el identificador debe ser la referencia catastral "
-                                                           "de 14 caracteres (si es una parcela nueva, use ES.LOCAL.CP)", nombre))
+                                                           "de 14 caracteres, en mayúsculas y sin separadores (si es una "
+                                                           "parcela nueva, use ES.LOCAL.CP)", nombre))
         else:
             r = refcat.comprobar(e.local_id)
             if r.foral:
@@ -201,23 +201,16 @@ def validar_elemento(e, es_parcela):
 def validar_conjunto(elementos, es_parcela):
     """Solapes entre elementos y, en parcelas, huecos entre las aportadas."""
     inc = []
-    validos = [e for e in elementos if not e.geometria.isNull() and e.geometria.isGeosValid()]
-    for i, a in enumerate(validos):
-        for b in validos[i + 1:]:
-            if not a.geometria.boundingBox().intersects(b.geometria.boundingBox()):
-                continue
-            solape = a.geometria.intersection(b.geometria).area()
-            if solape > TOLERANCIA_SOLAPE:
-                inc.append(Incidencia(ERROR, 'SOLAPE', f"Se superpone con {b.local_id} ({solape:.2f} m²)", a.local_id))
+    validos = [e for e in elementos if not e.geometria.isNull() and not e.geometria.isEmpty()]
+    for i, j, area, anchura in geo.solapes([e.geometria for e in validos]):
+        inc.append(Incidencia(ERROR, 'SOLAPE', f"Se superpone con {validos[j].local_id} ({area:.2f} m², hasta "
+                                               f"{anchura * 100:.0f} cm de ancho)", validos[i].local_id))
     if es_parcela and len(validos) > 1:
-        union = QgsGeometry.unaryUnion([e.geometria for e in validos])
-        huecos_propios = sum(len(e.anillos) - 1 for e in validos)
-        poligonos = union.asMultiPolygon() if union.isMultipart() else [union.asPolygon()]
-        huecos = [QgsGeometry.fromPolygonXY([anillo]).area() for p in poligonos for anillo in p[1:]]
-        huecos = [h for h in huecos if h > TOLERANCIA_SOLAPE]
-        if len(huecos) > huecos_propios:
-            inc.append(Incidencia(AVISO, 'HUECO', f"Hay huecos entre las parcelas aportadas ({sum(huecos):.2f} m²): el conjunto "
-                                                  "debe cubrir el contorno de las parcelas de origen"))
+        hueco = geo.huecos([e.geometria for e in validos], sum(max(len(e.anillos) - 1, 0) for e in validos))
+        if hueco > 0:
+            inc.append(Incidencia(AVISO, 'HUECO', f"Hay huecos o franjas sin cubrir entre las parcelas aportadas "
+                                                  f"({hueco:.2f} m²): el conjunto debe cubrir el contorno de las parcelas de "
+                                                  "origen"))
     return inc
 
 

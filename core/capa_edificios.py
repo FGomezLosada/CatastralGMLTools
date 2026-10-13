@@ -17,7 +17,7 @@ from . import geometria as geo
 from . import gml_edificio as ge
 from . import gml_lector as gl
 from . import refcat
-from .capa_parcelas import _texto, es_capa_poligonos
+from .capa_parcelas import _texto, es_capa_poligonos, src_incorrecto  # noqa: F401  (src_incorrecto se usa desde gui)
 
 CAMPOS_ID = ('localId', 'localid', 'refcat', 'ref_catastral', 'referencia', 'nationalCadastralReference', 'rc')
 CAMPOS_PLANTAS = ('plantas', 'numberOfFloorsAboveGround', 'n_plantas', 'num_plantas')
@@ -66,25 +66,21 @@ def poligono_de_lineas(geometria):
             abiertas += 1
     if not anillos:
         return None, abiertas
-    poligonos = [QgsGeometry.fromPolygonXY([a]) for a in anillos]
-    return (poligonos[0] if len(poligonos) == 1 else QgsGeometry.unaryUnion(poligonos)), abiertas
-
-
-def src_incorrecto(capa):
-    """
-    Texto del problema si la capa no tiene SRC o si sus coordenadas no encajan con él (lo típico de un DXF en UTM que
-    QGIS abre en un SRC geográfico); '' si está bien.
-    """
-    if capa is None:
-        return ''
-    crs = capa.crs()
-    if not crs.isValid():
-        return "La capa no tiene SRC: asígnelo en sus propiedades (pestaña Fuente)"
-    extension = capa.extent()
-    if crs.isGeographic() and not extension.isEmpty() and (abs(extension.xMaximum()) > 180 or abs(extension.yMaximum()) > 90):
-        return (f"Las coordenadas de la capa no encajan con su SRC ({crs.authid()}): parecen UTM. Asigne el SRC correcto en "
-                "sus propiedades (pestaña Fuente), p. ej. EPSG:25830")
-    return ''
+    #Un anillo dentro de otro es un hueco (patio), no otra huella: se ordenan de mayor a menor y cada uno se mete como
+    #hueco del primer recinto que lo contiene (AU-19)
+    anillos.sort(key=lambda a: QgsGeometry.fromPolygonXY([a]).area(), reverse=True)
+    recintos = []  #[exterior, [huecos]]
+    for anillo in anillos:
+        g = QgsGeometry.fromPolygonXY([anillo])
+        contenedor = next((r for r in recintos if QgsGeometry.fromPolygonXY([r[0]]).contains(g)
+                           and not any(QgsGeometry.fromPolygonXY([h]).contains(g) for h in r[1])), None)
+        if contenedor is not None:
+            contenedor[1].append(anillo)
+        else:
+            recintos.append([anillo, []])
+    poligonos = [[exterior, *huecos] for exterior, huecos in recintos]
+    geometria = QgsGeometry.fromPolygonXY(poligonos[0]) if len(poligonos) == 1 else QgsGeometry.fromMultiPolygonXY(poligonos)
+    return geometria, abiertas
 
 
 def es_capa_de_parcelas(capa):
@@ -122,7 +118,8 @@ def nueva_capa_huellas(crs, nombre="Huellas de construcciones", filas=(), crs_fi
         entidades = []
         for f in filas:
             entidad = QgsFeature(capa.fields())
-            entidad.setGeometry(geo.transformar(f.geometria, crs_filas or crs, epsg) if epsg else f.geometria)
+            copia = geo.transformar(f.geometria, crs_filas or crs, epsg) if epsg else f.geometria
+            entidad.setGeometry(copia if copia is not None else f.geometria)
             entidad.setAttributes([f.tipo, f.plantas, f.estado if f.tipo == ge.EDIFICIO else None])
             entidades.append(entidad)
         capa.dataProvider().addFeatures(entidades)
@@ -135,12 +132,12 @@ def campo_plantas(capa):
 
 
 def _entero(valor):
+    """Plantas del campo: el entero si es válido; si no, el texto tal cual (la tabla lo muestra y el GML da error)."""
     texto = _texto(valor).strip()
-    try:
-        numero = int(float(texto.replace(',', '.')))
-    except ValueError:
+    if not texto:
         return None
-    return numero if numero > 0 else None
+    numero = ge.plantas_validas(texto)
+    return numero if numero is not None else texto
 
 
 def es_piscina(valores):
@@ -176,7 +173,7 @@ def leer_capa(capa, solo_seleccion=False, campo_plantas_=''):
                    'capa': _texto(entidad[campo_capa]) if campo_capa else ''}
         tipo = ge.PISCINA if es_piscina(valores) else ge.EDIFICIO
         plantas = _entero(entidad[campo_plantas_]) if campo_plantas_ and tipo == ge.EDIFICIO else None
-        rc = refcat.limpiar(valores['id'])[:14]
+        rc = refcat.parcela_de(valores['id'][:20]) or refcat.parcela_de(refcat.limpiar(valores['id'])[:14])
         partes = 0 if geometria.isNull() else len(geometria.asGeometryCollection()) if geometria.isMultipart() else 1
         estado = _texto(entidad['estado']) if 'estado' in nombres else ''
         filas.append(FilaConstruccion(entidad.id(), tipo, plantas, geometria, partes,

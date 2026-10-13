@@ -20,7 +20,8 @@ from xml.sax.saxutils import escape, quoteattr
 
 from . import geometria as geo
 from . import refcat
-from .incidencias import ERROR, Incidencia, hay_errores
+from .ficheros import comprobar_destino, escribir_texto
+from .incidencias import AVISO, ERROR, Incidencia, hay_errores
 from .info import NOMBRE, version
 
 NS_WFS = 'http://www.opengis.net/wfs/2.0'
@@ -152,10 +153,10 @@ def comprobar_parcelas(parcelas, epsg):
         vistos.add(parcela.local_id)
         if parcela.namespace not in (SDGC, LOCAL):
             incidencias.append(Incidencia(ERROR, 'NS-DESCONOCIDO', "El namespace debe ser SDGC o LOCAL", nombre))
-        elif parcela.namespace == SDGC and not refcat.es_rc_parcela(parcela.local_id):
+        elif parcela.namespace == SDGC and not refcat.es_rc_exacta(parcela.local_id):
             incidencias.append(Incidencia(ERROR, 'NS-SDGC-SIN-RC',
-                                          "Con namespace SDGC el identificador debe ser la referencia catastral de 14 caracteres "
-                                          "(si es una parcela nueva, use LOCAL)", nombre))
+                                          "Con namespace SDGC el identificador debe ser la referencia catastral de 14 caracteres, "
+                                          "en mayúsculas y sin espacios, guiones ni puntos (si es una parcela nueva, use LOCAL)", nombre))
         elif parcela.namespace == SDGC:
             resultado = refcat.comprobar(parcela.local_id)
             if resultado.foral:
@@ -163,6 +164,17 @@ def comprobar_parcelas(parcelas, epsg):
         partes, inc = geo.preparar(parcela.geometria, nombre)
         incidencias += inc
         recintos.append(partes[0] if len(partes) == 1 else None)
+    #Solapes (error) y huecos (aviso) entre las parcelas del fichero, ya al crearlo (AU-11)
+    geometrias = [r.geometria() if r is not None else None for r in recintos]
+    for i, j, area, anchura in geo.solapes(geometrias):
+        incidencias.append(Incidencia(ERROR, 'SOLAPE', f"Se superpone con {parcelas[j].local_id} ({area:.2f} m², hasta "
+                                                       f"{anchura * 100:.0f} cm de ancho)", parcelas[i].local_id or f"fila {i + 1}"))
+    if len([g for g in geometrias if g is not None]) > 1 and not hay_errores(incidencias):
+        hueco = geo.huecos([g for g in geometrias if g is not None],
+                           sum(len(r.interiores) for r in recintos if r is not None))
+        if hueco > 0:
+            incidencias.append(Incidencia(AVISO, 'HUECO', f"Hay huecos o franjas sin cubrir entre las parcelas ({hueco:.2f} m²): "
+                                                          "el conjunto debe cubrir el contorno de las parcelas de origen"))
     return recintos, incidencias
 
 
@@ -196,11 +208,16 @@ def construir(parcelas, epsg, fecha=None, ahora=None):
     return texto, incidencias
 
 
-def escribir(ruta, parcelas, epsg, fecha=None):
-    """Escribe el GML en ruta (UTF-8). Devuelve (True/False, incidencias)."""
+def escribir(ruta, parcelas, epsg, fecha=None, origenes=()):
+    """
+    Escribe el GML en ruta (UTF-8). Devuelve (True/False, incidencias). origenes: ficheros de los que salen los datos
+    (no se pueden sobrescribir).
+    """
+    problema = comprobar_destino(ruta, origenes)
+    if problema is not None:
+        return False, [problema]
     texto, incidencias = construir(parcelas, epsg, fecha)
     if texto is None:
         return False, incidencias
-    with open(ruta, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(texto)
-    return True, incidencias
+    problema = escribir_texto(ruta, texto, 'utf-8', origenes=origenes)
+    return problema is None, incidencias + ([problema] if problema else [])

@@ -16,12 +16,14 @@ from qgis.PyQt.QtWidgets import QLabel, QMessageBox
 
 qgis.utils.reloadPlugin('catastral_gml_tools')
 import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa: E402
+from catastral_gml_tools.core import capa_edificios as ce  # noqa: E402
 from catastral_gml_tools.core import comparacion as cmp  # noqa: E402
 from catastral_gml_tools.core import gml_edificio as ge  # noqa: E402
 from catastral_gml_tools.core import gml_lector as gl  # noqa: E402
 from catastral_gml_tools.core import gml_parcela as gp  # noqa: E402
 from catastral_gml_tools.core import servicios  # noqa: E402
-from catastral_gml_tools.core.incidencias import ERROR, codigos  # noqa: E402
+from catastral_gml_tools.core.incidencias import ERROR, INFO, Incidencia, codigos  # noqa: E402
+from catastral_gml_tools.gui import pestana_validar as pv_mod  # noqa: E402
 from catastral_gml_tools.core.info import RAIZ  # noqa: E402
 from catastral_gml_tools.gui import pestana_edificio as pe_mod  # noqa: E402
 from catastral_gml_tools.gui.pestana_parcela import PROPIEDAD_TERRITORIO  # noqa: E402
@@ -107,11 +109,27 @@ abierto = dw.tabWidget.currentWidget() is dw.tabValidar and pv.fichero.filePath(
 pv.abrir(segundo_plano=False)
 boton_cmp = pv.cmpBoton.isEnabled()
 
-# 4. ICUC: todas dentro de la parcela
+# 4. ICUC: todas dentro de la parcela. «Listo» solo con el esquema XSD comprobado (AU-12)
+pv.informe.incidencias = [i for i in pv.informe.incidencias if not i.codigo.startswith('XSD')]  #Sin conexión aquí
+sin_xsd = pv.comparar_catastro(segundo_plano=False) is not None and 'Listo para el ICUC' not in barra(dw) \
+    and 'esquema XSD' in barra(dw)
+pv.informe.incidencias.append(Incidencia(INFO, 'XSD-VALIDO', 'Cumple el esquema'))
 dentro = pv.comparar_catastro(segundo_plano=False)
-icuc_dentro = (dentro is not None and dentro.edificio and codigos(dentro.incidencias) == ['CMP-BU-DENTRO']
+icuc_dentro = (sin_xsd and dentro is not None and dentro.edificio and codigos(dentro.incidencias) == ['CMP-BU-DENTRO']
                and 'Construcciones dentro de la parcela' in barra(dw) and 'Listo para el ICUC' in barra(dw)
                and QgsProject.instance().layerTreeRoot().findGroup('Comparación edificio') is not None)
+
+#Carrera (AU-02): la tarea lanzada para un fichero termina cuando ya se ha abierto otro: su resultado se descarta
+tarea_vieja = pv_mod.TareaComparacion(pv.resultado, pv, pv.generacion)
+tarea_vieja.run()
+pv.fichero.setFilePath(os.path.join(carpeta, 'otro.gml'))  #No existe: deja la pestaña sin fichero
+ge.escribir(os.path.join(carpeta, 'otro.gml'), [ge.Construccion(RC, QgsGeometry.fromWkt(wkt(X0 + 300, Y0, 10, 5)), plantas=1)],
+            25830)
+pv.fichero.setFilePath(salida)
+pv.fichero.setFilePath(os.path.join(carpeta, 'otro.gml'))
+dw.messageBar.clearWidgets()
+tarea_vieja.finished(True)
+carrera = not any(i.codigo.startswith('CMP') for i in pv.informe.incidencias) and 'Listo' not in barra(dw)
 
 # 5. Una construcción que sale de la parcela
 fuera_ruta = os.path.join(carpeta, 'fuera.gml')
@@ -180,6 +198,10 @@ retocar = (boton_copia and copia is not capa and pe.capa() is copia and copia.is
            and [pe.tabla.item(i, pe_mod.COL_PLANTAS).text() for i in range(3)] == ['2', '', '1']
            and pe.tabla.item(0, pe_mod.COL_AREA).text() == '60'
            and next(capa.getFeatures()).geometry().area() == 48)
+#Lo escrito en la tabla se conserva al seguir editando la capa (AU-17)
+pe.tabla.item(2, pe_mod.COL_PLANTAS).setText('4')
+copia.changeGeometry(primera.id(), QgsGeometry.fromWkt(wkt(X0 + 2, Y0 + 2, 9, 6)))
+conserva_tabla = pe.tabla.item(2, pe_mod.COL_PLANTAS).text() == '4' and pe.tabla.item(0, pe_mod.COL_AREA).text() == '54'
 copia.rollBack()
 
 # 9. Capa de líneas como la de un DXF: líneas cerradas = huellas; la capa de dibujo «PISCINA» marca la piscina
@@ -200,6 +222,12 @@ pe.referencia.setText(RC)
 pe.capaCombo.setLayer(dxf)
 lineas_dxf = (pe.capa() is dxf and [pe.tipo_fila(i) for i in range(pe.tabla.rowCount())] == [ge.EDIFICIO, ge.PISCINA]
               and pe.tabla.item(0, pe_mod.COL_AREA).text() == '48' and '1 línea sin cerrar' in pe.resumen.text())
+#Patio dibujado como segunda polilínea de la misma entidad: hueco, no otra huella (AU-19)
+patio = QgsGeometry.fromWkt(f"MULTILINESTRING(({X0} {Y0}, {X0 + 16} {Y0}, {X0 + 16} {Y0 + 16}, {X0} {Y0 + 16}, {X0} {Y0}), "
+                            f"({X0 + 4} {Y0 + 4}, {X0 + 8} {Y0 + 4}, {X0 + 8} {Y0 + 8}, {X0 + 4} {Y0 + 8}, {X0 + 4} {Y0 + 4}))")
+con_patio, _ = ce.poligono_de_lineas(patio)
+patio_ok = con_patio is not None and abs(con_patio.area() - 240) < 0.01
+
 sin_src = QgsVectorLayer("LineString?crs=EPSG:4326&field=Layer:string(30)", "sin_src.dxf", 'memory')  #UTM en 4326
 f = QgsFeature(sin_src.fields())
 f.setGeometry(QgsGeometry.fromWkt(linea(X0 + 2, Y0 + 2, 8, 6)))
@@ -220,7 +248,8 @@ checks = {
     "cambiar el tipo renumera los identificadores": cambio_tipo,
     "Crear GML: fichero, estado por edificio y resultado en la barra": crear,
     "botón Validar: abre el GML y permite comparar": abierto and boton_cmp,
-    "ICUC: construcciones dentro de la parcela": icuc_dentro,
+    "ICUC: construcciones dentro de la parcela (listo solo con XSD comprobado)": icuc_dentro,
+    "Validar: el resultado de una tarea de otro fichero se descarta": carrera,
     "ICUC: en parte fuera y a más de 100 m (errores) y sin referencia": icuc_fuera,
     "sin referencia y capa de Navarra: aviso sin fichero": sin_referencia and navarra and ficheros,
     "descarga sin construcciones: referencia y explicación": sin_construcciones,
@@ -228,7 +257,8 @@ checks = {
     "Dibujar huellas: capa nueva en edición, tabla al dibujar": nueva and dibujadas,
     "plantas obligatorias (error) y GML al ponerlas": sin_plantas and con_plantas,
     "retocar: copia editable, la original no cambia": retocar,
-    "capa de líneas (DXF): cerradas = huellas, piscina por capa de dibujo": lineas_dxf,
+    "la tabla conserva lo escrito al editar la capa": conserva_tabla,
+    "capa de líneas (DXF): cerradas = huellas, piscina por capa de dibujo": lineas_dxf and patio_ok,
     "capa con SRC que no encaja (DXF): aviso y sin fichero": sin_crs,
     "ninguna ventana emergente": not ventanas,
 }

@@ -81,8 +81,19 @@ casos = {
         '421600.00 4070600.00 421600.00 4070610.00 421610.00 4070610.00 421610.00 4070600.00 421600.00 4070600.00'
         '</gml:posList></gml:LinearRing></gml:exterior></gml:PolygonPatch></gml:patches></gml:Surface></gml:surfaceMember>')),
 }
-casos['SOLAPE'] = gml([gp.ParcelaGML('A', gp.LOCAL, rect(X0, Y0, 20, 30)), gp.ParcelaGML('B', gp.LOCAL, rect(X0 + 15, Y0, 15, 30))],
-                      'solape.gml')
+#Solape: el escritor ya no lo permite (AU-11); se unen a mano dos ficheros de una parcela cada uno
+_a = gml([gp.ParcelaGML('A', gp.LOCAL, rect(X0, Y0, 20, 30))], 'solape_a.gml')
+_b = gml([gp.ParcelaGML('B', gp.LOCAL, rect(X0 + 15, Y0, 15, 30))], 'solape_b.gml')
+with open(_a, encoding='utf-8') as f_a, open(_b, encoding='utf-8') as f_b:
+    _ta, _tb = f_a.read(), f_b.read()
+_miembro_b = _tb[_tb.index('<member>'):_tb.rindex('</member>') + len('</member>')]
+casos['SOLAPE'] = os.path.join(carpeta, 'solape.gml')
+with open(casos['SOLAPE'], 'w', encoding='utf-8') as f:
+    f.write(_ta.replace('</member>', '</member>\n' + _miembro_b, 1))
+#El escritor lo rechaza al crear
+_, inc_solape = gp.construir([gp.ParcelaGML('A', gp.LOCAL, rect(X0, Y0, 20, 30)), gp.ParcelaGML('B', gp.LOCAL, rect(X0 + 15, Y0, 15, 30))],
+                             25830)
+escritor_solape = 'SOLAPE' in codigos(inc_solape)
 #Hueco cerrado de 5 × 10 m entre A (con un entrante) y B (con otro entrante enfrentado)
 casos['HUECO'] = gml([gp.ParcelaGML('A', gp.LOCAL, QgsGeometry.fromWkt(
                           f"POLYGON(({X0} {Y0}, {X0 + 20} {Y0}, {X0 + 20} {Y0 + 10}, {X0 + 15} {Y0 + 10}, {X0 + 15} {Y0 + 20}, "
@@ -114,6 +125,7 @@ edificio = va.validar(os.path.join(RAIZ, 'tests', 'data', 'gml', 'edificio_sinte
 edificio_ok = not edificio.errores
 
 checks = {
+    "el escritor rechaza parcelas solapadas (AU-11)": escritor_solape,
     "GML correcto: sin errores ni avisos y todas las parcelas correctas": limpio and estados,
     "niveles de error y aviso, y error atribuido a su parcela": niveles,
     "GML de edificio sintético: sin errores": edificio_ok,

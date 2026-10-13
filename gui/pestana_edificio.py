@@ -198,7 +198,8 @@ class PestanaEdificio(QWidget):
         actual = self.destino.filePath().strip()
         if actual and actual != self.destino_automatico:
             return
-        carpeta = os.path.dirname(actual) if actual else (QgsProject.instance().homePath() or os.path.expanduser('~'))
+        carpeta = os.path.dirname(actual) if actual else (os.path.dirname(cp.fichero_de_capa(capa)) or QgsProject.instance().homePath()
+                                                          or os.path.expanduser('~'))
         nombre = re.sub(r'[^0-9A-Za-z_.-]+', '_', capa.name()).strip('._') or 'edificio'
         self.destino_automatico = os.path.join(carpeta, f"{nombre}_edificio.gml")
         self.destino.setFilePath(self.destino_automatico)
@@ -221,14 +222,25 @@ class PestanaEdificio(QWidget):
                 (capa.geometryChanged, self.capa_editada), (capa.afterRollBack, self.capa_editada)]
 
     def capa_editada(self, *args):
+        """Al editar la capa (dibujar, mover vértices…) se recarga la tabla conservando lo escrito en ella (AU-17)."""
         if not sip.isdeleted(self):
-            self.recargar()
+            self.recargar(conservar=True)
+
+    def valores_tabla(self):
+        """Tipo, plantas y estado escritos en la tabla, por identificador de entidad (fid)."""
+        valores = {}
+        for i, fila in enumerate(self.filas):
+            if i < self.tabla.rowCount() and self.tabla.item(i, COL_PLANTAS) is not None:
+                capa = (fila.tipo, '' if fila.plantas is None else str(fila.plantas), fila.estado)  #Lo que traía la capa
+                valores[fila.fid] = ((self.tipo_fila(i), self.tabla.item(i, COL_PLANTAS).text(), self.estado_fila(i)), capa)
+        return valores
 
     def seleccion_cambiada(self, *args):
         if not sip.isdeleted(self) and self.soloSeleccion.isChecked():
             self.recargar()
 
-    def recargar(self, *args):
+    def recargar(self, *args, conservar=False):
+        anteriores = self.valores_tabla() if conservar else {}
         capa = self.capa()
         n = 0 if capa is None else capa.selectedFeatureCount() if self.soloSeleccion.isChecked() else capa.featureCount()
         self.demasiadas = n > MAX_FILAS
@@ -277,6 +289,15 @@ class PestanaEdificio(QWidget):
             self.tabla.item(i, COL_AREA).setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             self.tabla.item(i, COL_ESTADO).setText('Sin geometría' if fila.partes == 0 else
                                                    f'{fila.partes} partes' if fila.partes > 1 else '')
+        for i, fila in enumerate(self.filas):  #Lo que el usuario había cambiado en la tabla se mantiene
+            if fila.fid not in anteriores:
+                continue
+            (tipo, plantas, estado), en_capa = anteriores[fila.fid]
+            #Si el valor ha cambiado en la propia capa (formulario de atributos), manda la capa
+            if en_capa == (fila.tipo, '' if fila.plantas is None else str(fila.plantas), fila.estado):
+                self.tabla.cellWidget(i, COL_TIPO).setCurrentIndex(0 if tipo == ge.EDIFICIO else 1)
+                self.tabla.item(i, COL_PLANTAS).setText(plantas)
+                self.tabla.cellWidget(i, COL_OBRA).setCurrentIndex(ge.ESTADOS.index(estado))
         self.tabla.blockSignals(False)
         self.proponer_ids()
         self.actualizar_obras()
@@ -307,8 +328,8 @@ class PestanaEdificio(QWidget):
 
     def proponer_ids(self, *args):
         """Identificadores según el formato de la DGC a partir de la referencia de la parcela y de los tipos."""
-        base = refcat.limpiar(self.referencia.text()) if refcat.es_rc_parcela(self.referencia.text()) \
-            else re.sub(r'[^0-9A-Za-z_.-]+', '_', self.referencia.text().strip())
+        #RC de 14, 18 o 20 caracteres (también en minúsculas o con guiones): la de la parcela (AU-05)
+        base = refcat.parcela_de(self.referencia.text()) or re.sub(r'[^0-9A-Za-z_.-]+', '_', self.referencia.text().strip())
         ids = ge.identificadores(base, [self.tipo_fila(i) for i in range(len(self.filas))])
         self.tabla.blockSignals(True)
         for i, local_id in enumerate(ids):
@@ -503,11 +524,14 @@ class PestanaEdificio(QWidget):
         construcciones = ce.a_construcciones(self.filas, ids, tipos, [self.plantas_fila(i) for i in range(n)],
                                              [self.estado_fila(i) for i in range(n)], capa.crs(), epsg)
         fecha = self.fecha.dateTime().toPyDateTime().replace(second=0, microsecond=0)
-        ok, incidencias = ge.escribir(ruta, construcciones, epsg, fecha)
+        ok, incidencias = ge.escribir(ruta, construcciones, epsg, fecha, origenes=[cp.fichero_de_capa(capa)])
         self.marcar_estados(incidencias, ids)
         problemas = [str(i) for i in incidencias if i.nivel in (ERROR, AVISO)]
         if not ok:
-            self.dock.notify("No se ha creado el GML: corrija estos errores\n\n" + "\n".join(f"- {p}" for p in problemas),
+            errores = [str(i) for i in incidencias if i.nivel == ERROR]
+            texto = (f"No se ha creado el GML: {errores[0]}" if len(errores) == 1 else
+                     "No se ha creado el GML: corrija estos errores\n\n" + "\n".join(f"- {p}" for p in problemas))
+            self.dock.notify(texto,
                              Qgis.MessageLevel.Critical, 0)
             return None
         self.ultimo_gml = ruta

@@ -6,6 +6,7 @@ parcela o construcción con su estado y la lista de incidencias, y lo carga en e
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
+import contextlib
 import os
 
 from qgis.core import Qgis, QgsApplication, QgsMimeDataUtils, QgsProject, QgsTask
@@ -61,6 +62,7 @@ class PestanaValidar(QWidget):
         self.tarea_cmp = None  #Comparación con el Catastro en curso
         self.comparacion = None
         self.ruta = ''
+        self.generacion = 0  #Sube al abrir otro fichero: lo que llegue de tareas anteriores se descarta (AU-02)
         self.construir()
         self.setAcceptDrops(True)  #Se puede arrastrar un GML desde el Explorador de Windows a la pestaña
         self.fichero.lineEdit().setAcceptDrops(False)  #Que lo recoja la pestaña entera, también sobre la casilla del fichero
@@ -192,6 +194,13 @@ class PestanaValidar(QWidget):
     # ------------------------------------------------------------------ Abrir
 
     def limpiar(self):
+        #Las tareas del fichero anterior se cancelan y su resultado, si llega, se descarta (no se mezcla con el nuevo)
+        self.generacion += 1
+        for tarea in (self.tarea, self.tarea_cmp):
+            if tarea is not None and not sip.isdeleted(tarea):
+                with contextlib.suppress(RuntimeError):
+                    tarea.cancel()
+        self.tarea = self.tarea_cmp = None
         self.tabla.setRowCount(0)
         self.lista.clear()
         self.estado.clear()
@@ -301,7 +310,7 @@ class PestanaValidar(QWidget):
             return None
         try:
             ruta = informe_html.escribir(self.informe)
-        except OSError as e:
+        except Exception as e:  #E/S o un fichero muy anómalo: se avisa en la barra, nunca una ventana de error (AU-07, AU-08)
             self.dock.warn(f"No se ha podido guardar el informe: {e}")
             return None
         self.ultimo_informe = ruta
@@ -331,12 +340,12 @@ class PestanaValidar(QWidget):
         if not segundo_plano:
             self.esquema_comprobado(esquemas.validar(self.resultado.datos, self.resultado.version))
             return
-        self.tarea = TareaEsquema(self.resultado.datos, self.resultado.version, self)
+        self.tarea = TareaEsquema(self.resultado.datos, self.resultado.version, self, self.generacion)
         QgsApplication.taskManager().addTask(self.tarea)
 
-    def esquema_comprobado(self, incidencias):
+    def esquema_comprobado(self, incidencias, generacion=None):
         """Llega del hilo de la tarea (ya en el hilo principal): añade el resultado XSD al informe."""
-        if sip.isdeleted(self) or self.informe is None:
+        if sip.isdeleted(self) or self.informe is None or (generacion is not None and generacion != self.generacion):
             return
         self.tarea = None  #Antes de mostrar_informe: si no, la lista seguiría diciendo «Comprobando…»
         self.informe.incidencias += incidencias
@@ -355,14 +364,14 @@ class PestanaValidar(QWidget):
                                            "Comparando con el Catastro…"))
         if not segundo_plano:
             return self.comparado(comparar(self.resultado))
-        self.tarea_cmp = TareaComparacion(self.resultado, self)
+        self.tarea_cmp = TareaComparacion(self.resultado, self, self.generacion)
         QgsApplication.taskManager().addTask(self.tarea_cmp)
         return None
 
-    def comparado(self, comparacion):
+    def comparado(self, comparacion, generacion=None):
         """Llega de la tarea: añade el resultado al informe y lleva al mapa las parcelas catastrales y las diferencias."""
-        if sip.isdeleted(self):
-            return None
+        if sip.isdeleted(self) or (generacion is not None and generacion != self.generacion):
+            return None  #Resultado de un fichero que ya no está abierto
         self.tarea_cmp = None
         if self.informe is None or comparacion is None:
             return None
@@ -386,9 +395,16 @@ class PestanaValidar(QWidget):
                            + "\n".join(i.mensaje for i in errores))
         elif comparacion.edificio and not any(i.nivel == ERROR for i in self.informe.incidencias):
             rc = comparacion.origen[0].local_id if comparacion.origen else ''
-            self.dock.success(f"{texto}. Listo para el ICUC: en la Sede Electrónica del Catastro, «Informe catastral de "
-                              f"ubicación de las construcciones», indique la parcela {rc} y suba "
-                              f"{os.path.basename(self.ruta)}", [("Abrir carpeta", self.abrir_carpeta_gml)])
+            xsd = {i.codigo for i in self.informe.incidencias if i.codigo.startswith('XSD')}
+            if 'XSD-VALIDO' in xsd:  #«Listo» solo con el esquema comprobado (AU-12)
+                self.dock.success(f"{texto}. Listo para el ICUC: en la Sede Electrónica del Catastro, «Informe catastral de "
+                                  f"ubicación de las construcciones», indique la parcela {rc} y suba "
+                                  f"{os.path.basename(self.ruta)}", [("Abrir carpeta", self.abrir_carpeta_gml)])
+            else:
+                falta = ("aún se está comprobando el esquema XSD: espere a que termine" if self.tarea is not None
+                         else "no se ha podido comprobar el esquema XSD (¿sin conexión?): pulse «Comprobar esquema XSD» "
+                              "antes de subirlo")
+                self.dock.warn(f"{texto}, pero {falta}")
         else:
             self.dock.success(f"Comparación con el Catastro: {texto}" + ("" if comparacion.edificio else ". Contorno coincidente"))
         return comparacion
@@ -407,13 +423,16 @@ class PestanaValidar(QWidget):
 class TareaComparacion(QgsTask):
     """Comparación con el Catastro en segundo plano (descarga las parcelas catastrales del WFS de la DGC)."""
 
-    def __init__(self, resultado, pestana):
+    def __init__(self, resultado, pestana, generacion=None):
         super().__init__("Catastral GML Tools: comparando con el Catastro", QgsTask.Flag.CanCancel)
         self.resultado_lectura = resultado
         self.pestana = pestana
+        self.generacion = generacion
         self.comparacion = None
 
     def run(self):
+        if self.isCanceled():
+            return False
         try:
             self.comparacion = comparar(self.resultado_lectura)
         except Exception as e:  #Nunca debe cerrar QGIS: se informa como incidencia
@@ -423,20 +442,23 @@ class TareaComparacion(QgsTask):
 
     def finished(self, resultado):
         if self.pestana is not None and not sip.isdeleted(self.pestana):
-            self.pestana.comparado(self.comparacion)
+            self.pestana.comparado(self.comparacion, self.generacion)
 
 
 class TareaEsquema(QgsTask):
     """Validación XSD en segundo plano: la primera vez descarga ~80 esquemas oficiales."""
 
-    def __init__(self, datos, version, pestana):
+    def __init__(self, datos, version, pestana, generacion=None):
         super().__init__("Catastral GML Tools: comprobando el esquema XSD", QgsTask.Flag.CanCancel)
         self.datos = datos
         self.version = version
         self.pestana = pestana
+        self.generacion = generacion
         self.incidencias = []
 
     def run(self):
+        if self.isCanceled():
+            return False
         try:
             self.incidencias = esquemas.validar(self.datos, self.version)
         except Exception as e:  #Nunca debe cerrar QGIS: se informa como incidencia
@@ -445,7 +467,7 @@ class TareaEsquema(QgsTask):
 
     def finished(self, resultado):
         if self.pestana is not None and not sip.isdeleted(self.pestana):
-            self.pestana.esquema_comprobado(self.incidencias)
+            self.pestana.esquema_comprobado(self.incidencias, self.generacion)
 
 
 def cargar(resultado, ruta, iface=None):
