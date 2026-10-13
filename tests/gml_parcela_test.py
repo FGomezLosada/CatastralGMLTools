@@ -123,7 +123,28 @@ _, inc_min = gp.construir([gp.ParcelaGML('1907401vk4810h', gp.SDGC, rect(X0, Y0,
 _, inc_guion = gp.construir([gp.ParcelaGML('1907401-VK4810H', gp.SDGC, rect(X0, Y0, 10, 10))], 25830)
 rc_mal = 'NS-SDGC-SIN-RC' in codigos(inc_min) and 'NS-SDGC-SIN-RC' in codigos(inc_guion)
 
+# Vértice nuevo sobre un lindero inclinado (AU-61): la línea de división corta el lindero norte, que va en diagonal;
+#el vértice se lleva al punto de la rejilla de 1 cm más cercano a ese lindero (antes, hasta 0,7 cm fuera de él)
+from catastral_gml_tools.core import gml_lector as gl  # noqa: E402
+
+D, C = (X0 + 0.123, Y0 + 7.777), (X0 + 20.004, Y0 + 13.338)
+xs = X0 + 9.87577  #Caso desfavorable: el redondeo simple deja el vértice a 0,93 cm del lindero
+ys = D[1] + (C[1] - D[1]) * (xs - D[0]) / (C[0] - D[0])
+oeste = QgsGeometry.fromWkt(f"POLYGON(({X0} {Y0}, {xs} {Y0}, {xs} {ys}, {D[0]} {D[1]}, {X0} {Y0}))")
+este = QgsGeometry.fromWkt(f"POLYGON(({xs} {Y0}, {X0 + 20} {Y0}, {C[0]} {C[1]}, {xs} {ys}, {xs} {Y0}))")
+ruta_l = os.path.join(carpeta, 'lindero.gml')
+ok_l, inc_l = gp.escribir(ruta_l, [gp.ParcelaGML('Div_1', gp.LOCAL, oeste), gp.ParcelaGML('Div_2', gp.LOCAL, este)], 25830)
+_l = gl.leer(ruta_l)
+_dr, _cr = (geo.redondear(D[0]), geo.redondear(D[1])), (geo.redondear(C[0]), geo.redondear(C[1]))
+_nuevos = {v for e in _l.elementos for v in e.anillos[0] if abs(v[0] - geo.redondear(xs)) < 0.011 and v[1] > Y0 + 5}
+_ingenuo = geo._distancia_recta((geo.redondear(xs), geo.redondear(ys)), _dr, _cr)
+_ajustado = max(geo._distancia_recta(v, _dr, _cr) for v in _nuevos) if _nuevos else 1
+lindero = (ok_l and len(_nuevos) == 1 and _ingenuo > 0.005 and _ajustado <= _ingenuo and _ajustado < 0.005
+           and 'LINDERO-REDONDEO' not in codigos(inc_l) and 'SOLAPE' not in codigos(inc_l))
+print(f"  (lindero: redondeo simple {_ingenuo * 100:.2f} cm → ajustado {_ajustado * 100:.2f} cm)")
+
 checks = {
+    "vértice nuevo sobre un lindero inclinado: al cm más cercano al lindero, igual en las dos parcelas": lindero,
     "RC SDGC en minúsculas o con guiones: error": rc_mal,
     "cabecera, raíz WFS 2.0, xlink declarado, número de parcelas y esquema 4.0": cabecera,
     "un member por parcela, orden de elementos y gml:id": estructura,

@@ -75,7 +75,7 @@ class PestanaEdificio(QWidget):
         formulario = QFormLayout()
 
         self.capaCombo = QgsMapLayerComboBox(self)
-        self.capaCombo.setFilters(Qgis.LayerFilter.PolygonLayer | Qgis.LayerFilter.LineLayer)
+        self.capaCombo.setFilters(Qgis.LayerFilters(Qgis.LayerFilter.PolygonLayer | Qgis.LayerFilter.LineLayer))
         self.capaCombo.setAllowEmptyLayer(True)
         self.capaCombo.setToolTip("Capa con la huella de cada construcción (edificio o piscina): la «Construcciones» de la\n"
                                   "pestaña Descargar, una dibujada o una de otro programa (shapefile, GeoPackage, DXF…).\n"
@@ -192,10 +192,12 @@ class PestanaEdificio(QWidget):
         for widget in (self.campoPlantas, self.soloSeleccion):
             widget.blockSignals(True)
         self.campoPlantas.setLayer(capa)
+        #En una capa grande con elementos seleccionados se trabaja con la selección; en otra capa, con todos (la casilla
+        #no se queda marcada de la capa anterior: AU-46)
+        self.soloSeleccion.setChecked(capa is not None and capa.featureCount() > MAX_FILAS
+                                      and capa.selectedFeatureCount() > 0)
         if capa is not None:
             self.campoPlantas.setField(ce.campo_plantas(capa))
-            if capa.featureCount() > MAX_FILAS and capa.selectedFeatureCount() > 0:
-                self.soloSeleccion.setChecked(True)
             self.proponer_fichero(capa)
         for widget in (self.campoPlantas, self.soloSeleccion):
             widget.blockSignals(False)

@@ -223,7 +223,7 @@ def validar_conjunto(elementos, es_parcela):
         inc.append(Incidencia(ERROR, 'SOLAPE', f"Se superpone con {validos[j].local_id} ({area:.2f} m², hasta "
                                                f"{anchura * 100:.0f} cm de ancho)", validos[i].local_id))
     if es_parcela and len(validos) > 1:
-        hueco = geo.huecos([e.geometria for e in validos], sum(max(len(e.anillos) - 1, 0) for e in validos))
+        hueco = geo.huecos([e.geometria for e in validos])
         if hueco > 0:
             inc.append(Incidencia(AVISO, 'HUECO', f"Hay huecos o franjas sin cubrir entre las parcelas aportadas "
                                                   f"({hueco:.2f} m²): el conjunto debe cubrir el contorno de las parcelas de "

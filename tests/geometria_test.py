@@ -120,7 +120,38 @@ datum_ok = ([e for e, a in _datum.items() if a is not None] == [23030, 4230, 206
 _canaria = geo.transformar(QgsGeometry.fromWkt('POINT(458000 3110000)'), QgsCoordinateReferenceSystem('EPSG:4083'), 32628)
 datum_ok = datum_ok and _canaria is not None and _canaria.asPoint().distance(QgsPointXY(458000, 3110000)) < 0.01
 
+# 11. Huecos y solapes entre parcelas (AU-37, AU-40)
+def _g(wkt):
+    return QgsGeometry.fromWkt(wkt)
+
+
+#A y B dejan entre sus entrantes (5 × 10 m cada uno) un hueco cerrado de 100 m²; C tiene un patio que rellena D (no es hueco)
+_a = _g(f"POLYGON(({X0} {Y0}, {X0 + 20} {Y0}, {X0 + 20} {Y0 + 10}, {X0 + 15} {Y0 + 10}, {X0 + 15} {Y0 + 20}, {X0 + 20} {Y0 + 20}, "
+        f"{X0 + 20} {Y0 + 30}, {X0} {Y0 + 30}, {X0} {Y0}))")
+_b = _g(f"POLYGON(({X0 + 20} {Y0}, {X0 + 40} {Y0}, {X0 + 40} {Y0 + 30}, {X0 + 20} {Y0 + 30}, {X0 + 20} {Y0 + 20}, {X0 + 25} {Y0 + 20}, "
+        f"{X0 + 25} {Y0 + 10}, {X0 + 20} {Y0 + 10}, {X0 + 20} {Y0}))")
+_c = _g(f"POLYGON(({X0 + 100} {Y0}, {X0 + 130} {Y0}, {X0 + 130} {Y0 + 30}, {X0 + 100} {Y0 + 30}, {X0 + 100} {Y0}), "
+        f"({X0 + 110} {Y0 + 10}, {X0 + 110} {Y0 + 20}, {X0 + 120} {Y0 + 20}, {X0 + 120} {Y0 + 10}, {X0 + 110} {Y0 + 10}))")
+_d = _g(f"POLYGON(({X0 + 110} {Y0 + 10}, {X0 + 120} {Y0 + 10}, {X0 + 120} {Y0 + 20}, {X0 + 110} {Y0 + 20}, {X0 + 110} {Y0 + 10}))")
+_patio = _g(f"POLYGON(({X0 + 200} {Y0}, {X0 + 230} {Y0}, {X0 + 230} {Y0 + 30}, {X0 + 200} {Y0 + 30}, {X0 + 200} {Y0}), "
+            f"({X0 + 210} {Y0 + 10}, {X0 + 210} {Y0 + 20}, {X0 + 220} {Y0 + 20}, {X0 + 220} {Y0 + 10}, {X0 + 210} {Y0 + 10}))")
+#Antes, el patio relleno de C contaba como «propio» y anulaba el hueco real entre A y B
+_lejos = QgsGeometry(_d)
+_lejos.translate(500, 0)
+huecos_ok = (abs(geo.huecos([_a, _b, _c, _d]) - 100) < 0.01 and geo.huecos([_c, _d]) == 0
+             and geo.huecos([_patio, _lejos]) == 0)
+#Cuadrícula de 900 parcelas contiguas: ningún solape y rápido con el índice espacial
+import time  # noqa: E402
+
+_rejilla = [_g(f"POLYGON(({X0 + i * 10} {Y0 + j * 10}, {X0 + i * 10 + 10} {Y0 + j * 10}, {X0 + i * 10 + 10} {Y0 + j * 10 + 10}, "
+               f"{X0 + i * 10} {Y0 + j * 10 + 10}, {X0 + i * 10} {Y0 + j * 10}))") for i in range(30) for j in range(30)]
+_t = time.time()
+_sol = geo.solapes(_rejilla + [_g(f"POLYGON(({X0 + 5} {Y0 + 5}, {X0 + 8} {Y0 + 5}, {X0 + 8} {Y0 + 8}, {X0 + 5} {Y0 + 8}, {X0 + 5} {Y0 + 5}))")])
+solapes_ok = [(i, j) for i, j, *_ in _sol] == [(0, 900)] and time.time() - _t < 5
+
 checks = {
+    "huecos entre parcelas por geometría (patio relleno no compensa un hueco)": huecos_ok,
+    "solapes con índice espacial (900 parcelas)": solapes_ok,
     "aviso de huso según la posición y la provincia": husos_ok,
     "aviso de datum antiguo (ED50, Madrid 1870); REGCAN95 pasa a 32628 sin moverse": datum_ok,
     "exterior a sentido horario, superficie y vértices": paso1,

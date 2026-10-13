@@ -7,6 +7,7 @@ license   : GNU GPL v2 or later
 """
 from dataclasses import dataclass
 
+from qgis.analysis import QgsGeometrySnapper
 from qgis.core import Qgis, QgsGeometry, QgsWkbTypes
 
 from . import geometria as geo
@@ -165,6 +166,29 @@ def a_parcelas_gml(filas, crs, epsg):
             for f in filas]
 
 
+CIERRE_UNION = 0.01  #m: rendijas de digitalización entre parcelas que se cierran al unirlas
+
+
+def _partes(geometria):
+    return len(geometria.asGeometryCollection()) if geometria.isMultipart() else (0 if geometria.isEmpty() else 1)
+
+
+def _rendijas(geometria):
+    """True si la geometría tiene huecos interiores de menos de 1 cm de ancho (restos de digitalización)."""
+    poligonos = geometria.asMultiPolygon() if geometria.isMultipart() else [geometria.asPolygon()]
+    return any(geo.anchura_maxima(QgsGeometry.fromPolygonXY([anillo])) < CIERRE_UNION for p in poligonos for anillo in p[1:])
+
+
+def _sin_rendijas(geometria):
+    """Copia sin los huecos interiores de menos de 1 cm de ancho (los patios de verdad se conservan)."""
+    poligonos = geometria.asMultiPolygon() if geometria.isMultipart() else [geometria.asPolygon()]
+    limpios = [[p[0]] + [a for a in p[1:] if geo.anchura_maxima(QgsGeometry.fromPolygonXY([a])) >= CIERRE_UNION]
+               for p in poligonos if p]
+    if not limpios:
+        return QgsGeometry()
+    return QgsGeometry.fromPolygonXY(limpios[0]) if len(limpios) == 1 else QgsGeometry.fromMultiPolygonXY(limpios)
+
+
 def unir_seleccionadas(capa, campo_id=''):
     """
     Une en una sola parcela los polígonos seleccionados de la capa (agregación o agrupación). Edita la capa dentro de
@@ -182,7 +206,17 @@ def unir_seleccionadas(capa, campo_id=''):
         return None, '', [Incidencia(ERROR, 'UNION-POCAS', "Seleccione en el mapa dos parcelas o más")]
     geometrias = [QgsGeometry(f.geometry()) for f in seleccion]
     union = QgsGeometry.unaryUnion(geometrias)
-    if union.isEmpty() or (union.isMultipart() and len(union.asGeometryCollection()) > 1):
+    rendijas = 0.0
+    if _partes(union) > 1 or _rendijas(union):
+        #Rendijas o huecos de digitalización de menos de 1 cm entre las parcelas: se ajustan los vértices de cada una a
+        #las demás (como el autoensamblado de QGIS) y se vuelve a unir (AU-42)
+        ajustadas = [QgsGeometrySnapper.snapGeometry(g, CIERRE_UNION, [h for k, h in enumerate(geometrias) if k != i])
+                     for i, g in enumerate(geometrias)]
+        cerrada = _sin_rendijas(QgsGeometry.unaryUnion(ajustadas))
+        if not cerrada.isEmpty() and _partes(cerrada) == 1:
+            rendijas = abs(cerrada.area() - union.area())
+            union = cerrada
+    if union.isEmpty() or _partes(union) > 1:
         return None, '', [Incidencia(ERROR, 'UNION-NO-COLINDANTES', "Las parcelas seleccionadas no forman un solo recinto: "
                                                                     "para unirlas han de ser colindantes")]
     principal = max(seleccion, key=lambda f: f.geometry().area())
@@ -206,6 +240,9 @@ def unir_seleccionadas(capa, campo_id=''):
     tipo = alt.AGREGACION if con_rc and proporcion >= 0.8 else alt.AGRUPACION
     incidencias = [Incidencia(INFO, 'UNION-HECHA', f"Unidas {len(seleccion)} parcelas en una de {round(total)} m²; la mayor "
                                                    f"({round(100 * proporcion)} % del total) conserva sus datos")]
+    if rendijas:
+        incidencias.append(Incidencia(INFO, 'UNION-RENDIJAS', f"Se han cerrado rendijas de digitalización de menos de 1 cm "
+                                                              f"entre las parcelas ({rendijas:.4f} m²)"))
     if con_rc and tipo == alt.AGRUPACION:
         incidencias.append(Incidencia(INFO, 'UNION-AGRUPACION', "La mayor no llega al 80 % del total: se propone agrupación "
                                                                 "(parcela nueva). Si conserva su referencia, elija agregación"))

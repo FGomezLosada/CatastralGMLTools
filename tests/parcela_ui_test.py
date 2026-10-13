@@ -187,6 +187,8 @@ pt.capaCombo.setLayer(grande)  #Con selección: se marca «Solo los elementos se
 auto_seleccion = pt.soloSeleccion.isChecked() and pt.tabla.rowCount() == 2
 grande.selectByIds(ids_grande[:3])  #Al seleccionar en el mapa, la tabla se actualiza sola
 sigue_seleccion = pt.tabla.rowCount() == 3
+pt.capaCombo.setLayer(segregacion)  #Otra capa (pequeña): la casilla no se queda marcada de la anterior (AU-46)
+sigue_seleccion = sigue_seleccion and not pt.soloSeleccion.isChecked() and pt.tabla.rowCount() > 0
 
 # 8. Parcela dividida: los dos trozos copian la misma RC → el mayor la conserva y el otro se propone como Nueva_1
 dividida = capa_parcelas('Parcela dividida — prueba', 'EPSG:25830', [

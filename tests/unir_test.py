@@ -46,7 +46,9 @@ a = gml('a.gml', [gp.ParcelaGML('1907401VK4810H', gp.SDGC, rect(X0, Y0, 20, 30))
                   gp.ParcelaGML('Seg_1', gp.LOCAL, rect(X0 + 20, Y0, 10, 30))])
 b = gml('b.gml', [gp.ParcelaGML('1907402VK4810H', gp.SDGC, rect(X0 + 30, Y0, 20, 30)),
                   gp.ParcelaGML('Seg_1', gp.LOCAL, rect(X0 + 20, Y0, 10, 30))])  #Seg_1 repetida, misma geometría
-conflicto = gml('c.gml', [gp.ParcelaGML('Seg_1', gp.LOCAL, rect(X0 + 60, Y0, 10, 30))])
+conflicto = gml('c.gml', [gp.ParcelaGML('1907401VK4810H', gp.SDGC, rect(X0, Y0, 25, 30))])  #Misma RC, otra geometría
+otra_seg = gml('e.gml', [gp.ParcelaGML('Seg_1', gp.LOCAL, rect(X0 + 50, Y0, 10, 30)),
+                         gp.ParcelaGML('Seg_2', gp.LOCAL, rect(X0 + 60, Y0, 10, 30))])  #Otra segregación con sus Seg_1 y Seg_2
 #La misma parcela 1907402 en el huso 29
 crs30 = QgsCoordinateReferenceSystem('EPSG:25830')
 huso29 = gml('d29.gml', [gp.ParcelaGML('1907403VK4810H', gp.SDGC, geo.transformar(rect(X0 + 50, Y0, 20, 30), crs30, 25829))],
@@ -72,6 +74,12 @@ ok_f, _, inc_f = un.unir([a, b], os.path.join(carpeta, 'no_existe', 'x.gml'))  #
 errores = (not ok_c and 'UNIR-ID-DISTINTO' in codigos(inc_c) and not ok_e and 'UNIR-NO-PARCELA' in codigos(inc_e)
            and not ok_1 and codigos(inc_1) == ['UNIR-POCOS'] and not ok_d and codigos(inc_d) == ['UNIR-DESTINO']
            and not os.path.exists(os.path.join(carpeta, 'mal.gml')) and not ok_f and codigos(inc_f) == ['FICHERO'])
+
+# 2b. Dos segregaciones con su propio Seg_1: la segunda se renombra a uno libre (Seg_3, porque Seg_2 ya existe) (AU-41)
+ok_r, n_r, inc_r = un.unir([a, otra_seg], os.path.join(carpeta, 'renombrada.gml'))
+lectura_r = gl.leer(os.path.join(carpeta, 'renombrada.gml')) if ok_r else None
+renombrada = (ok_r and n_r == 4 and [e.local_id for e in lectura_r.elementos] == ['1907401VK4810H', 'Seg_1', 'Seg_3', 'Seg_2']
+              and 'UNIR-RENOMBRADA' in codigos(inc_r) and un.nombre_libre('Parcela', {'Parcela'}) == 'Parcela_2')
 
 # 3. Husos distintos: se pasa al del primer fichero, con aviso
 ok_h, n_h, inc_h = un.unir([a, huso29], os.path.join(carpeta, 'husos.gml'))
@@ -110,7 +118,8 @@ dw.deleteLater()
 
 checks = {
     "une dos GML (parcela repetida una vez, namespaces y superficies)": union,
-    "errores: id repetido con otra geometría, edificio, un solo fichero, salida = entrada": errores,
+    "errores: RC repetida con otra geometría, edificio, un solo fichero, salida = entrada": errores,
+    "dos parcelas nuevas con el mismo nombre: se renombra la segunda": renombrada,
     "husos distintos: al SRC del primero, con aviso": husos,
     "un GML 3.0 se reescribe en 4.0": cp30_ok,
     "pestaña Utilidades integrada y lista sin repetidos": integrada and lista,

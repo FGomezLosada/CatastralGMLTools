@@ -218,15 +218,16 @@ class PestanaParcela(QWidget):
             widget.blockSignals(True)
         self.campoId.setLayer(capa)
         self.campoLabel.setLayer(capa)
+        #En una capa grande con elementos seleccionados se trabaja con la selección; en otra capa, con todos (la casilla
+        #no se queda marcada de la capa anterior: AU-46)
+        self.soloSeleccion.setChecked(capa is not None and capa.featureCount() > MAX_FILAS
+                                      and capa.selectedFeatureCount() > 0)
         if capa is not None:
             #Propone el campo de identificador si hay uno con nombre habitual
             for nombre in ('refcat', 'ref_catastral', 'referencia', 'nationalCadastralReference', 'localId', 'localid', 'rc'):
                 if capa.fields().indexOf(nombre) >= 0:
                     self.campoId.setField(nombre)
                     break
-            #En una capa grande con parcelas seleccionadas, se trabaja con la selección
-            if capa.featureCount() > MAX_FILAS and capa.selectedFeatureCount() > 0:
-                self.soloSeleccion.setChecked(True)
             self.proponer_fichero(capa)
         for widget in (self.campoId, self.campoLabel, self.soloSeleccion):
             widget.blockSignals(False)

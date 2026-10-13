@@ -140,6 +140,12 @@ def comprobar_parcelas(parcelas, epsg):
                                       f"EPSG:{epsg} no lo admite la Sede: use 25829, 25830, 25831 o 32628"))
     vistos = set()
     recintos = []
+    #Vértices sobre un lindero recto: al centímetro más cercano al lindero, igual en todas las parcelas (AU-61)
+    ajustadas, desvio_lindero = geo.ajustar_a_lindero([p.geometria for p in parcelas])
+    if desvio_lindero > geo.LINDERO_AVISO:
+        incidencias.append(Incidencia(AVISO, 'LINDERO-REDONDEO', f"Al redondear al centímetro, algún vértice sobre un "
+                                                                 f"lindero queda a {desvio_lindero * 100:.1f} cm de él "
+                                                                 "(la Sede admite ±1 cm)"))
     for i, parcela in enumerate(parcelas, start=1):
         nombre = parcela.local_id or f"fila {i}"
         if not parcela.local_id:
@@ -161,7 +167,7 @@ def comprobar_parcelas(parcelas, epsg):
             resultado = refcat.comprobar(parcela.local_id)
             if resultado.foral:
                 incidencias.append(Incidencia(ERROR, 'RC-FORAL', resultado.mensaje, nombre))
-        partes, inc = geo.preparar(parcela.geometria, nombre)
+        partes, inc = geo.preparar(ajustadas[i - 1], nombre)
         incidencias += inc
         recintos.append(partes[0] if len(partes) == 1 else None)
     #Solapes (error) y huecos (aviso) entre las parcelas del fichero, ya al crearlo (AU-11)
@@ -170,8 +176,7 @@ def comprobar_parcelas(parcelas, epsg):
         incidencias.append(Incidencia(ERROR, 'SOLAPE', f"Se superpone con {parcelas[j].local_id} ({area:.2f} m², hasta "
                                                        f"{anchura * 100:.0f} cm de ancho)", parcelas[i].local_id or f"fila {i + 1}"))
     if len([g for g in geometrias if g is not None]) > 1 and not hay_errores(incidencias):
-        hueco = geo.huecos([g for g in geometrias if g is not None],
-                           sum(len(r.interiores) for r in recintos if r is not None))
+        hueco = geo.huecos([g for g in geometrias if g is not None])
         if hueco > 0:
             incidencias.append(Incidencia(AVISO, 'HUECO', f"Hay huecos o franjas sin cubrir entre las parcelas ({hueco:.2f} m²): "
                                                           "el conjunto debe cubrir el contorno de las parcelas de origen"))

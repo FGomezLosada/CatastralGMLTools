@@ -7,6 +7,7 @@ copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
 from qgis.core import (
+    QgsBlockingNetworkRequest,
     QgsCoordinateReferenceSystem,
     QgsCoordinateTransform,
     QgsCsException,
@@ -14,6 +15,8 @@ from qgis.core import (
     QgsRasterLayer,
     QgsRectangle,
 )
+from qgis.PyQt.QtCore import QUrl
+from qgis.PyQt.QtNetwork import QNetworkRequest
 
 from ..core.info import FUENTE_DGC, FUENTE_NAVARRA
 
@@ -34,6 +37,37 @@ CAPAS = (
     ("Ortofoto PNOA (IGN)", 'https://www.ign.es/wms-inspire/pnoa-ma', 'OI.OrthoimageCoverage', 'image/jpeg', False,
      "PNOA cedido por © Instituto Geográfico Nacional (CC BY 4.0)"),
 )
+
+
+#Servicios que responden (True) o no (False) en esta sesión de QGIS. Se comprueban en segundo plano antes de crear las
+#capas: crear una capa WMS pide sus capacidades en el hilo principal y, con un servicio caído, QGIS se quedaba
+#esperando hasta un minuto por capa (AU-38)
+ESTADO = {}
+
+
+def pendientes():
+    """Servicios del fondo que aún no se han comprobado en esta sesión."""
+    return [c[0] for c in CAPAS if c[0] not in ESTADO]
+
+
+def _responde(url, feedback=None):
+    peticion = QNetworkRequest(QUrl(f"{url}?SERVICE=WMS&REQUEST=GetCapabilities"))
+    peticion.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
+                          QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
+    red = QgsBlockingNetworkRequest()
+    if red.get(peticion, False, feedback) != QgsBlockingNetworkRequest.ErrorCode.NoError:
+        return False
+    return b'Capabilities' in bytes(red.reply().content())[:4000]
+
+
+def comprobar_servicios(feedback=None):
+    """Pide las capacidades de cada servicio aún no comprobado (fuera del hilo principal, en una QgsTask)."""
+    for nombre, url, *_ in CAPAS:
+        if nombre in ESTADO:
+            continue
+        if feedback is not None and feedback.isCanceled():
+            return
+        ESTADO[nombre] = _responde(url, feedback)
 
 
 def capas_fondo(proyecto=None):
@@ -61,11 +95,13 @@ def asegurar(iface=None):
     src = proyecto.crs().authid() if proyecto.crs().authid() in SRC_WMS else 'EPSG:3857'
     nuevas = []
     for nombre, url, capa_wms, formato, transparente, fuente in CAPAS:
-        if nombre in presentes:  #Un proyecto con el fondo de una versión anterior recibe solo las capas que le faltan
+        if nombre in presentes or ESTADO.get(nombre) is False:  #Ya está, o el servicio no responde en esta sesión
             continue
         capa = QgsRasterLayer(uri(url, capa_wms, formato, transparente, src), nombre, 'wms')
         if not capa.isValid():  #Sin conexión o servicio caído: QGIS no admite capas no válidas
+            ESTADO[nombre] = False
             continue
+        ESTADO[nombre] = True
         capa.setCustomProperty(PROPIEDAD_FONDO, fuente)
         metadatos = capa.metadata()
         metadatos.setRights([fuente])

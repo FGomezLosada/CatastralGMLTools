@@ -165,6 +165,23 @@ categorias = capa.renderer().categories() if capa is not None else []  #Se guard
 color = QColor(categorias[0].symbol().color()) if categorias else None
 estilo_ok = color is not None and (color.red(), color.green(), color.blue()) == (232, 89, 12) and color.alpha() < 60
 
+# 9. Fichero grande: se lee y se valida en segundo plano; si se abre otro mientras, el primero se descarta (AU-37)
+import time  # noqa: E402
+
+pv_module.UMBRAL_SEGUNDO_PLANO = 0
+pv.fichero.setFilePath(alterado)  #(antes estaba abierto «ruta»)
+en_curso = pv.tarea_lectura is not None and pv.tabla.rowCount() == 0 and 'leyendo' in pv.resumen.text()
+pv.fichero.setFilePath(ruta)  #El anterior se cancela: su resultado no debe llegar a la tabla
+_fin = time.time() + 15
+while (pv.tarea_lectura is not None or pv.tarea is not None) and time.time() < _fin:
+    QCoreApplication.processEvents()
+    time.sleep(0.02)
+time.sleep(0.3)
+QCoreApplication.processEvents()
+pv_module.UMBRAL_SEGUNDO_PLANO = 2_000_000
+grande = (en_curso and pv.tarea_lectura is None and pv.tabla.rowCount() == 2 and pv.tabla.item(0, 3).text() != '650'
+          and os.path.basename(ruta) in pv.resumen.text())
+
 pv_module.esquemas.validar = _validar_xsd
 for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
@@ -177,6 +194,7 @@ checks = {
     "GML correcto: «Sin errores», resultado XSD en la lista y botones activos": sin_avisos,
     "la comprobación XSD va en segundo plano y termina": xsd_en_marcha and xsd_terminado,
     "al elegir una incidencia se marca su parcela en la tabla": lista_a_tabla,
+    "fichero grande: lectura y validación en segundo plano, sin mezclar ficheros": grande,
     "iconos: aviso en naranja y esquema correcto con marca verde": iconos_ok,
     "carga en el mapa con estilo por tipo, etiquetas y sin .gfs": cargada,
     "superficie distinta: en rojo en la tabla, aviso (la Sede ya no lo comprueba) y estado de cada fila": rojo,

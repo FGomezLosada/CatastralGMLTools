@@ -85,7 +85,7 @@ Decisiones técnicas:
 | 8 | GML de edificio y comprobaciones ICUC | ✅ |
 | 8b | Auditoría (docs/AUDITORIA.md), bloque A: fiabilidad (tolerancia real de 1 cm, carreras en Validar, parcela sin cambios, RC mal escritas, excepciones y pérdidas de datos) | ✅ |
 | 8c | Auditoría, bloque B: normativa y avisos (sin IVG negativo desde 2025, viario y cesiones, reparcelación, matriz, dos municipios, huso de la provincia, forales por posición, avisos legales, INVESTIGACION corregida) | ✅ |
-| 8d | Auditoría, bloques C y D: robustez, rendimiento, compatibilidad Qt6, documentación y metadatos (versión 0.2.0) | — |
+| 8d | Auditoría, bloques C y D: robustez, rendimiento, compatibilidad Qt6, documentación y metadatos (versión 0.2.0) | C ✅ · D — |
 | 8e | Ajuste por desplazamiento o giro (afín / CX-CY, dos GML con parámetros; Resolución de 29/03/2021) | — |
 | 9 | Conversor 3.0 → 4.0 y reparación | — |
 | 10 | División de parcelas | — |
@@ -177,6 +177,8 @@ Decisiones técnicas:
 | E-23 | El WFS de edificios de la DGC devuelve el `Building` con `numberOfFloorsAboveGround xsi:nil="true"` y las plantas en las partes (`GetBuildingPartByParcel`: `RC_part1` con 1 planta, `RC_part2` con 2 en 2082107VF2628S, 09/10/2026). El plugin pide las partes cuando faltan plantas y pone en cada edificio la máxima de las partes que caen dentro | Resuelto |
 | E-24 | La tolerancia de ±1 cm de la Sede es por vértice (distancia). Medirla con un buffer de 1 cm y descartar diferencias de menos de 0,05 m² dejaba pasar desplazamientos de 2 a 6 cm (franjas estrechas de poca superficie). Ahora: lo que queda fuera del buffer de 1 cm con más de 1e-6 m² cuenta, y el mensaje da la distancia (contorno densificado: el punto más lejano puede caer entre vértices). Lección: con tolerancias de la Sede, medir distancias, no superficies | Resuelto |
 | E-25 | `QgsGeometry.vertices()` de una geometría temporal (p. ej. `g.densifyByDistance(x).vertices()`) da un iterador que no guarda la geometría: al recorrerlo, QGIS se cierra (código -11). Guardar siempre la geometría en una variable antes de pedir sus vértices | Resuelto |
+| E-26 | Crear una capa WMS (`QgsRasterLayer(..., 'wms')`) pide sus capacidades en el hilo principal: con un servicio caído, QGIS se queda «No responde» hasta un minuto por capa. Comprobar antes los servicios en una `QgsTask` y recordar en la sesión cuáles no responden | Resuelto |
+| E-27 | `QgsBlockingNetworkRequest.get()` sin `QgsFeedback` no se puede cancelar: cancelar la `QgsTask` no corta la petición. Pasar el feedback de la tarea (y cancelarlo en `cancel()`) y comprobarlo entre peticiones | Resuelto |
 | E-08 | El icono `mActionCheckGeometry.svg` no existe en QGIS 3.34: la pestaña Validar usa `algorithms/mAlgorithmCheckGeometry.svg` | Resuelto (0.1.0) |
 
 ---

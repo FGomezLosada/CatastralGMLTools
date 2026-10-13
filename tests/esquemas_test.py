@@ -58,6 +58,19 @@ otros = (codigos(esquemas.validar(bueno, 'CP 3.0')) == ['XSD-VERSION']
          and os.path.isdir(esquemas.carpeta_cache()))
 with open(os.path.join(RAIZ, 'tests', 'data', 'gml', 'mal_formado.gml'), 'rb') as f:
     mal_formado = esquemas.validar(f.read(), 'CP 4.0')
+#Caché a prueba de páginas de error (AU-39): una página HTML guardada como esquema se descarta y no se vuelve a usar
+XSD = b'<?xml version="1.0"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>'
+falsa = 'http://cgt-prueba.invalid/esquema_roto.xsd'
+envenenada = esquemas._fichero_cache(falsa)
+with open(envenenada, 'wb') as f:
+    f.write(b'<html><body>Portal cautivo: acepte las condiciones</body></html>')
+recuperada = esquemas.descargar(falsa) == b'' and not os.path.exists(envenenada)
+esquemas._guardar(envenenada, XSD)
+recuperada = (recuperada and esquemas.descargar(falsa) == XSD and esquemas.es_esquema(XSD)
+              and not esquemas.es_esquema(b'<html/>') and not esquemas.es_esquema(XSD[:40])
+              and not [n for n in os.listdir(esquemas.carpeta_cache()) if n.endswith('.tmp')])
+os.remove(envenenada)
+checks["la caché no guarda ni usa páginas de error ni ficheros a medias"] = recuperada
 checks["versiones sin esquema y carpeta de caché"] = otros
 checks["XML mal formado: error o sin comprobar, nunca válido"] = 'XSD-VALIDO' not in codigos(mal_formado)
 

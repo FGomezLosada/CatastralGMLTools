@@ -18,8 +18,11 @@ interfaz). Para las pruebas basta con sustituir pedir() por una función que dev
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
+import contextlib
 import datetime
 import json
+import threading
+import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from urllib.parse import quote, urlencode
@@ -142,13 +145,40 @@ def url_rc_en_punto(x, y, epsg=EPSG_PUNTO):
 
 # ------------------------------------------------------------------ Peticiones
 
+TIEMPO_MAXIMO = 180  #s: una tarea (descarga, comparación) no espera más al servicio; luego se dice que tarda demasiado
+CANCELADO = 'cancelado'
+_contexto = threading.local()  #Feedback y hora límite de la tarea que corre en este hilo (AU-38)
+
+
+@contextlib.contextmanager
+def en_tarea(feedback, tiempo_maximo=TIEMPO_MAXIMO):
+    """
+    Las peticiones hechas dentro (en el hilo de una QgsTask) se pueden cancelar con el feedback y no pasan del tiempo
+    máximo: al cancelar, la petición en curso se corta y las siguientes ni se hacen (una descarga con 60 consultas
+    termina enseguida).
+    """
+    _contexto.feedback, _contexto.limite = feedback, time.monotonic() + tiempo_maximo
+    try:
+        yield
+    finally:
+        _contexto.feedback = _contexto.limite = None
+
+
 def pedir(url):
     """Descarga una dirección con la red de QGIS (respeta el proxy). Devuelve (contenido, texto de error o '')."""
+    feedback = getattr(_contexto, 'feedback', None)
+    limite = getattr(_contexto, 'limite', None)
+    if feedback is not None and feedback.isCanceled():
+        return b'', CANCELADO
+    if limite is not None and time.monotonic() > limite:
+        return b'', f"el servicio tarda demasiado (más de {TIEMPO_MAXIMO // 60} minutos); pruebe más tarde"
     peticion = QNetworkRequest(QUrl(url))
     peticion.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
                           QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
     red = QgsBlockingNetworkRequest()
-    if red.get(peticion, True) != QgsBlockingNetworkRequest.ErrorCode.NoError:
+    if red.get(peticion, True, feedback) != QgsBlockingNetworkRequest.ErrorCode.NoError:
+        if feedback is not None and feedback.isCanceled():
+            return b'', CANCELADO
         return b'', red.errorMessage() or 'error de red'
     return bytes(red.reply().content()), ''
 
@@ -177,8 +207,10 @@ def consultar_wfs(url, que):
     if texto_error:
         return None, [Incidencia(ERROR, 'WFS-EXCEPCION', f"{que[0].upper()}{que[1:]}: {texto_error}")]
     resultado = gl.leer_datos(datos)
-    if any(i.codigo == 'XML-MAL-FORMADO' for i in resultado.incidencias):
-        return None, [Incidencia(ERROR, 'WFS-RESPUESTA', f"El servicio no ha devuelto un GML válido para {que}")]
+    if any(i.codigo == 'XML-MAL-FORMADO' for i in resultado.incidencias) or not resultado.raiz.endswith('FeatureCollection'):
+        #Una página HTML o un XML que no es una colección del WFS: el servicio está caído o en mantenimiento (DES-19)
+        return None, [Incidencia(ERROR, 'WFS-RESPUESTA', f"Respuesta inesperada del servicio al pedir {que} (puede estar en "
+                                                         "mantenimiento): pruebe más tarde")]
     resultado.incidencias = [i for i in resultado.incidencias if i.codigo not in ('GML-SIN-ELEMENTOS', 'GML-LEIDO')]
     return resultado, [i for i in resultado.incidencias if i.nivel == ERROR]
 
