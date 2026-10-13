@@ -38,6 +38,10 @@ NOMBRES_ESTADO = {'functional': 'Terminado (functional)', 'underConstruction': '
                   'demolished': 'Demolido (demolished)'}
 NOMBRES_CORTOS = {'functional': 'Terminado', 'underConstruction': 'En construcción', 'projected': 'Proyectado',
                   'declined': 'Deteriorado', 'ruin': 'En ruina', 'demolished': 'Demolido'}
+#Precisión de la huella (horizontalGeometryEstimatedAccuracy, m) según cómo se ha obtenido (AU-35): 0,1 en un
+#levantamiento o un proyecto; 10 si se ha medido sobre la ortofoto (guía de la DGC para el visor de la Sede)
+PRECISIONES = ((0.1, '0,1 m · levantamiento, proyecto o DXF'), (0.5, '0,5 m'), (1.0, '1 m'),
+               (10.0, '10 m · medida sobre la ortofoto o el visor'))
 ID_VALIDO = re.compile(r'^[A-Za-z0-9_.\-]+$')
 NS = {
     'base': 'urn:x-inspire:specification:gmlas:BaseTypes:3.2',

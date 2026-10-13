@@ -178,6 +178,10 @@ def comprobar(tipo, ids, namespaces, areas):
                                                      "notaría). Si además hay que corregir linderos con colindantes, "
                                                      "primero un GML de subsanación y, cuando se incorpore, el de la "
                                                      "operación"))
+    if tipo in (SEGREGACION, DIVISION):  #Normativa §11: el IVG no es licencia ni comprueba la unidad mínima (AU-34)
+        inc.append(Incidencia(INFO, 'ALT-LICENCIA', "Un informe de validación gráfica positivo no es una licencia: la "
+                                                    "segregación o división necesita la del ayuntamiento y, en rústica, "
+                                                    "respetar la unidad mínima de cultivo"))
     if not total:
         return inc
     if tipo == SEGREGACION and n >= 2:

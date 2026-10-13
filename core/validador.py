@@ -20,6 +20,7 @@ Reglas (código de la incidencia entre corchetes):
   Geometría  [GEO-MULTIPARTE] un solo recinto por parcela
              [ANILLO-*]       anillos cerrados, con 4 vértices o más, count correcto, exterior horario y huecos
                               antihorarios
+             [GEO-ALINEADOS]  cada anillo encierra superficie (no todos sus vértices alineados)
              [DECIMALES]      coordenadas con 2 decimales como máximo
              [GEO-INVALIDA]   sin autointersecciones
              [SUP-*]          superficie declarada presente y coincidente con la geometría (redondeo al m²)
@@ -167,7 +168,11 @@ def validar_elemento(e, es_parcela):
         if count is not None and count != len(anillo):
             inc.append(Incidencia(ERROR, 'ANILLO-COUNT', f"Anillo {que}: count={count} pero tiene {len(anillo)} vértices",
                                   nombre))
-        if len(anillo) >= 4 and anillo[0] == anillo[-1]:
+        if len(anillo) >= 4 and anillo[0] == anillo[-1] and geo.degenerado(anillo):
+            inc.append(Incidencia(ERROR, 'GEO-ALINEADOS', f"Anillo {que} sin superficie: sus vértices están alineados o "
+                                                          "repetidos (la Sede pide al menos 3 vértices no alineados más "
+                                                          "el de cierre)", nombre))
+        elif len(anillo) >= 4 and anillo[0] == anillo[-1]:
             horario = geo.es_horario(anillo)
             if rol == 'exterior' and not horario:
                 inc.append(Incidencia(ERROR, 'ANILLO-SENTIDO', "El anillo exterior va en sentido antihorario: debe ir en "
@@ -191,8 +196,10 @@ def validar_elemento(e, es_parcela):
             inc.append(Incidencia(ERROR, 'SUP-FALTA', "Falta la superficie (areaValue)", nombre))
         elif abs(e.area_declarada - calculada) >= 1:
             #La Sede ya no lo comprueba (documento de validación de la DGC, v2.1), pero conviene que coincida
-            inc.append(Incidencia(AVISO, 'SUP-DISTINTA', f"Superficie declarada {e.area_declarada} m² y calculada {calculada} m²: "
-                                                         "conviene que sea la de la geometría", nombre))
+            inc.append(Incidencia(AVISO, 'SUP-DISTINTA', f"Superficie declarada (areaValue) {e.area_declarada} m², pero la del "
+                                                         f"dibujo es {calculada} m²: la Sede y el Registro toman la del "
+                                                         "dibujo (proyección UTM, redondeada al m²). Corrija areaValue "
+                                                         "para que el GML no diga dos cosas distintas", nombre))
         if e.punto_referencia is not None:
             punto = QgsGeometry.fromPointXY(QgsPointXY(*e.punto_referencia))
             if not e.geometria.contains(punto):

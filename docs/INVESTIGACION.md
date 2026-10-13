@@ -7,7 +7,7 @@
 
 ## 1. GML de parcela catastral (IVGA, coordinación Catastro-Registro)
 
-**Norma de base:** INSPIRE Data Specification on Cadastral Parcels (TG 3.1), esquema **CP 4.0**. La Sede Electrónica del Catastro (SEC) **solo acepta el esquema 4.0**; el 3.0 está obsoleto y se rechaza para nuevos IVGA (aviso de la DGC, enero de 2025).
+**Norma de base:** INSPIRE Data Specification on Cadastral Parcels (TG 3.1), esquema **CP 4.0**. La Sede Electrónica del Catastro (SEC) **solo acepta el esquema 4.0** desde el **12/12/2024**; el 3.0 está obsoleto y se rechaza para nuevos IVGA (lo recogió el blog de la IDEE en enero de 2025; no hay nota de la DGC con fecha exacta).
 
 ### 1.1 Estructura (esquema 4.0)
 
@@ -67,7 +67,8 @@ Tabla de decisión de la SEC (NPO = parcelas de origen, NPP = parcelas aportadas
 - Error si una parcela aportada es **idéntica** a su parcela catastral de origen (no hay cambio).
 - El **contorno conjunto** de las aportadas debe coincidir con el de las parcelas de origen (si no, positivo solo condicionado por afección a dominio público).
 - Limitaciones de tramitación automática: parcelas sin expedientes abiertos; relación ancho/alto ≤ 15; mismo municipio, polígono/manzana y naturaleza (urbana/rústica); máx. 30 parcelas resultantes de una o 30 a unir.
-- Tolerancias (Resolución conjunta DGSJFP-DGC, BOE-A-2020-12111, anexo II): ±0,50 m en urbana, ±2,00 m en rústica, y diferencia de superficie ≤ 5 %.
+- Tolerancia del IVG: el contorno debe coincidir con el de las parcelas catastrales de origen con **±1 cm** en los vértices (Resolución conjunta de 26/10/2015 y FAQ de la DGC).
+- Los márgenes ±0,50 m en urbana, ±2,00 m en rústica y diferencia de superficie ≤ 5 % **no son del IVG**: son los del criterio de **identidad gráfica** (anexo II de la Resolución conjunta DGSJFP-DGC de 23/09/2020, BOE-A-2020-12111) y se aplican en el informe de identidad de la Sede.
 
 ### 1.3 bis Reglas del documento de preguntas frecuentes de coordinación Catastro-Registro (DGC, material del curso, Tema 8)
 - **Tolerancia del contorno:** el conjunto de parcelas resultantes debe coincidir con el de las parcelas catastrales de origen con una tolerancia en sus vértices de **±1 cm**.
@@ -80,12 +81,22 @@ Tabla de decisión de la SEC (NPO = parcelas de origen, NPP = parcelas aportadas
 |---|---|
 | 25829 | Coruña, Huelva, Lugo, Ourense, Pontevedra |
 | 25829 o 25830 | Badajoz, Cáceres, Cádiz, León, Oviedo (Asturias), Salamanca, Sevilla, Zamora |
-| 25830 | Albacete, Almería, Ávila, Burgos, Cantabria, Ceuta, Ciudad Real, Córdoba, Cuenca, Granada, Guadalajara, Jaén, La Rioja, Madrid, **Málaga**, Murcia, Palencia, Segovia, Soria, Toledo, Valencia, Valladolid |
+| 25830 | Albacete, Almería, Ávila, Burgos, Cantabria, Ceuta, Ciudad Real, Melilla, Córdoba, Cuenca, Granada, Guadalajara, Jaén, La Rioja, Madrid, **Málaga**, Murcia, Palencia, Segovia, Soria, Toledo, Valencia, Valladolid |
 | 25830 o 25831 | Alicante, Castellón, Huesca, Teruel, Zaragoza |
-| 25831 | Baleares, Barcelona, Lleida, Tarragona |
-| 32628 | S.C. de Tenerife (Las Palmas no aparece en la tabla del documento por un salto de página: se supone 32628; Melilla, 25830; se confirmará) |
+| 25831 | Baleares, Barcelona, Girona, Lleida, Tarragona |
+| 32628 | Las Palmas, S.C. de Tenerife |
+
+Girona (25831), Las Palmas (32628) y Melilla (25830) están confirmadas en el texto de la FAQ (auditoría, X-22).
 
 Navarra no aparece en el material del curso: su investigación sigue pendiente (mejora 30).
+
+### 1.3 ter Normativa vigente (revisada en la auditoría del 09/10/2026; detalle en docs/auditoria/web.md)
+- **Resolución conjunta DGRN-DGC de 26/10/2015** (BOE-A-2015-11655): requisitos técnicos de la representación gráfica; sigue siendo la norma base.
+- **Resolución conjunta DGSJFP-DGC de 23/09/2020** (BOE-A-2020-12111): anexo II con los márgenes del criterio de identidad gráfica.
+- **Resolución conjunta DGSJFP-DGC de 29/03/2021** (BOE-A-2021-5949): representación gráfica en documentos notariales; cartografía desplazada y doble GML (primero se corrige el giro o desplazamiento y después se aplica el criterio de identidad).
+- **Ley Hipotecaria** (redacción de la Ley 13/2015): arts. 9, 10, 199 (notificación a colindantes), 201.3 (diferencias ≤ 10 % o ≤ 5 % sin expediente) y 202 (edificaciones).
+- **Doctrina reciente de la DGSJFP** (Res. 8/10/2025, 30/12/2025 y 6/5/2026): juicio de identidad motivado; una representación por finca registral; la «invasión virtual» por cartografía desplazada no basta para oponerse.
+- No hay resoluciones conjuntas posteriores a 2021 sobre requisitos técnicos (búsqueda en el BOE de 2024 a 2026).
 
 ### 1.4 Diferencias 3.0 → 4.0 (para el conversor)
 | | 3.0 | 4.0 |

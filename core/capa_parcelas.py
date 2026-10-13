@@ -66,6 +66,12 @@ def aviso_huso(filas, crs, epsg, referencias=()):
     return geo.aviso_huso(QgsGeometry.unaryUnion(geometrias), crs, epsg, rusticas[0][:2] if rusticas else '')
 
 
+def avisos_src(filas, crs, epsg, referencias=()):
+    """Avisos del SRC de una capa que se va a pasar a un GML: datum antiguo (AU-32) y huso que no encaja (AU-30)."""
+    avisos = [geo.aviso_datum(crs, epsg) if epsg else None, aviso_huso(filas, crs, epsg, referencias)]
+    return [a for a in avisos if a is not None]
+
+
 def fichero_de_capa(capa):
     """Ruta del fichero del que sale la capa ('' si es de memoria o de un servicio). Sirve para no sobrescribirlo (AU-09)."""
     if capa is None or capa.providerType() not in ('ogr', 'delimitedtext'):

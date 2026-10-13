@@ -175,6 +175,11 @@ def comparar(lectura):
         c.operacion = "Sin parcelas catastrales debajo"
         c.incidencias.append(Incidencia(ERROR, 'CMP-SIN-ORIGEN', "El parcelario no está sobre ninguna parcela catastral: "
                                                                  "compruebe la posición y el SRC"))
+        zona = servicios.zona_foral(union.centroid().asPoint(), lectura.epsg)
+        if zona:  #Sin parcelas de la DGC en una zona foral: lo más probable es que sea de su catastro propio (AU-31)
+            c.incidencias.append(Incidencia(AVISO, 'CMP-FORAL', f"La posición parece de {zona}, que tiene catastro propio: "
+                                                                "la Dirección General del Catastro no tiene sus parcelas. "
+                                                                "Use la sede de su catastro foral"))
         return c
 
     union_origen = QgsGeometry.unaryUnion([e.geometria for e in afectadas])
@@ -229,7 +234,11 @@ def comparar(lectura):
                                         + f" (±{TOLERANCIA * 100:.0f} cm)"))
 
     #Un GML con parcelas de dos municipios no se valida (asistente Catastro-Registro, CdU_12; AU-26)
-    municipios = {m for m in (servicios.municipio_de(e.local_id) for e in afectadas[:MAX_TRAMITACION]) if m}
+    #(una consulta de datos no protegidos por parcela afectada: municipio, BICE y diseminado)
+    fichas = {e.local_id: servicios.ficha(e.local_id) for e in afectadas[:MAX_TRAMITACION]}
+    municipios = {f['municipio'] for f in fichas.values() if f and f['municipio']}
+    municipios |= {servicios.municipio_de(rc) for rc, f in fichas.items()
+                   if not f and refcat.tipo_parcela(rc) == 'rústica'}  #Sin conexión, la rústica lo dice su RC
     if len(municipios) > 1:
         c.incidencias.append(Incidencia(ERROR, 'CMP-MUNICIPIOS', f"Las parcelas afectadas son de {len(municipios)} municipios: "
                                                                  "la Sede no valida un GML con parcelas de dos municipios "
@@ -275,6 +284,14 @@ def comparar(lectura):
     if max(c.npo, c.npp) > MAX_TRAMITACION:
         c.incidencias.append(Incidencia(AVISO, 'CMP-MAS-30', f"Más de {MAX_TRAMITACION} parcelas en la operación: no se "
                                                              "tramitará de forma automática"))
+    diseminado = [rc for rc, f in fichas.items() if f and f['diseminado']]
+    if diseminado:  #Ayuda de la operativa del IVG: el diseminado de urbana no se tramita de forma automática (AU-33)
+        c.incidencias.append(Incidencia(AVISO, 'CMP-DISEMINADO', f"Parcela de urbana en diseminado ({', '.join(diseminado)}): "
+                                                                 "no se tramitará de forma automática"))
+    bice = [rc for rc, f in fichas.items() if f and 'BI' in f['clases']]
+    if bice:
+        c.incidencias.append(Incidencia(AVISO, 'CMP-BICE', f"Afecta a un bien inmueble de características especiales (BICE: "
+                                                           f"{', '.join(bice)}): no se tramitará de forma automática"))
     publicas = [i for i in ids_origen if refcat.es_dominio_publico(i)]
     if publicas:
         c.incidencias.append(Incidencia(AVISO, 'CMP-DOMINIO-PUBLICO',
@@ -326,6 +343,10 @@ def comparar_edificio(lectura):
         return c
     c.origen = parcelas
     c.npo, c.npp = 1, len(construcciones)
+    datos = servicios.ficha(rc)
+    if datos and 'BI' in datos['clases']:  #Ayuda del ICUC: las parcelas BICE no tienen informe (AU-33)
+        c.incidencias.append(Incidencia(AVISO, 'CMP-BU-BICE', f"La parcela {rc} es un bien inmueble de características "
+                                                              "especiales (BICE): la Sede no emite el ICUC para ellas"))
     exacta = QgsGeometry.unaryUnion([e.geometria for e in parcelas])
     fuera = []
     for e in construcciones:

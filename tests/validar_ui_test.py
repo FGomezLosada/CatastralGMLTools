@@ -104,7 +104,7 @@ rojo = (pv.tabla.item(0, 3).text() == '650' and pv.tabla.item(0, 3).foreground()
 esperar_tarea()
 #Elegir la incidencia en la lista selecciona su parcela en la tabla
 for i in range(pv.lista.count()):
-    if 'Superficie declarada 650' in pv.lista.item(i).text():
+    if '(areaValue) 650' in pv.lista.item(i).text():
         pv.lista.setCurrentRow(i)
 lista_a_tabla = [r.row() for r in pv.tabla.selectionModel().selectedRows()] == [0]
 iconos = {pv.lista.item(i).text()[:20]: pv.lista.item(i).data(Qt.ItemDataRole.UserRole + 1) for i in range(pv.lista.count())}

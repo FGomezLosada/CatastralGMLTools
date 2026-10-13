@@ -41,17 +41,17 @@ MINIMO_VERTICES = 4  #Incluido el de cierre
 
 #Husos por provincia (código INE de 2 dígitos = código de provincia del Catastro).
 #Fuente: tabla del documento «Preguntas y respuestas acerca de la coordinación Catastro-Registro» (DGC).
-#Marcadas con * las que no aparecen en esa tabla y se deducen por su posición geográfica.
+#Girona, Las Palmas y Melilla, confirmadas en el texto de la FAQ (auditoría, X-22).
 HUSOS_PROVINCIA = {
     '02': (25830,), '03': (25830, 25831), '04': (25830,), '05': (25830,), '06': (25829, 25830), '07': (25831,),
     '08': (25831,), '09': (25830,), '10': (25829, 25830), '11': (25829, 25830), '12': (25830, 25831), '13': (25830,),
-    '14': (25830,), '15': (25829,), '16': (25830,), '17': (25831,),  # 17 Girona*
+    '14': (25830,), '15': (25829,), '16': (25830,), '17': (25831,),
     '18': (25830,), '19': (25830,), '21': (25829,), '22': (25830, 25831), '23': (25830,), '24': (25829, 25830),
     '25': (25831,), '26': (25830,), '27': (25829,), '28': (25830,), '29': (25830,), '30': (25830,), '32': (25829,),
-    '33': (25829, 25830), '34': (25830,), '35': (32628,),  # 35 Las Palmas*
+    '33': (25829, 25830), '34': (25830,), '35': (32628,),
     '36': (25829,), '37': (25829, 25830), '38': (32628,), '39': (25830,), '40': (25830,), '41': (25829, 25830),
     '42': (25830,), '43': (25831,), '44': (25830, 25831), '45': (25830,), '46': (25830,), '47': (25830,),
-    '49': (25829, 25830), '50': (25830, 25831), '51': (25830,), '52': (25830,),  # 52 Melilla*
+    '49': (25829, 25830), '50': (25830, 25831), '51': (25830,), '52': (25830,),
 }
 
 
@@ -95,6 +95,22 @@ def area_firmada(anillo):
     for (x1, y1), (x2, y2) in zip(anillo, anillo[1:]):
         total += x1 * y2 - x2 * y1
     return total / 2.0
+
+
+def degenerado(anillo):
+    """
+    True si el anillo (cerrado) no encierra superficie: menos de 3 vértices distintos o todos alineados. La Sede pide
+    al menos 4 vértices (con el de cierre) que no estén alineados (asistente gráfico, casos de uso 4 y 5; AU-27).
+    """
+    distintos = set(map(tuple, anillo))
+    if len(distintos) < 3:
+        return True
+    (x0, y0) = anillo[0]
+    xf, yf = max(distintos, key=lambda p: (p[0] - x0) ** 2 + (p[1] - y0) ** 2)
+    largo = math.hypot(xf - x0, yf - y0)
+    #Alineados: ningún vértice se separa medio centímetro de la recta entre los dos más alejados (una «pajarita» no lo
+    #está, aunque su área con signo sea 0: esa es una autointersección)
+    return largo < 0.005 or max(abs((xf - x0) * (y - y0) - (yf - y0) * (x - x0)) / largo for x, y in distintos) < 0.005
 
 
 def es_horario(anillo):
@@ -195,6 +211,10 @@ def preparar(geometria, elemento='', area_entera=True):
                 incidencias.append(Incidencia(ERROR, 'GEO-POCOS-VERTICES',
                                               f"Un anillo tiene {len(anillo)} vértices: el mínimo es {MINIMO_VERTICES} "
                                               "(incluido el de cierre)", elemento))
+                continue
+            if degenerado(anillo):
+                incidencias.append(Incidencia(ERROR, 'GEO-ALINEADOS', "Un anillo no encierra superficie (sus vértices están "
+                                                                      "alineados): la Sede no lo admite", elemento))
                 continue
             orientado = orientar(anillo, horario=(i == 0))
             reorientados += int(orientado is not anillo)
@@ -431,6 +451,24 @@ def aviso_huso(geometria, crs, epsg, provincia=''):
             return Incidencia(AVISO, 'SRC-HUSO', f"La geometría cae lejos del huso de EPSG:{epsg}: el GML debería ir en "
                                                  f"EPSG:{epsg_recomendado(geometria, crs)} (el huso de su provincia)")
     return None
+
+
+ELIPSOIDES_ETRS89 = ('EPSG:7019', 'EPSG:7030')  #GRS80 (ETRS89, REGCAN95) y WGS84: entre ellos no hay desplazamiento
+
+
+def aviso_datum(crs, epsg):
+    """
+    Aviso si la capa está en un datum antiguo (ED50, Madrid 1870…) y hay que transformarla al del GML: sin la rejilla
+    oficial del IGN, QGIS usa una transformación aproximada que puede mover las coordenadas varios metros, mucho más que
+    la tolerancia de la Sede (AU-32). None si no hace falta (ETRS89, REGCAN95 o WGS84: REGCAN95 y WGS84 en Canarias se
+    tratan como el mismo, así que una capa en EPSG:4083 pasa a 32628 sin cambiar sus coordenadas).
+    """
+    if crs is None or not crs.isValid() or epsg_de(crs) == epsg or crs.ellipsoidAcronym() in ELIPSOIDES_ETRS89:
+        return None
+    return Incidencia(AVISO, 'SRC-DATUM', f"La capa está en {crs.authid()} ({crs.description()}), un datum distinto de "
+                                          "ETRS89: la transformación puede desplazarla varios metros si QGIS no tiene la "
+                                          "rejilla oficial del IGN. Mejor pase antes la capa a ETRS89 con la rejilla y "
+                                          "compare el resultado con el Catastro")
 
 
 def transformar(geometria, crs_origen, epsg_destino):

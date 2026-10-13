@@ -49,6 +49,7 @@ SIN_COLINDANTES = ('<?xml version=\'1.0\' encoding="ISO-8859-1" standalone="no"?
                    'solicitada]]></ExceptionText>\r\n</Exception>\r\n</ExceptionReport>\r\n')
 
 MUNICIPIO_URBANA = 71  #Municipio del Catastro de las parcelas urbanas sintéticas (el del camino 29071…)
+CLASES = {}  #RC → clase de inmueble ('BI' para un BICE) o 'DS' (urbana en diseminado), para probar los avisos
 DNPRC_CAIDO = False  #True: la consulta de datos de parcela falla (para probar la regla de numeración sola)
 peticiones = []  #Direcciones pedidas, para comprobar qué se ha consultado
 
@@ -90,9 +91,13 @@ def pedir(url):
             return b'', 'Connection refused (simulado)'
         rc = q['refcat']
         if not rc[5].isalpha() or rc[5:7].isdigit():  #Urbana: varios inmuebles (lrcdnp), con el municipio del Catastro
+            clase = CLASES.get(rc[:14], 'UR')
+            via = {"tv": "DS", "nv": "DISEMINADO"} if clase == 'DS' else {"tv": "CL", "nv": "INVENTADA"}
             return json.dumps({"consulta_dnprcResult": {"control": {"cudnp": 2}, "lrcdnp": {"rcdnp": [
                 {"rc": {"pc1": rc[:7], "pc2": rc[7:14]}, "dt": {"loine": {"cp": "29", "cm": "71"},
-                                                               "cmc": str(MUNICIPIO_URBANA), "nm": "FICTICIO"}}]}}}).encode('utf-8'), ''
+                                                               "cmc": str(MUNICIPIO_URBANA), "nm": "FICTICIO",
+                                                               "locs": {"lous": {"lourb": {"dir": via}}}},
+                 "idbi": {"cn": 'UR' if clase == 'DS' else clase}}]}}}).encode('utf-8'), ''
         camino = rc == CAMINO
         lspr = [{"cspr": "0", "dspr": {"ccc": "VT" if camino else "MT", "ip": "00",
                                        "dcc": "VÍA DE COMUNICACIÓN DE DOMINIO PÚBLICO" if camino else "MATORRAL"}}]
