@@ -183,7 +183,11 @@ sin_plantas = (pe.crear_gml() is None and 'plantas' in pe.tabla.item(1, pe_mod.C
                and not os.path.exists(os.path.join(carpeta, 'huellas.gml')))
 edificio = next(f for f in huellas.getFeatures() if f['tipo'] == ge.EDIFICIO)
 huellas.changeAttributeValue(edificio.id(), huellas.fields().indexOf('plantas'), 2)
+pe.precision.setCurrentIndex(pe.precision.findData(10.0))  #Huellas medidas sobre la ortofoto (AU-35)
 con_plantas = pe.tabla.item(1, pe_mod.COL_PLANTAS).text() == '2' and pe.crear_gml() == os.path.join(carpeta, 'huellas.gml')
+with open(os.path.join(carpeta, 'huellas.gml'), encoding='iso-8859-1') as f_h:
+    con_plantas = con_plantas and 'uom="m">10</bu-core2d:horizontalGeometryEstimatedAccuracy>' in f_h.read()
+pe.precision.setCurrentIndex(0)
 huellas.rollBack()
 
 # 8. Retocar: copia editable de la capa elegida (la original no cambia)
@@ -255,7 +259,7 @@ checks = {
     "descarga sin construcciones: referencia y explicación": sin_construcciones,
     "capa de parcelas: no se usa como huellas": de_parcelas,
     "Dibujar huellas: capa nueva en edición, tabla al dibujar": nueva and dibujadas,
-    "plantas obligatorias (error) y GML al ponerlas": sin_plantas and con_plantas,
+    "plantas obligatorias (error) y GML al ponerlas (con precisión de 10 m)": sin_plantas and con_plantas,
     "retocar: copia editable, la original no cambia": retocar,
     "la tabla conserva lo escrito al editar la capa": conserva_tabla,
     "capa de líneas (DXF): cerradas = huellas, piscina por capa de dibujo": lineas_dxf and patio_ok,

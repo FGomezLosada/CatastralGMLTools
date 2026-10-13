@@ -55,6 +55,7 @@ WFS_NAVARRA_CP = 'https://inspire.navarra.es/services/CP/wfs'
 WFS_NAVARRA_BU = 'https://inspire.navarra.es/services/BU/wfs'
 EPSG_NAVARRA = 25830
 CAJA_NAVARRA = (-2.55, 41.88, -0.70, 43.35)  #lon/lat aproximados: solo para no preguntar a Navarra por puntos de fuera
+CAJA_PAIS_VASCO = (-3.46, 42.46, -1.72, 43.46)  #lon/lat aproximados (también cogen bordes de Burgos, Cantabria y La Rioja)
 AVISO_NAVARRA = ("Parcela de Navarra (Registro de la Riqueza Territorial). El GML de la Sede Electrónica de la DGC no sirve "
                  "en Navarra: sus alteraciones se tramitan ante la Hacienda Foral de Navarra")
 DNPRC = 'https://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejero.svc/json/Consulta_DNPRC'
@@ -370,6 +371,52 @@ def datos_rustica(rc):
         return None
 
 
+def _valores(datos, clave):
+    """Todos los valores de una clave en un JSON anidado (dict y listas), como texto en mayúsculas."""
+    if isinstance(datos, dict):
+        for k, v in datos.items():
+            if k == clave and isinstance(v, (str, int)):
+                yield str(v).strip().upper()
+            else:
+                yield from _valores(v, clave)
+    elif isinstance(datos, list):
+        for v in datos:
+            yield from _valores(v, clave)
+
+
+def ficha(rc):
+    """
+    Datos no protegidos de una parcela (Consulta_DNPRC) para la comparación: {'municipio': (provincia, municipio) o None,
+    'clases': {'UR', 'RU', 'BI'…} (clase de los inmuebles: BI es un bien inmueble de características especiales, BICE),
+    'diseminado': True si es urbana en diseminado (referencia de rústica con inmuebles urbanos, o vía de tipo «DS»)}.
+    None si no se puede consultar. Nunca titulares ni valores.
+    """
+    parcela = refcat.limpiar(rc)[:14]
+    datos, error = pedir(url_datos(parcela))
+    if error:
+        return None
+    try:
+        resultado = json.loads(datos.decode('utf-8', 'replace'))['consulta_dnprcResult']
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None
+    municipio = None
+    try:
+        if 'bico' in resultado:  #Un solo inmueble
+            dt = resultado['bico']['bi']['dt']
+        else:  #Varios inmuebles en la parcela: lista lrcdnp › rcdnp (comprobado con 1472010VF2617S, 13/10/2026)
+            lista = resultado['lrcdnp']['rcdnp']
+            dt = (lista[0] if isinstance(lista, list) else lista)['dt']
+        municipio = int(dt['loine']['cp']), int(dt['cmc'])
+    except (ValueError, KeyError, TypeError, AttributeError, IndexError):
+        pass
+    if refcat.tipo_parcela(parcela) == 'rústica':
+        municipio = int(parcela[:2]), int(parcela[2:5])
+    clases = set(_valores(resultado, 'cn')) - {''}
+    diseminado = ((refcat.tipo_parcela(parcela) == 'rústica' and 'UR' in clases)
+                  or 'DS' in set(_valores(resultado, 'tv')))
+    return {'municipio': municipio, 'clases': clases, 'diseminado': diseminado}
+
+
 def municipio_de(rc):
     """
     (provincia, municipio) del Catastro de una parcela, como enteros. En rústica sale de la propia referencia; en urbana
@@ -378,19 +425,8 @@ def municipio_de(rc):
     parcela = refcat.limpiar(rc)[:14]
     if refcat.tipo_parcela(parcela) == 'rústica':
         return int(parcela[:2]), int(parcela[2:5])
-    datos, error = pedir(url_datos(parcela))
-    if error:
-        return None
-    try:
-        resultado = json.loads(datos.decode('utf-8', 'replace'))['consulta_dnprcResult']
-        if 'bico' in resultado:  #Un solo inmueble
-            dt = resultado['bico']['bi']['dt']
-        else:  #Varios inmuebles en la parcela: lista lrcdnp › rcdnp (comprobado con 1472010VF2617S, 13/10/2026)
-            lista = resultado['lrcdnp']['rcdnp']
-            dt = (lista[0] if isinstance(lista, list) else lista)['dt']
-        return int(dt['loine']['cp']), int(dt['cmc'])
-    except (ValueError, KeyError, TypeError, AttributeError, IndexError):
-        return None
+    datos = ficha(parcela)
+    return datos['municipio'] if datos else None
 
 
 def _sin_tildes(texto):
@@ -519,6 +555,23 @@ def rc_en_punto(x, y, epsg=EPSG_PUNTO):
     if len(resultado.rc) != 14:
         resultado.incidencias.append(Incidencia(ERROR, 'RCCOOR-RESPUESTA', "El Catastro no ha devuelto una referencia válida"))
     return resultado
+
+
+def zona_foral(punto, epsg):
+    """
+    'Navarra', 'el País Vasco', 'Navarra o el País Vasco' o '' según la posición aproximada de un punto (QgsPointXY en el
+    EPSG dado). Solo es una pista para cuando el Catastro no tiene parcelas en la zona (AU-31): las cajas son rectángulos
+    que cogen también bordes de las provincias vecinas.
+    """
+    try:
+        transformacion = QgsCoordinateTransform(QgsCoordinateReferenceSystem(f'EPSG:{epsg}'),
+                                                QgsCoordinateReferenceSystem(f'EPSG:{EPSG_PUNTO}'), QgsProject.instance())
+        p = transformacion.transform(QgsPointXY(punto))
+    except Exception:  # noqa: BLE001  (QgsCsException u otro fallo de la transformación: sin pista)
+        return ''
+    navarra = _en_navarra(p.x(), p.y())
+    vasco = CAJA_PAIS_VASCO[0] <= p.x() <= CAJA_PAIS_VASCO[2] and CAJA_PAIS_VASCO[1] <= p.y() <= CAJA_PAIS_VASCO[3]
+    return ('Navarra o el País Vasco' if navarra and vasco else 'Navarra' if navarra else 'el País Vasco' if vasco else '')
 
 
 def _en_navarra(lon, lat):

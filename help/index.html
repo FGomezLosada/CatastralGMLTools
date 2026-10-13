@@ -81,7 +81,9 @@ bajo el GML y hace las comprobaciones del informe de validación gráfica de la 
 contorno exterior coincide con el de las parcelas afectadas (±1 cm medido como distancia: un vértice movido 2 cm ya no
 coincide), si alguna parcela queda afectada solo en parte (la Sede no emitiría el informe; dice hasta cuántos cm se separa),
 si alguna parcela del GML es igual a la catastral (no cambia nada: hay que quitarla), si el GML ocupa suelo sin parcela (una
-calle) y si las referencias catastrales existen. En el mapa se añade el grupo
+calle) y si las referencias catastrales existen. Con los datos no protegidos de cada parcela afectada avisa también de los
+bienes de características especiales (BICE) y de la urbana en diseminado. Si no hay ninguna parcela catastral debajo y la zona
+parece de Navarra o del País Vasco, lo dice: allí el catastro es propio. En el mapa se añade el grupo
 «Comparación» con las parcelas catastrales afectadas y las diferencias: en rojo lo que sobra y en azul lo que falta.</p>
 <p>El botón <strong>Informe</strong> guarda junto al GML un informe en HTML (<code>nombre_informe.html</code>) con el resultado,
 las incidencias, un croquis y las coordenadas de cada recinto, y lo abre en el navegador; se puede imprimir o adjuntar.</p>
@@ -178,6 +180,33 @@ cartografía oficial. Se descarga una parcela cada vez: no es una herramienta de
 de la Riqueza Territorial; «Servicio proporcionado por el Gobierno de Navarra», licencia CC BY 4.0). Navarra tiene catastro
 propio: el GML de la Sede Electrónica de la Dirección General del Catastro no sirve allí, por eso el plugin no lo genera con esas
 capas.</p>
+
+<h2>Antes de presentar el GML</h2>
+<p>Algunas cosas que el plugin no puede comprobar y que conviene tener presentes (no es asesoramiento jurídico: ante la
+duda, consulte con la notaría, el Registro o el Catastro):</p>
+<ul>
+  <li><strong>La operación es la de la escritura.</strong> Elija en el asistente la que figurará en el documento
+      (segregación, división, agregación…). Si además hay que corregir linderos con los colindantes, primero se presenta un
+      GML de subsanación y, cuando se incorpore al Catastro, el de la operación.</li>
+  <li><strong>Un informe positivo no es una licencia.</strong> El informe de validación gráfica solo dice que el GML encaja
+      con la cartografía catastral. No autoriza la segregación ni comprueba la parcela mínima urbanística o la unidad mínima
+      de cultivo en rústica: eso depende del ayuntamiento y de la comunidad autónoma.</li>
+  <li><strong>Colindantes.</strong> Al inscribir la representación gráfica, el Registro notifica a los titulares de las
+      parcelas colindantes (art. 199 de la Ley Hipotecaria), que pueden oponerse.</li>
+  <li><strong>Diferencias de cabida.</strong> Las diferencias de superficie pequeñas respecto a la inscrita (hasta el 10 %
+      con certificación catastral o el 5 % en general, art. 201.3 de la Ley Hipotecaria) pueden hacerse constar sin
+      expediente; las mayores necesitan el procedimiento que corresponda.</li>
+  <li><strong>Superficie.</strong> La superficie del GML es la de la proyección UTM (plana), no la del terreno medida con
+      sus pendientes: en terrenos inclinados la del terreno es algo mayor.</li>
+  <li><strong>Sistema de referencia.</strong> Si su capa está en ED50 u otro datum antiguo, pásela antes a ETRS89 con la
+      rejilla oficial del IGN: sin ella, la transformación puede mover las coordenadas varios metros (el plugin lo avisa).
+      En Canarias, REGCAN95 y WGS84 se tratan como el mismo: una capa en EPSG:4083 se pasa a 32628 sin cambiar sus
+      coordenadas.</li>
+  <li><strong>Sin tramitación automática.</strong> La Sede puede dar el informe positivo y aun así no tramitar la alteración de
+      forma automática: parcelas de distinto polígono o manzana, urbana y rústica mezcladas, más de 30 parcelas, esbeltez
+      mayor que 15, urbana en diseminado, bienes de características especiales (BICE) o expedientes abiertos sobre las
+      parcelas. La comparación avisa de lo que puede saber.</li>
+</ul>
 
 <h2>Ámbito territorial</h2>
 <p>El plugin trabaja con el territorio gestionado por la Dirección General del Catastro. Navarra y los territorios

@@ -46,9 +46,9 @@ propuestas = (seg == [(RC, SDGC), ('Seg_1', LOCAL), ('Mi_finca', LOCAL)]
 
 # 2. Comprobaciones
 def cods(tipo, pares, superficies):
-    """Códigos sin el recordatorio fijo de la escritura (ALT-ESCRITURA, sale en todas las operaciones salvo subsanación)."""
+    """Códigos sin los recordatorios fijos (ALT-ESCRITURA en todas salvo subsanación; ALT-LICENCIA en segregación y división)."""
     return [c for c in codigos(alt.comprobar(tipo, [p[0] for p in pares], [p[1] for p in pares], superficies))
-            if c != 'ALT-ESCRITURA']
+            if c not in ('ALT-ESCRITURA', 'ALT-LICENCIA')]
 
 
 comprobaciones = (cods(alt.SEGREGACION, seg, [500, 50, 50]) == []
@@ -63,6 +63,8 @@ comprobaciones = (cods(alt.SEGREGACION, seg, [500, 50, 50]) == []
                   and cods(alt.SUBSANACION, sub, [10, 10]) == []
                   and cods(alt.SUBSANACION, seg, areas) == ['ALT-SUBSANACION-LOCAL']
                   and 'ALT-ESCRITURA' in codigos(alt.comprobar(alt.SEGREGACION, [RC, 'Seg_1'], [SDGC, LOCAL], [500, 50]))
+                  and 'ALT-LICENCIA' in codigos(alt.comprobar(alt.DIVISION, [p[0] for p in div], [p[1] for p in div], areas))
+                  and 'ALT-LICENCIA' not in codigos(alt.comprobar(alt.AGREGACION, [RC], [SDGC], [500]))
                   and cods(alt.SEGREGACION, [(RC, SDGC)], [10]) == ['ALT-NPP']
                   and alt.comprobar(alt.SIN_INDICAR, ids, [SDGC, LOCAL, LOCAL], areas) == []
                   and all(i.nivel == 'info' for i in alt.comprobar(alt.SEGREGACION, [p[0] for p in seg],

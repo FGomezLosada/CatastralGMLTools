@@ -84,7 +84,7 @@ Decisiones técnicas:
 | 7 | Alteraciones: asistente, multiparcela y unión | ✅ |
 | 8 | GML de edificio y comprobaciones ICUC | ✅ |
 | 8b | Auditoría (docs/AUDITORIA.md), bloque A: fiabilidad (tolerancia real de 1 cm, carreras en Validar, parcela sin cambios, RC mal escritas, excepciones y pérdidas de datos) | ✅ |
-| 8c | Auditoría, bloque B: normativa y avisos (sin IVG negativo desde 2025, viario y cesiones, reparcelación, matriz, dos municipios, huso de la provincia, forales por posición, avisos legales, INVESTIGACION corregida) | — |
+| 8c | Auditoría, bloque B: normativa y avisos (sin IVG negativo desde 2025, viario y cesiones, reparcelación, matriz, dos municipios, huso de la provincia, forales por posición, avisos legales, INVESTIGACION corregida) | ✅ |
 | 8d | Auditoría, bloques C y D: robustez, rendimiento, compatibilidad Qt6, documentación y metadatos (versión 0.2.0) | — |
 | 8e | Ajuste por desplazamiento o giro (afín / CX-CY, dos GML con parámetros; Resolución de 29/03/2021) | — |
 | 9 | Conversor 3.0 → 4.0 y reparación | — |

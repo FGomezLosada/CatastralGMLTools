@@ -133,6 +133,13 @@ class PestanaEdificio(QWidget):
         self.fecha.setToolTip("Fecha y hora del GML (beginLifespanVersion)")
         salida.addRow("Fecha y hora", self.fecha)
 
+        self.precision = QComboBox(self)
+        for valor, nombre in ge.PRECISIONES:
+            self.precision.addItem(nombre, valor)
+        self.precision.setToolTip("Precisión de las huellas (horizontalGeometryEstimatedAccuracy): 0,1 m si salen de un "
+                                  "levantamiento, del proyecto o de un DXF; 10 m si se han medido sobre la ortofoto")
+        salida.addRow("Precisión", self.precision)
+
         self.srcCombo = QComboBox(self)
         self.srcCombo.addItem("Automático (según la posición)", AUTOMATICO)
         for epsg, nombre in ((25829, 'ETRS89 / UTM 29N'), (25830, 'ETRS89 / UTM 30N'), (25831, 'ETRS89 / UTM 31N'),
@@ -379,9 +386,8 @@ class PestanaEdificio(QWidget):
         if problema:
             texto += f"<br><span style='color:#c92a2a'>✖ {problema}</span>"
         elif capa is not None:
-            huso = cp.aviso_huso(self.filas, capa.crs(), epsg, [self.referencia.text()])  #AU-30
-            if huso is not None:
-                texto += f"<br><span style='color:#e67700'>⚠ {huso.mensaje}</span>"
+            for aviso in cp.avisos_src(self.filas, capa.crs(), epsg, [self.referencia.text()]):  #AU-30, AU-32
+                texto += f"<br><span style='color:#e67700'>⚠ {aviso.mensaje}</span>"
         if not self.referencia.text().strip():
             texto += "<br><span style='color:#e67700'>⚠ Indique la referencia de la parcela</span>"
         self.resumen.setText(texto)
@@ -526,7 +532,8 @@ class PestanaEdificio(QWidget):
         ids = [self.tabla.item(i, COL_ID).text().strip() for i in range(n)]
         tipos = [self.tipo_fila(i) for i in range(n)]
         construcciones = ce.a_construcciones(self.filas, ids, tipos, [self.plantas_fila(i) for i in range(n)],
-                                             [self.estado_fila(i) for i in range(n)], capa.crs(), epsg)
+                                             [self.estado_fila(i) for i in range(n)], capa.crs(), epsg,
+                                             self.precision.currentData())
         fecha = self.fecha.dateTime().toPyDateTime().replace(second=0, microsecond=0)
         ok, incidencias = ge.escribir(ruta, construcciones, epsg, fecha, origenes=[cp.fichero_de_capa(capa)])
         self.marcar_estados(incidencias, ids)
@@ -538,6 +545,7 @@ class PestanaEdificio(QWidget):
             self.dock.notify(texto,
                              Qgis.MessageLevel.Critical, 0)
             return None
+        problemas += [a.mensaje for a in cp.avisos_src(self.filas, capa.crs(), epsg, [self.referencia.text()])]
         self.ultimo_gml = ruta
         edificios = tipos.count(ge.EDIFICIO)
         piscinas = n - edificios

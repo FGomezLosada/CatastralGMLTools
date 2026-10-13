@@ -204,8 +204,11 @@ def area_m2(fila, crs, epsg):
     return sum(r.area_m2() for r in recintos) if recintos else None
 
 
-def a_construcciones(filas, ids, tipos, plantas, estados, crs, epsg):
-    """Construccion del GML (geometría transformada al EPSG del fichero) con lo que haya en la tabla (estado por fila)."""
+def a_construcciones(filas, ids, tipos, plantas, estados, crs, epsg, precision=0.1):
+    """
+    Construccion del GML (geometría transformada al EPSG del fichero) con lo que haya en la tabla (estado por fila) y la
+    precisión de las huellas en m (AU-35).
+    """
     return [ge.Construccion(local_id, geo.transformar(f.geometria, crs, epsg), tipo, planta if tipo == ge.EDIFICIO else None,
-                            estado)
+                            estado, precision=precision)
             for f, local_id, tipo, planta, estado in zip(filas, ids, tipos, plantas, estados)]

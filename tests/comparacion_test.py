@@ -11,7 +11,7 @@ import os
 import tempfile
 
 import qgis.utils
-from qgis.core import Qgis, QgsGeometry, QgsProject, QgsRectangle
+from qgis.core import Qgis, QgsGeometry, QgsPointXY, QgsProject, QgsRectangle
 from qgis.PyQt.QtWidgets import QLabel, QMessageBox
 
 qgis.utils.reloadPlugin('catastral_gml_tools')
@@ -88,6 +88,13 @@ sin_parcela = (sin_parcela and 'CMP-VIARIO' in codigos(viario.incidencias)
 # 6. Referencia que no existe en el Catastro
 noex = comparar('no_existe', [('1907499VK4810H', 'S', rect(X0, Y0, 20, 30))])
 no_existe = 'CMP-RC-NO-EXISTE' in codigos(noex.incidencias)
+#Sin parcelas de la DGC debajo: en Vitoria-Gasteiz avisa de que puede ser de un catastro foral; en el sur, no (AU-31)
+vitoria = comparar('vitoria', [('Nueva_1', 'L', rect(526000, 4743500, 20, 30))])
+vacio = comparar('vacio', [('Nueva_1', 'L', rect(X0 + 3000, Y0 + 3000, 20, 30))])
+foral_posicion = ('CMP-SIN-ORIGEN' in codigos(vitoria.incidencias) and 'CMP-FORAL' in codigos(vitoria.incidencias)
+                  and 'País Vasco' in str(vitoria.incidencias) and 'CMP-SIN-ORIGEN' in codigos(vacio.incidencias)
+                  and 'CMP-FORAL' not in codigos(vacio.incidencias)
+                  and cmp.servicios.zona_foral(QgsPointXY(610000, 4740000), 25830) == 'Navarra')
 
 # 7. Dominio público afectado (el camino de 60 m, solo en parte): aviso y error de parcial
 dp = comparar('dominio', [(sim.RC, 'S', rect(X0, Y0 - 6, 20, 36))])
@@ -146,6 +153,17 @@ bu_fuera = cmp.comparar_edificio(gl.leer(ruta_bu))
 ge.escribir(ruta_bu, [ge.Construccion(sim.RC, rect(X0 + 15, Y0 + 5, 5.005, 4), plantas=1)], 25830)
 bu_dentro = cmp.comparar_edificio(gl.leer(ruta_bu))
 tolerancia_bu = codigos(bu_fuera.incidencias) == ['CMP-BU-FUERA'] and codigos(bu_dentro.incidencias) == ['CMP-BU-DENTRO']
+#BICE y diseminado de urbana (Consulta_DNPRC): avisos de que no hay tramitación automática ni ICUC (AU-33)
+sim.CLASES[sim.RC] = 'BI'
+bice = comparar('bice', [(sim.RC, 'S', rect(X0, Y0, 20, 18)), ('Nueva_1', 'L', rect(X0, Y0 + 18, 20, 12))])
+bu_bice = cmp.comparar_edificio(gl.leer(ruta_bu))
+sim.CLASES[sim.RC] = 'DS'
+disem = comparar('diseminado', [(sim.RC, 'S', rect(X0, Y0, 20, 18)), ('Nueva_1', 'L', rect(X0, Y0 + 18, 20, 12))])
+sim.CLASES.clear()
+especiales = ('CMP-BICE' in codigos(bice.incidencias) and 'CMP-DISEMINADO' not in codigos(bice.incidencias)
+              and 'CMP-BU-BICE' in codigos(bu_bice.incidencias) and 'CMP-DISEMINADO' in codigos(disem.incidencias)
+              and 'CMP-BICE' not in codigos(disem.incidencias) and 'CMP-BICE' not in codigos(seg.incidencias)
+              and 'CMP-DISEMINADO' not in codigos(seg.incidencias) and 'CMP-DISEMINADO' not in codigos(dp.incidencias))
 
 # 10. Pestaña Validar: botón, lista, aviso en la barra y capas de la comparación
 dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
@@ -187,12 +205,14 @@ checks = {
     "tolerancia de 1 cm en distancia (0,5 cm bien; 2 cm y entrante de 4 cm, no)": tolerancia,
     "parcela igual a la catastral: error «sin cambios»": sin_cambios,
     "edificio 2 cm fuera de la parcela: fuera; 0,5 cm: dentro": tolerancia_bu,
+    "BICE (parcela y edificio) y diseminado de urbana: avisos": especiales,
     "segregación: NPO 1, NPP 2, contorno coincidente y sin errores": segregacion,
     "división, agregación y agrupación según NPO/NPP/namespace": operaciones,
     "no permitida: dos SDGC de una parcela, y RC que no es de las afectadas": no_permitida,
     "colindante afectada en parte: error y superficie sin cubrir": parcial,
     "suelo sin parcela: error con SDGC; aviso (positivo condicionado) con parcela LOCAL": sin_parcela,
     "referencia que no existe en el Catastro": no_existe,
+    "sin parcelas de la DGC: pista de catastro foral por la posición": foral_posicion,
     "dominio público afectado: aviso; dos municipios: error": dominio,
     "sin conexión: no se compara y se avisa": sin_red,
     "rectángulos de 1 km como mucho y tabla de operaciones": tabla,
@@ -212,7 +232,7 @@ if not all(checks.values()):
     print("Detalles:", {n: [(c.operacion, c.npo, c.npp, [str(i) for i in c.incidencias],
                              c.exceso.area() if c.exceso else None, c.defecto.area() if c.defecto else None)]
                         for n, c in (('seg', seg), ('div', div), ('agr', agr), ('agp', agp), ('np', np_), ('par', par),
-                                     ('sin', sin), ('noex', noex), ('dp', dp), ('caido', caido))},
+                                     ('sin', sin), ('noex', noex), ('vitoria', vitoria), ('bice', bice), ('disem', disem), ('bu_bice', bu_bice), ('vacio', vacio), ('dp', dp), ('caido', caido))},
           {'lista': lista, 'barra': barra, 'textos': textos, 'ui': [desactivado, activo, grupo is not None]})
 print("RESULTADO:", "TODO CORRECTO" if all(checks.values()) else "HAY FALLOS")
 print("=" * 60)

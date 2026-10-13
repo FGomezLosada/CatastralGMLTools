@@ -5,6 +5,17 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 ## [Sin publicar]
 
 ### Añadido
+- **Auditoría, bloque B (normativa y avisos)** — el plugin dice lo que diría la Sede según la normativa vigente:
+  - Ya no se habla de «informe negativo» (la Sede no lo certifica desde el 12/03/2025: muestra los errores) (AU-20).
+  - Viario y cesiones: una parcela nueva (LOCAL) que ocupa suelo sin parcela da aviso de «positivo condicionado»; con una SDGC sigue siendo error (AU-21).
+  - Asistente de alteraciones: reparcelación, subsanación con parcelas LOCAL (aviso), botón «Es la matriz» para elegir la parcela que conserva la RC y umbral de la agregación con el quíntuplo (art. 48 RH) citando el 80 % de la guía; recordatorio de que la operación es la de la escritura y de que un informe positivo no es una licencia ni comprueba la unidad mínima de cultivo (AU-22…AU-25, AU-34).
+  - Dos municipios en un GML: error al comparar (AU-26).
+  - Recintos sin superficie (vértices alineados o repetidos): error al crear y al validar (AU-27). Texto más claro cuando la superficie declarada no es la del dibujo (AU-28).
+  - Coordenadas con más de 2 decimales: la comparación usa las truncadas, como la Sede; `srsName` comprobado en cada elemento (AU-29).
+  - Huso que no corresponde a la posición o a la provincia: aviso en Parcela, Edificio y Validar (AU-30). Capa en ED50 u otro datum antiguo: aviso de que la transformación puede desplazarla varios metros sin la rejilla del IGN; REGCAN95 pasa a 32628 sin moverse (AU-32).
+  - Comparación sin parcelas de la DGC debajo en Navarra o el País Vasco: aviso de catastro foral (AU-31). BICE y urbana en diseminado (datos no protegidos de la DGC): aviso de que no se tramita de forma automática; edificio en parcela BICE: sin ICUC (AU-33).
+  - Edificio: campo «Precisión» de las huellas (0,1 m por defecto; 10 m si se miden sobre la ortofoto) (AU-35).
+  - Ayuda: sección «Antes de presentar el GML» (escritura, licencia, colindantes, cabida, superficie UTM, datum, tramitación automática). `docs/INVESTIGACION.md` corregido: las tolerancias de ±0,50/±2 m y 5 % son del informe de identidad, no del IVG (±1 cm); esquema 4.0 desde el 12/12/2024; normativa vigente; Girona, Las Palmas y Melilla confirmadas en la tabla de husos (AU-36).
 - Arrastrar una capa del panel de Capas a la pestaña Validar (o ficheros a Utilidades) ya no quita la capa del panel: se responde «copiar» en vez de «mover». Detectado en la prueba a mano del 13/10/2026.
 - **Auditoría, bloque A (fiabilidad)** — el plugin ya no da por bueno lo que la Sede rechazaría ni se rompe con datos raros:
   - *Comparar con el Catastro* mide la tolerancia de ±1 cm como **distancia**, no como superficie: un vértice movido 2 cm, un escalón o un entrante estrecho ya no salen como «contorno coincidente», y el mensaje dice hasta cuántos cm se separa; una construcción que sobresale 2 cm ya no sale «dentro» (AU-01).

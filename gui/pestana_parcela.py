@@ -377,9 +377,8 @@ class PestanaParcela(QWidget):
         if problema:
             texto += f"<br><span style='color:#c92a2a'>✖ {problema}</span>"
         else:
-            huso = cp.aviso_huso(self.filas, capa.crs(), epsg, [f.local_id for f in self.filas])  #AU-30
-            if huso is not None:
-                texto += f"<br><span style='color:#e67700'>⚠ {huso.mensaje}</span>"
+            for aviso in cp.avisos_src(self.filas, capa.crs(), epsg, [f.local_id for f in self.filas]):  #AU-30, AU-32
+                texto += f"<br><span style='color:#e67700'>⚠ {aviso.mensaje}</span>"
         self.resumen.setText(texto)
 
     # ------------------------------------------------------------------ Asistente de alteraciones
@@ -574,9 +573,7 @@ class PestanaParcela(QWidget):
                                       origenes=[cp.fichero_de_capa(capa)])
         self.marcar_estados(incidencias)
         problemas = [str(i) for i in incidencias if i.nivel in (ERROR, AVISO)]
-        huso = cp.aviso_huso(filas, capa.crs(), epsg, [f.local_id for f in filas])
-        if huso is not None:
-            problemas.append(huso.mensaje)
+        problemas += [a.mensaje for a in cp.avisos_src(filas, capa.crs(), epsg, [f.local_id for f in filas])]
         if ok:  #Los avisos del asistente de alteraciones no impiden crear el GML, pero se recuerdan
             self.mostrar_alteracion()
             problemas += [i.mensaje for i in getattr(self, 'incidencias_alteracion', []) if i.nivel == AVISO]

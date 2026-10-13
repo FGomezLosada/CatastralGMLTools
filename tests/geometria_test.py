@@ -5,7 +5,7 @@ Uso: tools\\probar.bat (o tools\\run_tests.py geometria_test.py)
 """
 import math
 
-from qgis.core import Qgis, QgsCoordinateReferenceSystem, QgsGeometry
+from qgis.core import Qgis, QgsCoordinateReferenceSystem, QgsGeometry, QgsPointXY
 
 from catastral_gml_tools.core import geometria as geo
 from catastral_gml_tools.core.incidencias import codigos, hay_errores
@@ -72,7 +72,10 @@ paso8 = 'GEO-2D' in codigos(inc8) and len(rec8[0].exterior) == 4 and not hay_err
 _, inc9a = geo.preparar(QgsGeometry())
 _, inc9b = geo.preparar(QgsGeometry.fromWkt(f"LINESTRING({X0} {Y0}, {X0 + 1} {Y0 + 1})"))
 _, inc9c = geo.preparar(QgsGeometry.fromWkt(f"POLYGON(({X0} {Y0}, {X0 + 0.001} {Y0}, {X0} {Y0 + 0.001}, {X0} {Y0}))"))
-paso9 = 'GEO-VACIA' in codigos(inc9a) and 'GEO-TIPO' in codigos(inc9b) and 'GEO-POCOS-VERTICES' in codigos(inc9c)
+_, inc9d = geo.preparar(QgsGeometry.fromWkt(f"POLYGON(({X0} {Y0}, {X0 + 5} {Y0}, {X0 + 10} {Y0}, {X0} {Y0}))"))
+rec9e, inc9e = geo.preparar(QgsGeometry.fromWkt(f"POLYGON(({X0} {Y0}, {X0 + 5} {Y0}, {X0 + 10} {Y0}, {X0 + 10} {Y0 + 1}, {X0} {Y0}))"))
+paso9 = ('GEO-VACIA' in codigos(inc9a) and 'GEO-TIPO' in codigos(inc9b) and 'GEO-POCOS-VERTICES' in codigos(inc9c)
+         and 'GEO-ALINEADOS' in codigos(inc9d) and 'GEO-ALINEADOS' not in codigos(inc9e) and len(rec9e) == 1)
 
 # 10. Sistemas de referencia
 c25830 = QgsCoordinateReferenceSystem('EPSG:25830')
@@ -108,9 +111,18 @@ husos_ok = (huso(-3.88, 36.75, 25830) is None and huso(-8.4, 43.3, 25830) == 'SR
             and huso(2.65, 39.57, 25830) == 'SRC-HUSO' and huso(-15.4, 28.1, 25830) == 'SRC-HUSO'  #Palma y Las Palmas
             and huso(-15.4, 28.1, 32628) is None and huso(-8.4, 43.3, 25829) is None
             and huso(-7.0, 38.9, 25830, '06') is None and huso(-8.4, 43.3, 25830, '15') == 'SRC-PROVINCIA')
+#Datum (AU-32): ED50 y Madrid 1870 avisan; ETRS89, WGS84 y REGCAN95 (a 32628) no
+_datum = {e: geo.aviso_datum(QgsCoordinateReferenceSystem(f'EPSG:{e}'), d)
+          for e, d in ((23030, 25830), (4230, 25830), (2062, 25830), (4326, 25830), (4258, 25830), (4083, 32628), (25830, 25830))}
+datum_ok = ([e for e, a in _datum.items() if a is not None] == [23030, 4230, 2062]
+            and _datum[23030].codigo == 'SRC-DATUM' and 'ED50' in _datum[23030].mensaje)
+#REGCAN95 → WGS84 UTM 28: las mismas coordenadas (al centímetro)
+_canaria = geo.transformar(QgsGeometry.fromWkt('POINT(458000 3110000)'), QgsCoordinateReferenceSystem('EPSG:4083'), 32628)
+datum_ok = datum_ok and _canaria is not None and _canaria.asPoint().distance(QgsPointXY(458000, 3110000)) < 0.01
 
 checks = {
     "aviso de huso según la posición y la provincia": husos_ok,
+    "aviso de datum antiguo (ED50, Madrid 1870); REGCAN95 pasa a 32628 sin moverse": datum_ok,
     "exterior a sentido horario, superficie y vértices": paso1,
     "hueco a sentido antihorario y superficie sin el hueco": paso2,
     "cierra anillos, quita repetidos y redondea a 2 decimales": paso3,
@@ -121,7 +133,7 @@ checks = {
     "curvas densificadas con flecha < 2 cm": paso6,
     "punto interior aunque el centroide caiga fuera": paso7,
     "quita Z y M": paso8,
-    "geometría vacía, no poligonal o con pocos vértices": paso9,
+    "geometría vacía, no poligonal, con pocos vértices o alineados": paso9,
     "SRC admitidos y huso recomendado (península, Canarias, Cataluña, Galicia)": src_ok,
     "avisos de SRC no admitido y de huso de la provincia": src_avisos,
     "husos por provincia (Málaga, Alicante, Navarra)": husos,
