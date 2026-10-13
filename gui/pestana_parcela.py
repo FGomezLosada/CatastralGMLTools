@@ -111,7 +111,14 @@ class PestanaParcela(QWidget):
             self.alteracion.setItemData(self.alteracion.count() - 1, alt.AYUDA[tipo], Qt.ItemDataRole.ToolTipRole)
         self.alteracion.setToolTip("Tipo de alteración: el plugin propone identificadores y namespaces y comprueba que "
                                    "encajan con lo que espera la Sede")
-        formulario.addRow("Alteración", self.alteracion)
+        fila_alteracion = QHBoxLayout()
+        fila_alteracion.addWidget(self.alteracion, 1)
+        self.matrizBoton = QPushButton("Es la matriz", self)
+        self.matrizBoton.setToolTip("Segregación o agregación: la parcela elegida en la tabla es la que conserva la referencia "
+                                    "catastral (por defecto, la mayor). La escritura puede designar como matriz el resto menor")
+        self.matrizBoton.setEnabled(False)
+        fila_alteracion.addWidget(self.matrizBoton)
+        formulario.addRow("Alteración", fila_alteracion)
         principal.addLayout(formulario)
 
         self.tabla = QTableWidget(0, len(CABECERAS), self)
@@ -183,6 +190,8 @@ class PestanaParcela(QWidget):
         self.srcCombo.currentIndexChanged.connect(self.actualizar_superficies)
         self.alteracion.currentIndexChanged.connect(self.alteracion_cambiada)
         self.tabla.itemSelectionChanged.connect(self.seleccionar_en_capa)
+        self.tabla.itemSelectionChanged.connect(self.actualizar_matriz)
+        self.matrizBoton.clicked.connect(self.marcar_matriz)
         self.tabla.itemChanged.connect(self.celda_cambiada)
         self.recargarBoton.clicked.connect(self.recargar)
         self.unirBoton.clicked.connect(self.unir_seleccionadas)
@@ -320,6 +329,7 @@ class PestanaParcela(QWidget):
         self.ajustar_columnas()
         self.areas = []
         self.filas_capa = [f.local_id for f in self.filas]  #Identificadores tal como vienen de la capa
+        self.matriz = None  #Fila matriz elegida por el usuario (None: la mayor)
         self.aplicar_alteracion()  #Si hay un tipo de alteración elegido, se propone también para la capa nueva
         self.actualizar_superficies()
 
@@ -366,6 +376,10 @@ class PestanaParcela(QWidget):
         problema = cp.src_incorrecto(capa)  #UTM en una capa marcada como geográfica, o sin SRC (AU-06)
         if problema:
             texto += f"<br><span style='color:#c92a2a'>✖ {problema}</span>"
+        else:
+            huso = cp.aviso_huso(self.filas, capa.crs(), epsg, [f.local_id for f in self.filas])  #AU-30
+            if huso is not None:
+                texto += f"<br><span style='color:#e67700'>⚠ {huso.mensaje}</span>"
         self.resumen.setText(texto)
 
     # ------------------------------------------------------------------ Asistente de alteraciones
@@ -373,8 +387,22 @@ class PestanaParcela(QWidget):
     def tipo_alteracion(self):
         return self.alteracion.currentData() or alt.SIN_INDICAR
 
+    def actualizar_matriz(self, *args):
+        filas = self.tabla.selectionModel().selectedRows() if self.tabla.selectionModel() else []
+        self.matrizBoton.setEnabled(self.tipo_alteracion() in (alt.SEGREGACION, alt.AGREGACION) and len(filas) == 1)
+
+    def marcar_matriz(self, *args):
+        """La fila elegida conserva la referencia catastral (AU-24)."""
+        filas = self.tabla.selectionModel().selectedRows()
+        if len(filas) != 1:
+            return
+        self.matriz = filas[0].row()
+        self.aplicar_alteracion()
+        self.actualizar_superficies()
+
     def alteracion_cambiada(self, *args):
         """Al elegir el tipo de alteración se proponen identificadores y namespaces (respetando los del usuario)."""
+        self.actualizar_matriz()
         self.aplicar_alteracion()
         self.actualizar_superficies()
 
@@ -389,7 +417,7 @@ class PestanaParcela(QWidget):
         self.tabla.blockSignals(True)
         #La referencia original se toma de la capa: la tabla puede haberla perdido (p. ej. tras elegir «División»)
         rc = next((i for i in self.filas_capa if refcat.es_rc_parcela(i)), '')
-        for i, (local_id, namespace) in enumerate(alt.proponer(tipo, ids, areas, rc)):
+        for i, (local_id, namespace) in enumerate(alt.proponer(tipo, ids, areas, rc, getattr(self, 'matriz', None))):
             self.tabla.item(i, COL_ID).setText(local_id)
             combo = self.tabla.cellWidget(i, COL_NS)
             if combo is not None:
@@ -546,6 +574,9 @@ class PestanaParcela(QWidget):
                                       origenes=[cp.fichero_de_capa(capa)])
         self.marcar_estados(incidencias)
         problemas = [str(i) for i in incidencias if i.nivel in (ERROR, AVISO)]
+        huso = cp.aviso_huso(filas, capa.crs(), epsg, [f.local_id for f in filas])
+        if huso is not None:
+            problemas.append(huso.mensaje)
         if ok:  #Los avisos del asistente de alteraciones no impiden crear el GML, pero se recuerdan
             self.mostrar_alteracion()
             problemas += [i.mensaje for i in getattr(self, 'incidencias_alteracion', []) if i.nivel == AVISO]

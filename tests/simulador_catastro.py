@@ -48,6 +48,7 @@ SIN_COLINDANTES = ('<?xml version=\'1.0\' encoding="ISO-8859-1" standalone="no"?
                    '"OperationProcessingFailed">\r\n<ExceptionText><![CDATA[No se han encontrado parcelas colindantes a la '
                    'solicitada]]></ExceptionText>\r\n</Exception>\r\n</ExceptionReport>\r\n')
 
+MUNICIPIO_URBANA = 71  #Municipio del Catastro de las parcelas urbanas sintéticas (el del camino 29071…)
 DNPRC_CAIDO = False  #True: la consulta de datos de parcela falla (para probar la regla de numeración sola)
 peticiones = []  #Direcciones pedidas, para comprobar qué se ha consultado
 
@@ -88,6 +89,10 @@ def pedir(url):
         if DNPRC_CAIDO:
             return b'', 'Connection refused (simulado)'
         rc = q['refcat']
+        if not rc[5].isalpha() or rc[5:7].isdigit():  #Urbana: varios inmuebles (lrcdnp), con el municipio del Catastro
+            return json.dumps({"consulta_dnprcResult": {"control": {"cudnp": 2}, "lrcdnp": {"rcdnp": [
+                {"rc": {"pc1": rc[:7], "pc2": rc[7:14]}, "dt": {"loine": {"cp": "29", "cm": "71"},
+                                                               "cmc": str(MUNICIPIO_URBANA), "nm": "FICTICIO"}}]}}}).encode('utf-8'), ''
         camino = rc == CAMINO
         lspr = [{"cspr": "0", "dspr": {"ccc": "VT" if camino else "MT", "ip": "00",
                                        "dcc": "VÍA DE COMUNICACIÓN DE DOMINIO PÚBLICO" if camino else "MATORRAL"}}]

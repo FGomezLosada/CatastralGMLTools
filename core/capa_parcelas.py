@@ -57,6 +57,15 @@ def src_incorrecto(capa):
     return ''
 
 
+def aviso_huso(filas, crs, epsg, referencias=()):
+    """Aviso de huso (geometria.aviso_huso) para las filas de una capa; la provincia sale de una RC de rústica si la hay."""
+    geometrias = [f.geometria for f in filas if f.geometria is not None and not f.geometria.isNull()]
+    if not geometrias or epsg is None:
+        return None
+    rusticas = [r for r in (refcat.parcela_de(x) for x in referencias) if refcat.tipo_parcela(r) == 'rústica']
+    return geo.aviso_huso(QgsGeometry.unaryUnion(geometrias), crs, epsg, rusticas[0][:2] if rusticas else '')
+
+
 def fichero_de_capa(capa):
     """Ruta del fichero del que sale la capa ('' si es de memoria o de un servicio). Sirve para no sobrescribirlo (AU-09)."""
     if capa is None or capa.providerType() not in ('ogr', 'delimitedtext'):
@@ -194,4 +203,8 @@ def unir_seleccionadas(capa, campo_id=''):
     if con_rc and tipo == alt.AGRUPACION:
         incidencias.append(Incidencia(INFO, 'UNION-AGRUPACION', "La mayor no llega al 80 % del total: se propone agrupación "
                                                                 "(parcela nueva). Si conserva su referencia, elija agregación"))
+    elif tipo == alt.AGREGACION and proporcion < alt.UMBRAL_AGREGACION:
+        incidencias.append(Incidencia(INFO, 'UNION-UMBRAL', "La mayor llega al 80 % de la guía del IVG, pero no al quíntuplo "
+                                                            "de lo agregado del Reglamento Hipotecario (≈ 83 %): manda la "
+                                                            "escritura"))
     return principal.id(), tipo, incidencias

@@ -54,7 +54,7 @@ resultante = agregar.getFeature(fid) if fid is not None else None
 nucleo = (fid is not None and tipo == alt.AGREGACION and agregar.featureCount() == 2 and agregar.isEditable()
           and resultante['refcat'] == '1907401VK4810H' and abs(resultante.geometry().area() - 750) < 0.01
           and not resultante.geometry().isMultipart() and agregar.selectedFeatureIds() == [fid]
-          and codigos(inc) == ['UNION-HECHA'])
+          and codigos(inc) == ['UNION-HECHA', 'UNION-UMBRAL'])  #80 %: guía del IVG sí, quíntuplo del RH no
 agregar.undoStack().undo()
 deshacer = agregar.featureCount() == 3
 agregar.selectByIds(ids(agregar, ['1907401VK4810H', 'Lejos']))

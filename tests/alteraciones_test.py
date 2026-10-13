@@ -46,7 +46,9 @@ propuestas = (seg == [(RC, SDGC), ('Seg_1', LOCAL), ('Mi_finca', LOCAL)]
 
 # 2. Comprobaciones
 def cods(tipo, pares, superficies):
-    return codigos(alt.comprobar(tipo, [p[0] for p in pares], [p[1] for p in pares], superficies))
+    """Códigos sin el recordatorio fijo de la escritura (ALT-ESCRITURA, sale en todas las operaciones salvo subsanación)."""
+    return [c for c in codigos(alt.comprobar(tipo, [p[0] for p in pares], [p[1] for p in pares], superficies))
+            if c != 'ALT-ESCRITURA']
 
 
 comprobaciones = (cods(alt.SEGREGACION, seg, [500, 50, 50]) == []
@@ -55,10 +57,12 @@ comprobaciones = (cods(alt.SEGREGACION, seg, [500, 50, 50]) == []
                   and cods(alt.DIVISION, div, [100, 100, 100]) == []
                   and cods(alt.DIVISION, div, [500, 50, 100]) == ['ALT-UMBRAL']
                   and cods(alt.DIVISION, seg, [100, 100, 100]) == ['ALT-SDGC']
-                  and cods(alt.AGREGACION, agr, [500]) == [] and cods(alt.AGREGACION, seg, areas)[:1] == ['ALT-NPP']
-                  and cods(alt.AGRUPACION, agru, [500]) == [] and cods(alt.AGRUPACION, agr, [500]) == ['ALT-SDGC']
+                  and cods(alt.AGREGACION, agr, [500]) == ['ALT-UMBRAL'] and cods(alt.AGREGACION, seg, areas)[:1] == ['ALT-NPP']
+                  and cods(alt.AGRUPACION, agru, [500]) == ['ALT-UMBRAL']
+                  and cods(alt.AGRUPACION, agr, [500]) == ['ALT-SDGC', 'ALT-UMBRAL']
                   and cods(alt.SUBSANACION, sub, [10, 10]) == []
-                  and cods(alt.SUBSANACION, seg, areas) == ['ALT-SDGC']
+                  and cods(alt.SUBSANACION, seg, areas) == ['ALT-SUBSANACION-LOCAL']
+                  and 'ALT-ESCRITURA' in codigos(alt.comprobar(alt.SEGREGACION, [RC, 'Seg_1'], [SDGC, LOCAL], [500, 50]))
                   and cods(alt.SEGREGACION, [(RC, SDGC)], [10]) == ['ALT-NPP']
                   and alt.comprobar(alt.SIN_INDICAR, ids, [SDGC, LOCAL, LOCAL], areas) == []
                   and all(i.nivel == 'info' for i in alt.comprobar(alt.SEGREGACION, [p[0] for p in seg],
@@ -117,6 +121,17 @@ pt.tabla.cellWidget(1, pp.COL_NS).setCurrentText(ns_sdgc)
 aviso_manual = '⚠' in pt.alteracionInfo.text() and 'hay 2' in pt.alteracionInfo.text()
 pt.tabla.cellWidget(1, pp.COL_NS).setCurrentText('LOCAL')
 
+#Elegir la matriz (AU-24): la fila 2 conserva la referencia y la 1 pasa a ser la segregada; luego se deja como estaba
+pt.tabla.selectRow(1)
+boton_matriz = pt.matrizBoton.isEnabled()
+pt.matrizBoton.click()
+con_matriz = [(t[0], t[1]) for t in tabla()]
+pt.tabla.selectRow(0)
+pt.matrizBoton.click()
+pt.tabla.item(1, pp.COL_ID).setText('Finca_B')
+matriz_ui = boton_matriz and con_matriz == [('Seg_1', 'LOCAL'), (RC, 'SDGC')] and [(t[0], t[1]) for t in tabla()] == \
+    [(RC, 'SDGC'), ('Finca_B', 'LOCAL')]
+
 # 4. Crear el GML: identificadores del asistente y operación en el resultado
 carpeta = tempfile.mkdtemp(prefix='cgt_alt_')
 ruta = os.path.join(carpeta, 'segregacion.gml')
@@ -139,7 +154,16 @@ dw.deleteLater()
 agr2 = alt.proponer(alt.AGREGACION, ['1907401VK4810H', '1907401VK4810H'], [800, 200])
 agregacion_filas = agr2 == [('1907401VK4810H', 'SDGC'), ('Nueva_1', 'LOCAL')]
 
+#Reparcelación (AU-22) y parcela matriz elegida (AU-24)
+rep = alt.proponer(alt.REPARCELACION, ['1907401VK4810H', '1907401VK4810H', '1907402vk4810h', 'Rep_9'], [10, 20, 30, 40])
+reparcelacion = (rep == [('1907401VK4810H', SDGC), ('Rep_1', LOCAL), ('1907402VK4810H', SDGC), ('Rep_2', LOCAL)]
+                 and 'ALT-NO-AUTOMATICA' in cods(alt.REPARCELACION, rep, [10, 20, 30, 40])
+                 and alt.REPARCELACION in alt.TIPOS)
+matriz = (alt.proponer(alt.SEGREGACION, [RC, 'Nueva_1'], [800, 200], matriz=1) == [('Seg_1', LOCAL), (RC, SDGC)]
+          and alt.proponer(alt.SEGREGACION, [RC, 'Nueva_1'], [800, 200]) == [(RC, SDGC), ('Seg_1', LOCAL)])
+
 checks = {
+    "reparcelación y parcela matriz elegida (también con el botón)": reparcelacion and matriz and matriz_ui,
     "agregación con varias filas: la RC solo para la mayor": agregacion_filas,
     "propuestas de identificador y namespace por operación": propuestas,
     "comprobación NPP/namespace y notas de superficie": comprobaciones,

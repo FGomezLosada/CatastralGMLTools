@@ -250,6 +250,23 @@ def solapes(geometrias):
     return resultado
 
 
+def truncar(geometria, decimales=DECIMALES):
+    """
+    Copia de un polígono o multipolígono con las coordenadas truncadas (no redondeadas) a 2 decimales, como hace la Sede
+    con un GML que trae más (documento de validación v2.1; AU-29).
+    """
+    factor = 10 ** decimales
+
+    def t(v):
+        return math.trunc(v * factor) / factor
+
+    multi = geometria.asMultiPolygon() if geometria.isMultipart() else [geometria.asPolygon()]
+    partes = [[[QgsPointXY(t(p.x()), t(p.y())) for p in anillo] for anillo in poligono] for poligono in multi if poligono]
+    if not partes:
+        return QgsGeometry(geometria)
+    return QgsGeometry.fromPolygonXY(partes[0]) if len(partes) == 1 else QgsGeometry.fromMultiPolygonXY(partes)
+
+
 def poligonal(geometria):
     """
     La geometría válida y solo con sus partes de superficie (makeValid puede devolver colecciones con líneas o puntos),
@@ -371,6 +388,49 @@ def epsg_recomendado(geometria, crs):
         return 32628
     huso = int(math.floor((lon + 180) / 6)) + 1
     return {29: 25829, 30: 25830, 31: 25831}.get(huso)
+
+
+LIMITES_HUSO = {25829: (-12.0, -6.0), 25830: (-6.0, 0.0), 25831: (0.0, 6.0)}
+MARGEN_HUSO = 1.5  #Grados fuera de su huso a partir de los que el SRC es claramente el de otra zona (AU-30)
+
+
+def aviso_huso(geometria, crs, epsg, provincia=''):
+    """
+    Aviso si el GML va a ir en un huso que no corresponde a su posición o a su provincia (p. ej. una parcela de Galicia
+    en EPSG:25830, o Baleares en 25830): la Sede lo rechazaría o la parcela quedaría desplazada. None si encaja.
+    Con la provincia (de una RC de rústica) se usa la tabla de husos de la DGC; sin ella, solo se avisa cuando la
+    posición queda claramente fuera del huso (más de 1,5° de su borde), para no confundir en provincias entre dos husos.
+    """
+    if geometria is None or geometria.isEmpty() or epsg not in SRC_ADMITIDOS or crs is None or not crs.isValid():
+        return None
+    husos = husos_provincia(provincia) if provincia else ()
+    if husos:
+        if epsg not in husos:
+            return Incidencia(AVISO, 'SRC-PROVINCIA', f"EPSG:{epsg} no es el huso de la provincia {provincia} "
+                                                      f"(EPSG:{', '.join(map(str, husos))})")
+        return None
+    destino = QgsCoordinateReferenceSystem('EPSG:4258')
+    centro = QgsGeometry(geometria.centroid())
+    try:
+        if crs != destino:
+            centro.transform(QgsCoordinateTransform(crs, destino, QgsProject.instance()))
+    except QgsCsException:
+        return None
+    if not finita(centro):
+        return None
+    lon, lat = centro.asPoint().x(), centro.asPoint().y()
+    canarias = 27.0 <= lat <= 29.6 and -18.5 <= lon <= -13.0
+    if canarias != (epsg == 32628):
+        recomendado = 32628 if canarias else epsg_recomendado(geometria, crs)
+        return Incidencia(AVISO, 'SRC-HUSO', f"La geometría está en {'Canarias' if canarias else 'la Península o Baleares'}: "
+                                             f"el GML debería ir en EPSG:{recomendado}, no en EPSG:{epsg}")
+    if epsg in LIMITES_HUSO:
+        oeste, este = LIMITES_HUSO[epsg]
+        fuera = max(oeste - lon, lon - este, 0.0)
+        if fuera > MARGEN_HUSO:
+            return Incidencia(AVISO, 'SRC-HUSO', f"La geometría cae lejos del huso de EPSG:{epsg}: el GML debería ir en "
+                                                 f"EPSG:{epsg_recomendado(geometria, crs)} (el huso de su provincia)")
+    return None
 
 
 def transformar(geometria, crs_origen, epsg_destino):

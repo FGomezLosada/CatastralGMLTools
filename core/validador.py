@@ -35,7 +35,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 
-from qgis.core import QgsGeometry, QgsPointXY
+from qgis.core import QgsCoordinateReferenceSystem, QgsGeometry, QgsPointXY
 
 from . import geometria as geo
 from . import gml_lector as gl
@@ -106,6 +106,16 @@ def validar(ruta, lectura=None):
         inc += validar_elemento(elemento, es_parcela)
 
     inc += validar_conjunto(lectura.elementos, es_parcela)
+
+    #Huso que no corresponde a la posición o a la provincia (AU-30)
+    geometrias = [e.geometria for e in lectura.elementos if not e.geometria.isNull() and not e.geometria.isEmpty()]
+    if geometrias and lectura.epsg in geo.SRC_ADMITIDOS:
+        rusticas = [refcat.limpiar(e.local_id)[:14] for e in lectura.elementos
+                    if refcat.tipo_parcela(refcat.limpiar(e.local_id)[:14]) == 'rústica']
+        aviso = geo.aviso_huso(QgsGeometry.unaryUnion(geometrias), QgsCoordinateReferenceSystem(f'EPSG:{lectura.epsg}'),
+                               lectura.epsg, rusticas[0][:2] if rusticas else '')
+        if aviso is not None:
+            inc.append(aviso)
     return informe
 
 

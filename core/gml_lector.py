@@ -62,6 +62,7 @@ class ElementoGML:
     curvas: bool = False        #Lleva arcos o círculos (gml:Arc…): la Sede no los admite, hay que densificarlos
     dimension: int = 2          #srsDimension (3 si trae Z: la DGC exige 2)
     estructura: str = ''        #Parcela 4.0 cuya geometría no es gml:MultiSurface (qué trae en su lugar)
+    con_srs: bool = True        #Alguna de sus geometrías declara srsName (la Sede lo exige en cada elemento, AU-29)
 
 
 @dataclass
@@ -239,6 +240,7 @@ def _leer_parcela(cp_el):
     lista, counts, roles, decimales, dimension, curvas, problema = _geometria_segura(geom_el)
     recintos = len(descendientes(geom_el, 'surfaceMember')) if geom_el is not None else 0
     primera = next(iter(geom_el), None) if geom_el is not None else None
+    con_srs = geom_el is not None and any(d.get('srsName') for d in geom_el.iter())
     estructura = '' if primera is None or nombre_local(primera.tag) == 'MultiSurface' else nombre_local(primera.tag)
     area_txt = texto_de(cp_el, 'areaValue')
     try:
@@ -250,7 +252,7 @@ def _leer_parcela(cp_el):
                        cp_el.get(f'{{{geo_ns_gml()}}}id', ''), recintos=max(recintos, len(lista)),
                        anillos=[a for p in lista for a in p], counts=counts, roles=roles, decimales=decimales,
                        punto_referencia=_punto_referencia(cp_el), problema=problema, curvas=curvas, dimension=dimension,
-                       estructura=estructura)
+                       estructura=estructura, con_srs=con_srs)
 
 
 def _punto_referencia(cp_el):
@@ -275,7 +277,8 @@ def _leer_construccion(el):
                        naturaleza=texto_de(el, 'constructionNature'), gml_id=el.get(f'{{{geo_ns_gml()}}}id', ''),
                        recintos=len(lista), anillos=[a for p in lista for a in p], counts=counts, roles=roles,
                        decimales=decimales, estado=texto_de(el, 'conditionOfConstruction') if tipo == EDIFICIO else '',
-                       problema=problema, curvas=curvas, dimension=dimension)
+                       problema=problema, curvas=curvas, dimension=dimension,
+                       con_srs=any(d.get('srsName') for d in el.iter()))
 
 
 def leer_partes(datos):
@@ -385,6 +388,10 @@ def leer_datos(datos):
                                                     e.local_id))
         elif e.geometria.isNull() or e.geometria.isEmpty():
             resultado.incidencias.append(Incidencia(ERROR, 'GEO-VACIA', "Elemento sin geometría", e.local_id))
+        if not e.con_srs and resultado.epsg is not None:
+            resultado.incidencias.append(Incidencia(ERROR, 'SRC-ELEMENTO', "La geometría no declara su sistema de referencia "
+                                                                           "(srsName): la Sede lo exige en cada elemento",
+                                                    e.local_id))
         if e.curvas:
             resultado.incidencias.append(Incidencia(ERROR, 'GEO-CURVAS-GML', "Tiene arcos o curvas (gml:Arc…): la Sede solo "
                                                                              "admite segmentos rectos. Densifique las "
