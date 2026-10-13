@@ -5,6 +5,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 ## [Sin publicar]
 
 ### Añadido
+- Arrastrar una capa del panel de Capas a la pestaña Validar (o ficheros a Utilidades) ya no quita la capa del panel: se responde «copiar» en vez de «mover». Detectado en la prueba a mano del 13/10/2026.
 - **Auditoría, bloque A (fiabilidad)** — el plugin ya no da por bueno lo que la Sede rechazaría ni se rompe con datos raros:
   - *Comparar con el Catastro* mide la tolerancia de ±1 cm como **distancia**, no como superficie: un vértice movido 2 cm, un escalón o un entrante estrecho ya no salen como «contorno coincidente», y el mensaje dice hasta cuántos cm se separa; una construcción que sobresale 2 cm ya no sale «dentro» (AU-01).
   - Una parcela del GML igual a la catastral da error «sin cambios: quítela del GML» (AU-03).

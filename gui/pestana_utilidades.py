@@ -10,6 +10,7 @@ import os
 
 from qgis.core import Qgis, QgsApplication
 from qgis.gui import QgsFileWidget
+from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
     QFileDialog,
@@ -110,13 +111,15 @@ class PestanaUtilidades(QWidget):
 
     def dragEnterEvent(self, event):  # noqa: N802 (nombre impuesto por Qt)
         if event.mimeData().hasUrls():
-            event.acceptProposedAction()
+            event.setDropAction(Qt.DropAction.CopyAction)  #Nunca «mover» (quitaría la capa o el fichero de su origen)
+            event.accept()
         else:
             event.ignore()
 
     def dropEvent(self, event):  # noqa: N802 (nombre impuesto por Qt)
         self.agregar([u.toLocalFile() for u in event.mimeData().urls() if u.isLocalFile()])
-        event.acceptProposedAction()
+        event.setDropAction(Qt.DropAction.CopyAction)
+        event.accept()
 
     # ------------------------------------------------------------------ Unir
 
