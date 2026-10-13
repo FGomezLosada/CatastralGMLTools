@@ -378,6 +378,10 @@ class PestanaEdificio(QWidget):
         problema = ce.src_incorrecto(capa)
         if problema:
             texto += f"<br><span style='color:#c92a2a'>✖ {problema}</span>"
+        elif capa is not None:
+            huso = cp.aviso_huso(self.filas, capa.crs(), epsg, [self.referencia.text()])  #AU-30
+            if huso is not None:
+                texto += f"<br><span style='color:#e67700'>⚠ {huso.mensaje}</span>"
         if not self.referencia.text().strip():
             texto += "<br><span style='color:#e67700'>⚠ Indique la referencia de la parcela</span>"
         self.resumen.setText(texto)

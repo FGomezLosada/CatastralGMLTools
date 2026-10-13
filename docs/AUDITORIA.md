@@ -104,6 +104,7 @@ CHANGELOG, DESARROLLO y la ayuda.
 | AU-44 | Elegir en el mapa activa tras cerrar el panel; motivo real de los fallos de descarga; respuesta HTML del servicio | código B6, B14; escenarios DES-19 |
 | AU-45 | `setFilters` con `Qgis.LayerFilters(...)`; revisar el resto de APIs para Qt6 | código B5 |
 | AU-46 | «Solo los elementos seleccionados» se queda marcado al cambiar de capa | escenarios F20 |
+| AU-61 | Vértices nuevos sobre el lindero: al redondear al cm, un vértice de la línea de división que cae sobre un lindero inclinado queda hasta 0,7 cm fuera de él (en prueba2.gml, 0,38 y 0,61 cm; 0,09 m² de rendijas en total). Está dentro de ±1 cm y la Sede lo valida, pero se puede afinar: elegir, de los cuatro puntos de la rejilla de 1 cm que lo rodean, el más cercano al lindero catastral, y avisar si un vértice nuevo queda a más de 0,5 cm | Prueba a mano del 13/10/2026 |
 | AU-47 | Pruebas que faltan (lista en código §«Pruebas que faltan» y escenarios) | código, escenarios |
 
 ### Bloque D · Documentación, metadatos y presentación (con cada bloque y al final)

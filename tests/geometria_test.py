@@ -93,7 +93,24 @@ husos = geo.husos_provincia('29') == (25830,) and geo.husos_provincia(3) == (258
 transformada = geo.transformar(nerja_4326, c4326, 25830).asPoint()
 transf = 420000 < transformada.x() < 423000 and 4067000 < transformada.y() < 4072000
 
+#Huso que no corresponde a la posición o a la provincia (AU-30)
+def punto_en(lon, lat, epsg):
+    g = QgsGeometry.fromWkt(f"POINT({lon} {lat})").buffer(0.0005, 4)
+    return geo.transformar(g, QgsCoordinateReferenceSystem('EPSG:4258'), epsg)
+
+
+def huso(lon, lat, epsg, provincia=''):
+    aviso = geo.aviso_huso(punto_en(lon, lat, epsg), QgsCoordinateReferenceSystem(f'EPSG:{epsg}'), epsg, provincia)
+    return aviso.codigo if aviso else None
+
+
+husos_ok = (huso(-3.88, 36.75, 25830) is None and huso(-8.4, 43.3, 25830) == 'SRC-HUSO'       #Nerja bien; A Coruña en 30
+            and huso(2.65, 39.57, 25830) == 'SRC-HUSO' and huso(-15.4, 28.1, 25830) == 'SRC-HUSO'  #Palma y Las Palmas
+            and huso(-15.4, 28.1, 32628) is None and huso(-8.4, 43.3, 25829) is None
+            and huso(-7.0, 38.9, 25830, '06') is None and huso(-8.4, 43.3, 25830, '15') == 'SRC-PROVINCIA')
+
 checks = {
+    "aviso de huso según la posición y la provincia": husos_ok,
     "exterior a sentido horario, superficie y vértices": paso1,
     "hueco a sentido antihorario y superficie sin el hueco": paso2,
     "cierra anillos, quita repetidos y redondea a 2 decimales": paso3,

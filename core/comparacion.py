@@ -5,8 +5,10 @@ validación gráfica (IVG). Se descargan del WFS de la DGC las parcelas bajo el 
   - NPO (parcelas catastrales afectadas) y NPP (parcelas del GML), y la operación que corresponde según la tabla del
     documento de validación de la DGC (segregación, división, agregación, agrupación, subsanación o no permitida);
   - que el contorno exterior del GML coincida con el de las parcelas afectadas (±1 cm en vértices, FAQ de la DGC):
-    ninguna parcela afectada solo en parte (con alguna parcial el IVG es negativo) ni suelo sin parcela ocupado
-    (viales urbanos: IVG negativo);
+    ninguna parcela afectada solo en parte ni suelo sin parcela ocupado (viales urbanos). Desde el 12/03/2025 la Sede no
+    certifica IVG negativos: con estos errores no emite el informe (muestra los errores y deja descargar el «GML
+    parcial»; Tema 8 del curso, v2026). Ocupar viario con una parcela LOCAL (cesión o incorporación) da un positivo
+    condicionado, sin tramitación automática (guía GML Catastro-Registro y Check4SEC; auditoría AU-20 y AU-21);
   - que las referencias SDGC existan en el Catastro y sean de las parcelas afectadas;
   - avisos que no impiden el IVG pero sí la tramitación automática (urbana y rústica mezcladas, distinto polígono o
     manzana, más de 30 parcelas) y
@@ -20,10 +22,11 @@ copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from qgis.core import QgsGeometry, QgsPointXY, QgsRectangle
 
+from . import geometria as geo
 from . import gml_lector as gl
 from . import refcat, servicios
 from .incidencias import AVISO, ERROR, INFO, Incidencia
@@ -74,6 +77,12 @@ def fuera_de(a, b):
     return resto if not resto.isEmpty() and resto.area() > RUIDO else None
 
 
+def diferencia(a, b):
+    """a menos b, sin tolerancia (para dibujar en el mapa)."""
+    resto = a.difference(b)
+    return resto if not resto.isEmpty() else None
+
+
 def desvio(resto, b):
     """
     Distancia máxima (m) de lo que queda fuera (resto) a b: cuánto se separa. El contorno de resto se densifica (el
@@ -112,13 +121,13 @@ def operacion(npo, npp, propuestas, origen_ids):
     sdgc = [e for e in propuestas if e.namespace == 'ES.SDGC.CP']
     if npo == 1 and npp > 1:
         if len(sdgc) == 1:
-            return "Segregación (o subsanación)", INFO
+            return "Segregación (o subsanación, que no se tramita de forma automática)", INFO
         if not sdgc:
             return "División", INFO
         return "No permitida: de una parcela no pueden salir dos o más con referencia catastral (SDGC)", ERROR
     if npo > 1 and npp == 1:
         if sdgc:
-            return "Agregación (o subsanación)", INFO
+            return "Agregación (o subsanación, que no se tramita de forma automática)", INFO
         return "Agrupación", INFO
     if npo == npp and npo > 0:
         if len(sdgc) == npp and {e.local_id for e in sdgc} == set(origen_ids):
@@ -142,6 +151,10 @@ def comparar(lectura):
                                                            "que tiene catastro propio (no el de la Dirección General del "
                                                            "Catastro)"))
         return c
+    if any(e.decimales > 2 for e in propuestas):  #La Sede trunca a 2 decimales: se compara lo que verá ella (AU-29)
+        propuestas = [replace(e, geometria=geo.truncar(e.geometria)) for e in propuestas]
+        c.incidencias.append(Incidencia(INFO, 'CMP-TRUNCADO', "El GML trae más de 2 decimales: se compara con las coordenadas "
+                                                              "truncadas a 2, como hace la Sede"))
     union = QgsGeometry.unaryUnion([e.geometria for e in propuestas])
     caja = union.boundingBox()
     caja.grow(MARGEN)
@@ -188,18 +201,39 @@ def comparar(lectura):
     #Suelo sin parcela ocupado (calles en urbana)
     sin_parcela = fuera_de(union, union_todas)
     if sin_parcela is not None:
-        c.incidencias.append(Incidencia(
-            ERROR, 'CMP-SIN-PARCELA', f"El GML ocupa {sin_parcela.area():.2f} m² de suelo sin parcela catastral (en urbana, "
-                                      "vía pública): la Sede dará informe negativo salvo cesión o incorporación del viario "
-                                      "con una parcela propia (LOCAL)"))
-    c.exceso = fuera_de(union, union_origen)
-    c.defecto = fuera_de(union_origen, union)
+        #¿Lo cubren solo parcelas nuevas (LOCAL)? Es la forma admitida de ceder o incorporar viario (AU-21)
+        sdgc = [e.geometria for e in propuestas if e.namespace == 'ES.SDGC.CP']
+        en_sdgc = fuera_de(sin_parcela, QgsGeometry.unaryUnion(sdgc).buffer(-TOLERANCIA, 4)) if sdgc else sin_parcela
+        solo_local = not sdgc or (en_sdgc is not None and abs(en_sdgc.area() - sin_parcela.area()) < 0.01)
+        if solo_local:
+            c.incidencias.append(Incidencia(
+                AVISO, 'CMP-VIARIO', f"El GML ocupa {sin_parcela.area():.2f} m² de suelo sin parcela catastral (en urbana, "
+                                     "vía pública) con una parcela nueva (LOCAL): cesión o incorporación de viario. La Sede "
+                                     "da un informe positivo condicionado, sin tramitación automática; necesita la "
+                                     "conformidad de la Administración titular del viario"))
+        else:
+            c.incidencias.append(Incidencia(
+                ERROR, 'CMP-SIN-PARCELA', f"El GML ocupa {sin_parcela.area():.2f} m² de suelo sin parcela catastral (en urbana, "
+                                          "vía pública) dentro de una parcela con referencia (SDGC): la Sede no emitirá el "
+                                          "informe. Para ceder o incorporar viario, delimítelo como una parcela propia "
+                                          "(LOCAL)"))
+    #Para el mapa, la diferencia entera (también el primer centímetro), no solo lo que pasa de la tolerancia: si no, la
+    #zona dibujada no llegaba a la línea del GML y parecía otro descuadre (prueba a mano del 13/10/2026)
+    c.exceso = diferencia(union, union_origen) if fuera_de(union, union_origen) is not None else None
+    c.defecto = diferencia(union_origen, union) if fuera_de(union_origen, union) is not None else None
     if not parciales and c.exceso is None and c.defecto is None:
         c.incidencias.append(Incidencia(INFO, 'CMP-CONTORNO-OK',
                                         "El contorno exterior coincide con el de "
                                         + ("la parcela catastral afectada" if c.npo == 1
                                            else f"las {c.npo} parcelas catastrales afectadas")
                                         + f" (±{TOLERANCIA * 100:.0f} cm)"))
+
+    #Un GML con parcelas de dos municipios no se valida (asistente Catastro-Registro, CdU_12; AU-26)
+    municipios = {m for m in (servicios.municipio_de(e.local_id) for e in afectadas[:MAX_TRAMITACION]) if m}
+    if len(municipios) > 1:
+        c.incidencias.append(Incidencia(ERROR, 'CMP-MUNICIPIOS', f"Las parcelas afectadas son de {len(municipios)} municipios: "
+                                                                 "la Sede no valida un GML con parcelas de dos municipios "
+                                                                 "(haga un GML por municipio)"))
 
     #Parcelas sin cambios: una parcela del GML idéntica (±1 cm) a una catastral no altera nada (AU-03; Check4SEC)
     for p in propuestas:
@@ -307,7 +341,7 @@ def comparar_edificio(lectura):
         geometria = e.geometria if e.geometria.isGeosValid() else e.geometria.makeValid()  #Partes solapadas (AU-11)
         resto = fuera_de(geometria, exacta)
         if resto is not None:
-            fuera.append(resto)
+            fuera.append(diferencia(geometria, exacta))
             c.incidencias.append(Incidencia(ERROR, 'CMP-BU-FUERA', f"La construcción sale de la parcela catastral {rc} "
                                                                    f"({_medida(resto.area(), desvio(resto, exacta))}): el "
                                                                    "ICUC exige que esté entera dentro, sin extralimitarla "

@@ -370,6 +370,29 @@ def datos_rustica(rc):
         return None
 
 
+def municipio_de(rc):
+    """
+    (provincia, municipio) del Catastro de una parcela, como enteros. En rústica sale de la propia referencia; en urbana
+    se consulta Consulta_DNPRC (código de municipio del Catastro, «cmc»). None si no se puede saber.
+    """
+    parcela = refcat.limpiar(rc)[:14]
+    if refcat.tipo_parcela(parcela) == 'rústica':
+        return int(parcela[:2]), int(parcela[2:5])
+    datos, error = pedir(url_datos(parcela))
+    if error:
+        return None
+    try:
+        resultado = json.loads(datos.decode('utf-8', 'replace'))['consulta_dnprcResult']
+        if 'bico' in resultado:  #Un solo inmueble
+            dt = resultado['bico']['bi']['dt']
+        else:  #Varios inmuebles en la parcela: lista lrcdnp › rcdnp (comprobado con 1472010VF2617S, 13/10/2026)
+            lista = resultado['lrcdnp']['rcdnp']
+            dt = (lista[0] if isinstance(lista, list) else lista)['dt']
+        return int(dt['loine']['cp']), int(dt['cmc'])
+    except (ValueError, KeyError, TypeError, AttributeError, IndexError):
+        return None
+
+
 def _sin_tildes(texto):
     return texto.upper().translate(str.maketrans('ÁÉÍÓÚ', 'AEIOU'))
 

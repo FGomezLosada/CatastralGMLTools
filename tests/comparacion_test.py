@@ -80,6 +80,10 @@ parcial = ('CMP-PARCIAL' in codigos(par.incidencias) and par.defecto is not None
 sin = comparar('sin_parcela', [('1907403VK4810H', 'S', rect(X0 + 40, Y0, 30, 30))])
 sin_parcela = ('CMP-SIN-PARCELA' in codigos(sin.incidencias) and sin.exceso is not None
                and abs(sin.exceso.area() - 300) < 2)
+#Con una parcela nueva (LOCAL) que cubre la calle: positivo condicionado, aviso (AU-21)
+viario = comparar('viario', [('Nueva_1', 'L', rect(X0 + 40, Y0, 30, 30))])
+sin_parcela = (sin_parcela and 'CMP-VIARIO' in codigos(viario.incidencias)
+               and 'CMP-SIN-PARCELA' not in codigos(viario.incidencias) and 'negativo' not in str(sin.incidencias))
 
 # 6. Referencia que no existe en el Catastro
 noex = comparar('no_existe', [('1907499VK4810H', 'S', rect(X0, Y0, 20, 30))])
@@ -88,7 +92,12 @@ no_existe = 'CMP-RC-NO-EXISTE' in codigos(noex.incidencias)
 # 7. Dominio público afectado (el camino de 60 m, solo en parte): aviso y error de parcial
 dp = comparar('dominio', [(sim.RC, 'S', rect(X0, Y0 - 6, 20, 36))])
 dominio = ('CMP-DOMINIO-PUBLICO' in codigos(dp.incidencias) and sim.CAMINO in str(dp.incidencias)
-           and 'CMP-PARCIAL' in codigos(dp.incidencias))
+           and 'CMP-PARCIAL' in codigos(dp.incidencias) and 'CMP-MUNICIPIOS' not in codigos(dp.incidencias))
+#Las mismas parcelas, si la urbana fuera de otro municipio: la Sede no valida dos municipios en un GML (AU-26)
+sim.MUNICIPIO_URBANA = 99
+dos_mun = comparar('dos_municipios', [(sim.RC, 'S', rect(X0, Y0 - 6, 20, 36))])
+sim.MUNICIPIO_URBANA = 71
+dominio = dominio and 'CMP-MUNICIPIOS' in codigos(dos_mun.incidencias)
 
 # 8. Sin conexión: no se compara y se dice
 servicios.pedir = lambda url: (b'', 'Host not found (simulado)')
@@ -182,9 +191,9 @@ checks = {
     "división, agregación y agrupación según NPO/NPP/namespace": operaciones,
     "no permitida: dos SDGC de una parcela, y RC que no es de las afectadas": no_permitida,
     "colindante afectada en parte: error y superficie sin cubrir": parcial,
-    "suelo sin parcela (vía pública): error y superficie en exceso": sin_parcela,
+    "suelo sin parcela: error con SDGC; aviso (positivo condicionado) con parcela LOCAL": sin_parcela,
     "referencia que no existe en el Catastro": no_existe,
-    "dominio público afectado: aviso": dominio,
+    "dominio público afectado: aviso; dos municipios: error": dominio,
     "sin conexión: no se compara y se avisa": sin_red,
     "rectángulos de 1 km como mucho y tabla de operaciones": tabla,
     "pestaña Validar: botón, lista, barra y capas de la comparación": interfaz,
