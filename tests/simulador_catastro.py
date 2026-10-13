@@ -101,8 +101,11 @@ def pedir(url):
         camino = rc == CAMINO
         lspr = [{"cspr": "0", "dspr": {"ccc": "VT" if camino else "MT", "ip": "00",
                                        "dcc": "VÍA DE COMUNICACIÓN DE DOMINIO PÚBLICO" if camino else "MATORRAL"}}]
+        #Rústica: con CLASES[rc] = 'DS', una construcción en una dirección «DS» (no la hace diseminado de urbana)
+        via = {"lous": {"lourb": {"dir": {"tv": "DS", "nv": "SENDA INVENTADA"}}}} if CLASES.get(rc[:14]) == 'DS' else {}
         return json.dumps({"consulta_dnprcResult": {"control": {"cudnp": 1}, "bico": {
-            "bi": {"idbi": {"cn": "RU"}, "dt": {"locs": {"lors": {"lorus": {"npa": "CAMINO" if camino else "PARAJE INVENTADO"}}}},
+            "bi": {"idbi": {"cn": "RU"}, "dt": {"locs": {"lors": {"lorus": {"npa": "CAMINO" if camino else "PARAJE INVENTADO"}},
+                                                         **via}},
                    "ldt": f"Polígono {int(rc[6:9])} Parcela {int(rc[9:14])} (ficticia)"}, "lspr": lspr}}}).encode('utf-8'), ''
     if 'consulta_rccoor' in partes.path.lower():
         if -2.55 <= float(q['coorx']) <= -0.70 and 41.88 <= float(q['coory']) <= 43.35:  #Navarra: referencia de 9

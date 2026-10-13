@@ -160,10 +160,14 @@ bu_bice = cmp.comparar_edificio(gl.leer(ruta_bu))
 sim.CLASES[sim.RC] = 'DS'
 disem = comparar('diseminado', [(sim.RC, 'S', rect(X0, Y0, 20, 18)), ('Nueva_1', 'L', rect(X0, Y0 + 18, 20, 12))])
 sim.CLASES.clear()
+sim.CLASES[sim.CAMINO] = 'DS'  #Rústica con una dirección «DS»: no es diseminado de urbana
+rustica_ds = comparar('rustica_ds', [(sim.RC, 'S', rect(X0, Y0 - 6, 20, 36))])
+sim.CLASES.clear()
 especiales = ('CMP-BICE' in codigos(bice.incidencias) and 'CMP-DISEMINADO' not in codigos(bice.incidencias)
               and 'CMP-BU-BICE' in codigos(bu_bice.incidencias) and 'CMP-DISEMINADO' in codigos(disem.incidencias)
               and 'CMP-BICE' not in codigos(disem.incidencias) and 'CMP-BICE' not in codigos(seg.incidencias)
-              and 'CMP-DISEMINADO' not in codigos(seg.incidencias) and 'CMP-DISEMINADO' not in codigos(dp.incidencias))
+              and 'CMP-DISEMINADO' not in codigos(seg.incidencias) and 'CMP-DISEMINADO' not in codigos(dp.incidencias)
+              and 'CMP-DISEMINADO' not in codigos(rustica_ds.incidencias) and 'CMP-DOMINIO-PUBLICO' in codigos(rustica_ds.incidencias))
 
 # 10. Pestaña Validar: botón, lista, aviso en la barra y capas de la comparación
 dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
