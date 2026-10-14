@@ -5,8 +5,12 @@ parcelas no colindantes, deshacer con la pila de edición de QGIS y menos de dos
 
 Uso: tools\\probar.bat (o tools\\run_tests.py union_test.py)
 """
+import os
+import tempfile
+
 import qgis.utils
 from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsProject, QgsVectorLayer
+from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import QLabel, QMessageBox
 
 qgis.utils.reloadPlugin('catastral_gml_tools')
@@ -22,6 +26,7 @@ for _n in _originales:
     setattr(QMessageBox, _n, lambda *a, **k: ventanas.append(a))
 
 X0, Y0 = 421500.0, 4070500.0
+carpeta_union = tempfile.mkdtemp(prefix='cgt_union_')
 
 
 def rect(x, y, a, b):
@@ -70,7 +75,7 @@ multi = capa('multi', [(rect(X0, Y0, 20, 30).replace('POLYGON((', 'MULTIPOLYGON(
                        (rect(X0 + 20, Y0, 20, 30).replace('POLYGON((', 'MULTIPOLYGON(((') + ')', 'B')], 'MultiPolygon')
 multi.selectAll()
 fid_m, tipo_m, inc_m = cp.unir_seleccionadas(multi, 'refcat')
-multipoligono = (fid_m is not None and multi.featureCount() == 1 and tipo_m == alt.AGRUPACION
+multipoligono = (fid_m is not None and multi.featureCount() == 1 and tipo_m == alt.SIN_INDICAR  #A y B no son RC: retoque
                  and multi.getFeature(fid_m).geometry().isMultipart() and abs(multi.getFeature(fid_m).geometry().area() - 1200) < 0.01)
 multi.rollBack()
 
@@ -138,6 +143,102 @@ interfaz = (desactivado and activado and agrupar.featureCount() == 2 and pt.solo
             and 'Agrupación · 1 parcela (0 SDGC)' in pt.alteracionInfo.text())
 agrupar.rollBack()
 
+# 3. El caso de la prueba a mano del 14/10/2026, de principio a fin: parcela descargada, dividida en dos, una franja de vial
+#dibujada junto a un trozo y unida a él; la tabla sigue a la capa (también con Ctrl+Z) y nunca pierde la referencia
+from catastral_gml_tools.core import gml_lector as gl  # noqa: E402
+
+RC = '2090304VF2629S'
+_lectura = gl.ResultadoLectura()
+_lectura.epsg = 25830
+_lectura.elementos = [gl.ElementoGML(gl.PARCELA, RC, 'ES.SDGC.CP', QgsGeometry.fromWkt(rect(X0, Y0, 10, 11)),
+                                     label='04', referencia=RC, area_declarada=110)]
+descargada = gl.capa(_lectura, f'Parcela {RC}')
+QgsProject.instance().addMapLayer(descargada)
+pt.capaCombo.setLayer(descargada)
+pt.campoId.setField('referencia')
+pt.alteracion.setCurrentIndex(0)  #Sin indicar
+descargada.startEditing()
+_f0 = next(descargada.getFeatures())
+_arriba = QgsGeometry.fromWkt(rect(X0, Y0 + 4.2, 10, 6.8))
+_arriba.convertToMultiType()
+descargada.changeGeometry(_f0.id(), _arriba)  #Dividir: el trozo de arriba (68 m²) y el de abajo (42 m²) copian la RC
+_abajo = QgsFeature(descargada.fields())
+_abajo.setAttributes(_f0.attributes())
+_g = QgsGeometry.fromWkt(rect(X0, Y0, 10, 4.2))
+_g.convertToMultiType()
+_abajo.setGeometry(_g)
+descargada.addFeature(_abajo)
+_vial = QgsFeature(descargada.fields())  #Franja de vial (13 m²) dibujada junto al trozo de abajo
+_g = QgsGeometry.fromWkt(rect(X0 + 10, Y0, 3.1, 4.2))
+_g.convertToMultiType()
+_vial.setGeometry(_g)
+descargada.addFeature(_vial)
+
+
+def textos_barra():
+    item = dw.messageBar.currentItem()
+    return ' '.join([item.text()] + [e.text() for e in item.findChildren(QLabel)]) if item is not None else ''
+
+
+def ids_tabla():
+    return [(pt.tabla.item(i, pp.COL_ID).text(), pt.namespace_fila(i)) for i in range(pt.tabla.rowCount())]
+
+
+def fila_de(fid):
+    return next(i for i in range(pt.tabla.rowCount()) if pt.tabla.item(i, pp.COL_N).data(Qt.ItemDataRole.UserRole) == fid)
+
+
+_vial_fid = [f.id() for f in descargada.getFeatures() if not f['referencia']][0]
+sigue_capa = sorted(ids_tabla()) == sorted([(RC, 'SDGC'), ('Nueva_1', 'LOCAL'), ('Parcela_2', 'LOCAL')])  #Sin Recargar
+deduce = 'la Sede propondrá' in pt.alteracionInfo.text() and not pt.alteracionInfo.isHidden()
+#Un nombre escrito a mano se conserva al seguir editando la capa
+pt.tabla.item(fila_de(_vial_fid), pp.COL_ID).setText('Vial_1')
+_g = QgsGeometry.fromWkt(rect(X0 + 10, Y0, 3.2, 4.2))
+_g.convertToMultiType()
+descargada.changeGeometry(_vial_fid, _g)
+manual = ids_tabla()[fila_de(_vial_fid)] == ('Vial_1', 'LOCAL')
+#Un identificador escrito a mano en la fila de la RC: al recargar conserva también su namespace (LOCAL, no SDGC)
+_fila_rc = [i for i, t in enumerate(ids_tabla()) if t[0] == RC][0]
+_fid_rc = pt.tabla.item(_fila_rc, pp.COL_N).data(Qt.ItemDataRole.UserRole)
+pt.tabla.item(_fila_rc, pp.COL_ID).setText('Otra_1')
+pt.recargar()
+manual = manual and ids_tabla()[fila_de(_fid_rc)] == ('Otra_1', 'LOCAL')
+pt.tabla.item(fila_de(_fid_rc), pp.COL_ID).setText(RC)
+pt.recargar()
+manual = manual and ids_tabla()[fila_de(_fid_rc)] == (RC, 'SDGC')
+#Unir el trozo de abajo con la franja: es un retoque del dibujo (una sola RC), no una agrupación
+ids_un = [f.id() for f in descargada.getFeatures() if f.geometry().boundingBox().yMaximum() < Y0 + 4.3]
+descargada.selectByIds(ids_un)
+pt.unir_seleccionadas()
+retoque = (descargada.featureCount() == 2 and pt.tipo_alteracion() == alt.SIN_INDICAR and not pt.soloSeleccion.isChecked()
+           and sorted(ids_tabla()) == sorted([(RC, 'SDGC'), ('Nueva_1', 'LOCAL')]) and 'retoque del dibujo' in textos_barra())
+#Ctrl+Z: la capa y la tabla vuelven a las 3 parcelas
+descargada.undoStack().undo()
+deshecho = descargada.featureCount() == 3 and len(ids_tabla()) == 3
+#Unir dos parcelas catastrales distintas (agregación) y deshacerlo: vuelven la alteración y la casilla de antes
+descargada.undoStack().redo()
+otra = QgsFeature(descargada.fields())
+otra.setAttributes(['parcela', '2090305VF2629S', 'ES.SDGC.CP', '05', '2090305VF2629S', 20, 20, None, '', '', ''])
+_g = QgsGeometry.fromWkt(rect(X0 - 2, Y0 + 4.2, 2, 6.8))
+_g.convertToMultiType()
+otra.setGeometry(_g)
+descargada.addFeature(otra)
+descargada.selectByIds([f.id() for f in descargada.getFeatures() if f.geometry().boundingBox().yMinimum() > Y0 + 4])
+pt.unir_seleccionadas()
+agregada = pt.tipo_alteracion() == alt.AGREGACION and pt.soloSeleccion.isChecked()
+descargada.undoStack().undo()
+agregada = (agregada and pt.tipo_alteracion() == alt.SIN_INDICAR and not pt.soloSeleccion.isChecked()
+            and pt.tabla.rowCount() == 3)
+#El GML: la RC en el trozo mayor y la parcela nueva LOCAL (segregación con la franja de vial)
+descargada.selectByIds([])
+pt.destino.setFilePath(os.path.join(carpeta_union, 'caso_real.gml'))
+pt.crear_gml()
+_gml = gl.leer(os.path.join(carpeta_union, 'caso_real.gml'))
+caso_real = (sigue_capa and deduce and manual and retoque and deshecho and agregada
+             and sorted((e.local_id, e.namespace) for e in _gml.elementos)
+             == sorted([(RC, 'ES.SDGC.CP'), ('Nueva_1', 'ES.LOCAL.CP'), ('2090305VF2629S', 'ES.SDGC.CP')]))
+descargada.rollBack()
+
 for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
 dw.deleteLater()
@@ -149,6 +250,7 @@ checks = {
     "capa de multipolígonos": multipoligono,
     "rendijas de menos de 1 cm y cuñas de 5 cm: se cierran (con aviso); un patio se conserva; resultado válido": rendijas,
     "pestaña Parcela: botón, agrupación propuesta y tabla": interfaz,
+    "caso real: dividir, dibujar vial, unir (retoque), Ctrl+Z y GML con la RC": caso_real,
     "ninguna ventana emergente": not ventanas,
 }
 
@@ -157,6 +259,9 @@ print("QGIS", Qgis.version(), "· unir parcelas seleccionadas")
 for nombre, ok in checks.items():
     print(("  OK   " if ok else "  FALLO") + "  " + nombre)
 if not all(checks.values()):
+    print("Caso real:", {'sigue': sigue_capa, 'deduce': deduce, 'manual': manual, 'retoque': retoque, 'deshecho': deshecho,
+                         'agregada': agregada, 'tabla': ids_tabla(), 'gml': [(e.local_id, e.namespace) for e in _gml.elementos],
+                         'barra': textos_barra()})
     print("Detalles:", {'tipo': tipo, 'inc': [str(i) for i in inc], 'lejos': [str(i) for i in inc_lejos],
                         'una': [str(i) for i in inc_una], 'multi': (tipo_m, [str(i) for i in inc_m]),
                         'filas': filas, 'barra': barra, 'info': pt.alteracionInfo.text()})

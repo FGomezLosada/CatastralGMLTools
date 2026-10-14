@@ -9,12 +9,13 @@ email     : pgomezlosada@gmail.com
 license   : GNU GPL v2 or later
 """
 
+import html
 import os
 
 from qgis.core import Qgis, QgsApplication
 from qgis.gui import QgsMessageBar
 from qgis.PyQt import QtWidgets, sip, uic
-from qgis.PyQt.QtCore import QUrl
+from qgis.PyQt.QtCore import Qt, QUrl
 from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtWidgets import QHBoxLayout, QLabel, QPushButton, QToolButton, QWidget
 
@@ -39,6 +40,8 @@ ICONOS_PESTANAS = {
 }
 AYUDA = ruta('help', 'index.html')
 
+
+MAX_AVISOS_MENSAJE = 3  #Avisos que se leen en el mensaje de resultado; el resto, al pasar el ratón
 
 class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
     def __init__(self, iface, parent=None):
@@ -206,8 +209,13 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         fila.setContentsMargins(0, 0, 0, 0)
         etiqueta = QLabel(message, contenido)
         etiqueta.setWordWrap(True)
-        if detalles:
-            etiqueta.setText(f"{message} · {len(detalles)} aviso{'s' if len(detalles) != 1 else ''}")
+        if detalles:  #Los avisos se leen en el propio mensaje (antes solo al pasar el ratón: no se encontraban)
+            lineas = [html.escape(d) for d in detalles[:MAX_AVISOS_MENSAJE]]
+            if len(detalles) > MAX_AVISOS_MENSAJE:
+                lineas.append(f"… y {len(detalles) - MAX_AVISOS_MENSAJE} más (pase el ratón por el mensaje)")
+            etiqueta.setTextFormat(Qt.TextFormat.RichText)
+            etiqueta.setText(f"{html.escape(message)}<br><small>" + "<br>".join(f"⚠ {linea}" for linea in lineas)
+                             + "</small>")
             etiqueta.setToolTip("\n".join(detalles))
         fila.addWidget(etiqueta, 1)
         for texto, metodo in buttons:

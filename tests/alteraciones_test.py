@@ -95,7 +95,9 @@ def tabla():
             for i in range(pt.tabla.rowCount())]
 
 
-sin_info = pt.alteracionInfo.isHidden() and pt.alteracion.currentData() == alt.SIN_INDICAR
+#Sin indicar: no cambia nada, pero dice qué operación deducirá la Sede (1 parcela → 2, una con su RC: segregación)
+sin_info = ('la Sede propondrá segregación' in pt.alteracionInfo.text() and not pt.alteracionInfo.isHidden()
+            and pt.alteracion.currentData() == alt.SIN_INDICAR)
 antes = tabla()
 pt.alteracion.setCurrentIndex(alt.TIPOS.index(alt.SEGREGACION))
 tras_seg = tabla()
