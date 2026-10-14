@@ -88,7 +88,7 @@ Decisiones técnicas:
 | 8d | Auditoría, bloques C y D: robustez, rendimiento, compatibilidad Qt6, documentación y metadatos (versión 0.2.0) | C ✅ · D — |
 | 8e | Ajuste por desplazamiento o giro (afín / CX-CY, dos GML con parámetros; Resolución de 29/03/2021) | — |
 | 9 | Conversor 3.0 → 4.0 y reparación | — |
-| 10 | División de parcelas | — |
+| 10 | División de parcelas (dentro de la pestaña Parcela, junto a «Unir seleccionadas»; USABILIDAD U-09) | — |
 | 11 | Informe de superficies y coordenadas | — |
 | 12 | Manual de usuario detallado con capturas reales (mejora 28) y campaña de pruebas a mano de todo el plugin | — |
 | 13 | Revisión de usabilidad: reorganizar el panel para que sea sencillo y se entienda (docs/USABILIDAD.md), con lo aprendido en las pruebas | — |
