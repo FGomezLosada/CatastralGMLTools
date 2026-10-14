@@ -10,6 +10,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 ### Cambiado
 - Pestañas en el orden del trabajo: Descargar · Parcela · Edificio · Validar · Utilidades. La pestaña «Dividir» (vacía) desaparece: la división está en Parcela.
 
+### Corregido (prueba a mano del 14/10/2026)
+- Tras validar un GML, su vista quedaba como capa activa y, de vuelta en Parcela, Ctrl+Z y la selección en el mapa iban a esa capa: no se deshacía la división ni se podía volver a dividir. Al volver a la pestaña Parcela (o abrir el bloque de división, o cambiar de capa en ella), la capa de trabajo pasa a ser la activa.
+- Debajo de «Valores» se explica siempre qué escribir en cada modo (p. ej. que caben uno o varios porcentajes y que lo que falta hasta 100 es otra parcela). La vista previa da también el % de cada parcela, y con varias parcelas seleccionadas dice que se deje solo la que se quiere dividir.
+
 ## [0.2.0] - 2026-10-14
 
 ### Añadido

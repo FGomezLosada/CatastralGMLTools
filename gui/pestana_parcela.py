@@ -239,6 +239,8 @@ class PestanaParcela(QWidget):
                     self.campoId.setField(nombre)
                     break
             self.proponer_fichero(capa)
+            if self.dock.tabWidget.currentWidget() is getattr(self.dock, 'tabParcela', None):
+                self.activar_capa()
         for widget in (self.campoId, self.campoLabel, self.soloSeleccion):
             widget.blockSignals(False)
         self.recargar()
@@ -275,6 +277,18 @@ class PestanaParcela(QWidget):
         return [(capa.selectionChanged, self.seleccion_cambiada), (capa.featureAdded, self.capa_editada),
                 (capa.featuresDeleted, self.capa_editada), (capa.geometryChanged, self.capa_editada),
                 (capa.attributeValueChanged, self.capa_editada), (capa.afterRollBack, self.capa_editada)]
+
+    def activar_capa(self):
+        """
+        Hace activa en el panel Capas la capa de la pestaña: la herramienta de selección del mapa y Ctrl+Z actúan sobre la
+        capa activa. Al validar un GML, su vista pasa a ser la activa y, de vuelta en Parcela, seleccionar o deshacer no
+        llegaba a la capa de trabajo (prueba a mano del 14/10).
+        """
+        capa, iface = self.capa(), self.dock.iface
+        if capa is None or iface is None or not hasattr(iface, 'setActiveLayer'):
+            return
+        if iface.activeLayer() is not capa:
+            iface.setActiveLayer(capa)
 
     def estado_antes_de_editar(self):
         """Lo que hay que devolver a la tabla si se deshace una edición del plugin (unir o dividir)."""

@@ -29,6 +29,7 @@ from catastral_gml_tools.core import geometria as geo  # noqa: E402
 from catastral_gml_tools.core import gml_lector as gl  # noqa: E402
 from catastral_gml_tools.core import validador as va  # noqa: E402
 from catastral_gml_tools.core.incidencias import codigos  # noqa: E402
+from catastral_gml_tools.gui import pestana_validar as pv  # noqa: E402
 
 ventanas = []
 _originales = {n: getattr(QMessageBox, n) for n in ('warning', 'information', 'critical', 'question')}
@@ -103,7 +104,13 @@ _, inc_u = dv.dividir(en_u, dv.PORCENTAJES, [80], lado=0)
 direccion = direccion and 'DIV-PARTES' in codigos(inc_u)
 
 # 4. Pestaña Parcela: el flujo completo sobre una parcela descargada
-dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
+iface = qgis.utils.iface
+if 'mock' in type(iface).__module__:  #qgis.testing.mocked (unittest.mock o el paquete mock)
+    #Interfaz simulada: capa activa de verdad (en QGIS, al añadir una capa pasa a ser la activa)
+    _activa = {'capa': None}
+    iface.activeLayer = lambda: _activa['capa']
+    iface.setActiveLayer = lambda c: _activa.__setitem__('capa', c) or True
+dw = dock_module.CatastralGMLToolsDockWidget(iface)
 pt = dw.pestanaParcela
 bloque = pt.division
 dw.tabWidget.setCurrentWidget(dw.tabParcela)
@@ -124,7 +131,7 @@ bloque.modo.setCurrentIndex(dv.MODOS.index(dv.PORCENTAJES))
 bloque.valores.setText("60 70")
 error_vista = 'no pueden pasar de 100' in bloque.vista.text() and not bloque.dividirBoton.isEnabled()
 bloque.valores.setText("50")
-vista = ('2 parcelas: 540.00 · 540.00 m²' in bloque.vista.text() and bloque.dividirBoton.isEnabled()
+vista = ('2 parcelas: 540.00 m² (50 %) · 540.00 m² (50 %)' in bloque.vista.text() and bloque.dividirBoton.isEnabled()
          and bloque.banda is not None and bloque.banda.numberOfVertices() == 2)
 #La marca roja solo con la pestaña Parcela a la vista y el panel abierto
 dw.tabWidget.setCurrentWidget(dw.tabValidar)
@@ -167,8 +174,25 @@ gml_ok = (_inf is not None and not _inf.errores
           and sorted((e.local_id, e.namespace) for e in _inf.lectura.elementos) == sorted([(RC, 'ES.SDGC.CP'),
                                                                                            ('Seg_1', 'ES.LOCAL.CP')])
           and 'SOLAPE' not in codigos(_inf.incidencias) and 'HUECO' not in codigos(_inf.incidencias))
-#División en 3 con la operación «División»: todas LOCAL
+#Prueba a mano del 14/10: tras validar el GML su vista queda como capa activa; de vuelta en Parcela, la capa de trabajo
+#vuelve a ser la activa, así que Ctrl+Z (que actúa en la capa activa) deshace la división y se puede volver a dividir
+dw.tabWidget.setCurrentWidget(dw.tabValidar)
+_vista = pv.cargar(_inf.lectura, _ruta, iface) if _inf is not None else None
+iface.setActiveLayer(_vista)
+dw.tabWidget.setCurrentWidget(dw.tabParcela)
+activa_ok = iface.activeLayer() is capa
+iface.activeLayer().undoStack().undo()
+activa_ok = activa_ok and capa.featureCount() == 1 and pt.tabla.rowCount() == 1
+#Con dos parcelas seleccionadas el bloque dice qué hacer; la ayuda del modo explica que caben uno o varios porcentajes
+capa.undoStack().redo()
+capa.selectAll()
+activa_ok = activa_ok and 'Hay 2 parcelas seleccionadas' in bloque.vista.text()
 capa.undoStack().undo()
+bloque.modo.setCurrentIndex(dv.MODOS.index(dv.PORCENTAJES))
+activa_ok = activa_ok and 'Uno o varios %' in bloque.ayuda.text() and '«30» da 30 % + 70 %' in bloque.ayuda.text()
+if _vista is not None:
+    QgsProject.instance().removeMapLayer(_vista.id())
+#División en 3 con la operación «División»: todas LOCAL
 capa.selectAll()
 bloque.modo.setCurrentIndex(dv.MODOS.index(dv.PARTES))
 bloque.valores.setText("3")
@@ -191,7 +215,7 @@ pt.capaCombo.setLayer(capa_geo)
 capa_geo.selectAll()
 bloque.modo.setCurrentIndex(dv.MODOS.index(dv.PARTES))
 bloque.valores.setText("2")
-vista_geo = '2 parcelas: 540.00 · 540.00 m²' in bloque.vista.text()
+vista_geo = '2 parcelas: 540.00 m² (50 %) · 540.00 m² (50 %)' in bloque.vista.text()
 bloque.dividir()
 _utm = [geo.transformar(f.geometry(), capa_geo.crs(), 25830).area() for f in capa_geo.getFeatures()]
 geograficas = vista_geo and capa_geo.featureCount() == 2 and all(abs(a - 540) < 0.5 for a in _utm)
@@ -212,6 +236,7 @@ checks = {
     "dividir: la capa, la tabla y la segregación propuesta; superficies recalculadas": dividida,
     "Ctrl+Z y rehacer: capa, tabla y alteración": deshecha,
     "GML de la división sin errores, solapes ni huecos": gml_ok,
+    "tras validar, de vuelta en Parcela: capa activa, Ctrl+Z y ayuda de los valores": activa_ok,
     "operación «División»: todas LOCAL (Div_1…Div_3)": division_op,
     "capa en coordenadas geográficas: se divide en UTM": geograficas,
     "ninguna ventana emergente": not ventanas,

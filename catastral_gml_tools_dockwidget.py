@@ -130,6 +130,8 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         if self.tabWidget.widget(indice) is getattr(self, 'tabValidar', None) and getattr(self, 'gml_pendiente', ''):
             self.abrir_en_validar(self.gml_pendiente)
         if hasattr(self, 'pestanaParcela'):
+            if self.tabWidget.widget(indice) is getattr(self, 'tabParcela', None):
+                self.pestanaParcela.activar_capa()  #Seleccionar en el mapa y Ctrl+Z, sobre la capa de trabajo
             self.pestanaParcela.division.marcar_lado()  #La marca del lado solo con la pestaña Parcela a la vista
 
     def setup_descargar(self):
