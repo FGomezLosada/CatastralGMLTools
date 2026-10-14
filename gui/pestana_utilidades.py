@@ -149,6 +149,7 @@ class PestanaUtilidades(QWidget):
                              Qgis.MessageLevel.Critical, 0)
             return None
         self.ultimo = destino
+        self.dock.gml_creado(destino)
         self.dock.success(f"GML unido: {os.path.basename(destino)} · {n} parcelas de {self.lista.count()} ficheros",
                           [("Validar", self.validar), ("Abrir carpeta", self.abrir_carpeta)],
                           detalles=[str(i) for i in incidencias if i.nivel == AVISO])
@@ -156,9 +157,8 @@ class PestanaUtilidades(QWidget):
 
     def validar(self, *args):
         """Abre el GML unido en la pestaña Validar (solapes, huecos y comparación con el Catastro)."""
-        if self.ultimo and hasattr(self.dock, 'pestanaValidar'):
-            self.dock.tabWidget.setCurrentWidget(self.dock.tabValidar)
-            self.dock.pestanaValidar.fichero.setFilePath(self.ultimo)
+        if self.ultimo:
+            self.dock.abrir_en_validar(self.ultimo)
 
     def abrir_carpeta(self, *args):
         if self.ultimo:

@@ -236,11 +236,10 @@ class PestanaParcela(QWidget):
     def proponer_fichero(self, capa):
         """
         Propone el fichero de salida con el nombre de la capa (sin espacios ni símbolos), en la carpeta que ya hubiera
-        elegida o en la del proyecto. Si el usuario ha escrito su propio fichero, no se toca.
+        elegida o en la del proyecto. Se llama al cambiar de capa: el nombre que haya escrito el usuario vale para su
+        capa, no para la siguiente (si no, el GML de otra capa acababa en el fichero de la anterior; prueba del 14/10).
         """
         actual = self.destino.filePath().strip()
-        if actual and actual != self.destino_automatico:
-            return
         carpeta = os.path.dirname(actual) if actual else (os.path.dirname(cp.fichero_de_capa(capa)) or QgsProject.instance().homePath()
                                                           or os.path.expanduser('~'))
         nombre = re.sub(r'[^0-9A-Za-z_.-]+', '_', capa.name()).strip('._') or 'parcelas'
@@ -611,8 +610,15 @@ class PestanaParcela(QWidget):
         resumen = f"GML creado: {os.path.basename(ruta)} · {len(filas)} parcelas · EPSG:{epsg}"
         if self.tipo_alteracion() != alt.SIN_INDICAR:
             resumen += f" · {alt.NOMBRES[self.tipo_alteracion()]}"
-        self.dock.success(resumen, [("Abrir carpeta", self.abrir_carpeta), ("Cargar en el mapa", self.cargar_en_mapa)],
+        self.dock.gml_creado(ruta)
+        self.dock.success(resumen, [("Validar", self.validar), ("Abrir carpeta", self.abrir_carpeta),
+                                    ("Cargar en el mapa", self.cargar_en_mapa)],
                           detalles=problemas)
+
+    def validar(self, *args):
+        """Abre el GML creado en la pestaña Validar (comprobaciones de la Sede y comparación con el Catastro)."""
+        if self.ultimo_gml:
+            self.dock.abrir_en_validar(self.ultimo_gml)
 
     def abrir_carpeta(self, *args):
         if self.ultimo_gml:

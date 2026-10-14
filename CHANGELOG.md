@@ -5,6 +5,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 ## [Sin publicar]
 
 ### Añadido
+- **Segunda prueba a mano del bloque C (14/10/2026):**
+  - Unir seleccionadas ajusta siempre los vértices a menos de 1 cm (también las rendijas abiertas al borde, como una de 0,07 mm que quedaba) y rellena los huecos y cuñas de hasta 20 cm entre las parcelas, con aviso; la parcela unida queda válida (antes el GML daba «geometría no válida»). Los patios se conservan.
+  - Al cambiar de capa en Parcela o Edificio se propone el fichero de la capa nueva (en la carpeta elegida): el nombre escrito vale para su capa, no para la siguiente.
+  - El mensaje «GML creado» de Parcela tiene el botón Validar; y al pasar a la pestaña Validar tras crear un GML (en Parcela, Edificio o Unir) se abre ese, no el anterior.
+  - En el mapa, al cargar la vista o la comparación de un GML se quitan las de otros GML (son temporales; las que se estén editando se dejan): ya no se mezclan.
 - **Pruebas a mano del bloque C (14/10/2026):**
   - Comparar con el Catastro un GML de varias zonas separadas (p. ej. una multiparcela de dos segregaciones) pide al Catastro solo cada zona, no el rectángulo que las abarca (tardaba cerca de un minuto), dice la operación de cada zona («zona 1: NPO 1 · NPP 2 → Segregación…») y el botón muestra el avance («Comparando… 40 %»). El validador avisa de las zonas separadas.
   - Unir GML: se pueden arrastrar capas desde el panel de Capas (se toma su GML de origen).

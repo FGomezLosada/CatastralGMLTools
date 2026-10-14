@@ -205,8 +205,6 @@ class PestanaEdificio(QWidget):
 
     def proponer_fichero(self, capa):
         actual = self.destino.filePath().strip()
-        if actual and actual != self.destino_automatico:
-            return
         carpeta = os.path.dirname(actual) if actual else (os.path.dirname(cp.fichero_de_capa(capa)) or QgsProject.instance().homePath()
                                                           or os.path.expanduser('~'))
         nombre = re.sub(r'[^0-9A-Za-z_.-]+', '_', capa.name()).strip('._') or 'edificio'
@@ -549,6 +547,7 @@ class PestanaEdificio(QWidget):
             return None
         problemas += [a.mensaje for a in cp.avisos_src(self.filas, capa.crs(), epsg, [self.referencia.text()])]
         self.ultimo_gml = ruta
+        self.dock.gml_creado(ruta)
         edificios = tipos.count(ge.EDIFICIO)
         piscinas = n - edificios
         self.dock.success(f"GML de edificio creado: {os.path.basename(ruta)} · {edificios} edificio"
@@ -564,6 +563,5 @@ class PestanaEdificio(QWidget):
 
     def validar(self, *args):
         """Abre el GML en la pestaña Validar (allí se comprueba también que está dentro de la parcela catastral)."""
-        if self.ultimo_gml and hasattr(self.dock, 'pestanaValidar'):
-            self.dock.tabWidget.setCurrentWidget(self.dock.tabValidar)
-            self.dock.pestanaValidar.fichero.setFilePath(self.ultimo_gml)
+        if self.ultimo_gml:
+            self.dock.abrir_en_validar(self.ultimo_gml)

@@ -109,13 +109,17 @@ item = dw.messageBar.currentItem()
 botones = [b.text() for b in item.findChildren(QPushButton)] if item is not None else []
 gml_ok = (creado and locales == ['1907401VK4810H', 'Seg_1', 'Seg_2'] and fecha_gml == '2026-10-01T09:30:00'
           and labels_gml == ['01', 'Seg_1', '7'] and areas_gml == area_tabla)
-barra_ok = ('GML creado: segregacion.gml' in resultado and '3 parcelas' in resultado and botones == ['Abrir carpeta', 'Cargar en el mapa']
+barra_ok = ('GML creado: segregacion.gml' in resultado and '3 parcelas' in resultado and botones == ['Validar', 'Abrir carpeta', 'Cargar en el mapa']
             and item.level() == Qgis.MessageLevel.Success)
 estados = [pt.tabla.item(i, pp.COL_ESTADO).text() for i in range(3)] == ['Correcta'] * 3
 
 # 3. Botones del resultado
-item.findChildren(QPushButton)[0].click()
+item.findChildren(QPushButton)[1].click()
 carpeta_abierta = abiertos == [carpeta]
+#Al pasar a la pestaña Validar se abre el GML recién creado (no el que hubiera de antes)
+dw.tabWidget.setCurrentWidget(dw.tabValidar)
+carpeta_abierta = carpeta_abierta and os.path.normpath(dw.pestanaValidar.fichero.filePath()) == os.path.normpath(pt.ultimo_gml)
+dw.tabWidget.setCurrentWidget(dw.tabParcela)
 capa_gml = pt.cargar_en_mapa()
 cargada = capa_gml is not None and capa_gml.isValid() and capa_gml.featureCount() == 3
 
@@ -211,10 +215,16 @@ division_ok = division_ok and pt.tabla.item(0, pp.COL_ESTADO).text() == ''
 fichero_propuesto = os.path.basename(pt.destino.filePath()) == 'Parcela_dividida_prueba.gml'
 pt.capaCombo.setLayer(segregacion)
 sigue_capa = os.path.basename(pt.destino.filePath()) == 'segregacion.gml'
-mio = os.path.join(carpeta, 'mi_fichero.gml')
+#El fichero que escribe el usuario vale para su capa (Recargar no lo cambia); al cambiar de capa se propone el de la
+#nueva en la misma carpeta (antes se quedaba el de la anterior y el GML de otra capa iba a ese fichero)
+otra_carpeta = os.path.join(carpeta, 'mios')
+os.makedirs(otra_carpeta, exist_ok=True)
+mio = os.path.join(otra_carpeta, 'mi_fichero.gml')
 pt.destino.setFilePath(mio)
-pt.capaCombo.setLayer(dividida)
+pt.recargar()
 respeta_mio = pt.destino.filePath() == mio
+pt.capaCombo.setLayer(dividida)
+respeta_mio = respeta_mio and os.path.normpath(pt.destino.filePath()) == os.path.join(otra_carpeta, 'Parcela_dividida_prueba.gml')
 
 for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
@@ -281,7 +291,7 @@ checks = {
     "crea el GML con los cambios de la tabla, la fecha y la misma superficie que muestra la tabla": gml_ok,
     "resultado en la barra del panel con botones": barra_ok,
     "estado «Correcta» en todas las filas": estados,
-    "botón Abrir carpeta": carpeta_abierta,
+    "botón Abrir carpeta y el GML creado se abre al pasar a Validar": carpeta_abierta,
     "cargar el GML creado en el mapa": cargada,
     "capa en EPSG:4326: transforma a 25830 y añade .gml": transformado,
     "errores: no crea el fichero y los marca en la tabla y la barra": errores_ok,
@@ -294,7 +304,7 @@ checks = {
     "parcela dividida: el trozo mayor conserva la RC y el otro se propone como Nueva_1 (sin presuponer la alteración)": division_ok,
     "fichero propuesto con el nombre de la capa, sin espacios ni símbolos": fichero_propuesto,
     "el fichero propuesto cambia con la capa": sigue_capa,
-    "el fichero elegido por el usuario se respeta": respeta_mio,
+    "fichero del usuario: se respeta en su capa; con otra capa, nombre nuevo en su carpeta": respeta_mio,
     "ninguna ventana emergente": not ventanas,
 }
 

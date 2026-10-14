@@ -416,40 +416,62 @@ def anchura_maxima(geometria):
     return mayor
 
 
-def huecos(geometrias, franja=0.5):
+def huecos_entre(geometrias, franja=0.5):
     """
-    Superficie (m²) de los huecos entre parcelas contiguas: huecos cerrados (anillos interiores de la unión que no son
-    patios de ninguna parcela) y franjas abiertas de menos de «franja» m de ancho que llegan al borde (AU-40).
+    Huecos entre parcelas contiguas: huecos cerrados (anillos interiores de la unión que no son patios de ninguna
+    parcela) y franjas abiertas de menos de «franja» m de ancho que llegan al borde, entre al menos dos parcelas (AU-40).
+    Devuelve (unión de las parcelas, lista de QgsGeometry con cada hueco o franja).
     """
     validas = [v for v in (poligonal(g) for g in geometrias) if v is not None]
     if len(validas) < 2:
-        return 0.0
+        return (validas[0] if validas else QgsGeometry()), []
     union = QgsGeometry.unaryUnion(validas)
     poligonos = union.asMultiPolygon() if union.isMultipart() else [union.asPolygon()]
     #Los patios propios de una parcela (que ninguna otra rellena) también son anillos interiores de la unión: se
     #reconocen por su geometría, no por cuántos hay (si no, un patio relleno y un hueco real se compensaban; AU-40)
     propios = [QgsGeometry.fromPolygonXY([anillo]) for g in validas
                for p in (g.asMultiPolygon() if g.isMultipart() else [g.asPolygon()]) for anillo in p[1:]]
-    total = 0.0
+    piezas, cerrados = [], []
     for p in poligonos:
         for anillo in p[1:]:
             hueco = QgsGeometry.fromPolygonXY([anillo])
+            cerrados.append(hueco)
             punto = hueco.pointOnSurface()
-            if hueco.area() > 1e-4 and not any(abs(h.area() - hueco.area()) < 1e-3 and h.contains(punto) for h in propios):
-                total += hueco.area()
+            if hueco.area() > 0 and not any(abs(h.area() - hueco.area()) < 1e-3 and h.contains(punto) for h in propios):
+                piezas.append(hueco)
     cierre = union.buffer(franja / 2, 8).buffer(-franja / 2, 8)  #Cierra las franjas estrechas abiertas al exterior
-    abiertas = cierre.difference(union.buffer(0.001, 4))
+    abiertas = cierre.difference(union)
+    for g in cerrados:  #Lo cerrado ya está contado
+        abiertas = abiertas.difference(g)
     if not abiertas.isEmpty():
-        cerrados_geom = [QgsGeometry.fromPolygonXY([anillo]) for p in poligonos for anillo in p[1:]]
-        for g in cerrados_geom:  #Lo cerrado ya está contado
-            abiertas = abiertas.difference(g)
         for pieza in (abiertas.asGeometryCollection() if abiertas.isMultipart() else [abiertas]):
+            if QgsWkbTypes.geometryType(pieza.wkbType()) != Qgis.GeometryType.Polygon or pieza.area() <= 1e-3:
+                continue
             anchura = anchura_maxima(pieza)
             #Franja entre parcelas: alargada (no el redondeo de una esquina) y tocando al menos a dos de ellas
-            if pieza.area() > 1e-3 and anchura > 0.001 and pieza.area() / anchura ** 2 > 8 \
+            if anchura > 0.001 and pieza.area() / anchura ** 2 > 8 \
                     and sum(1 for g in validas if g.distance(pieza) < 0.002) >= 2:
-                total += pieza.area()
-    return total
+                piezas.append(pieza)
+    return union, piezas
+
+
+def huecos(geometrias, franja=0.5):
+    """Superficie (m²) de los huecos y franjas entre parcelas contiguas (huecos_entre), sin los de menos de 1 cm²."""
+    return sum(p.area() for p in huecos_entre(geometrias, franja)[1] if p.area() > 1e-4)
+
+
+def rellenar_huecos(geometrias, franja=0.2):
+    """
+    Unión de las parcelas con los huecos y las franjas de menos de «franja» m que quedan entre ellas rellenos (dibujo que
+    no encaja al agregarlas): devuelve (geometría, superficie rellenada en m²). Los patios de cada parcela se conservan.
+    """
+    union, piezas = huecos_entre(geometrias, franja)
+    if not piezas:
+        return union, 0.0
+    rellena = QgsGeometry.unaryUnion([union, *piezas])
+    if not rellena.isGeosValid():
+        rellena = rellena.makeValid()
+    return rellena, max(0.0, rellena.area() - union.area())
 
 
 def punto_interior(recinto):
