@@ -42,6 +42,9 @@ COLOR_COLINDANTES = '#868e96'  #Gris: las colindantes son contexto, la parcela d
 COLOR_ENTORNO = '#adb5bd'      #Gris claro: parcelas cercanas que no tocan la parcela (al otro lado de la calle)
 
 
+ETIQUETA_NUEVA = '(nueva)'
+
+
 def aplicar(capa, colores=None, campo_etiqueta='localId'):
     """
     Simbología por tipo (solo los tipos que hay en la capa, para que la leyenda no muestre los demás) y etiqueta.
@@ -66,7 +69,10 @@ def aplicar(capa, colores=None, campo_etiqueta='localId'):
     fondo.setColor(QColor('#ffffff'))
     formato.setBuffer(fondo)
     ajustes = QgsPalLayerSettings()
-    ajustes.fieldName = campo_etiqueta
+    #Una parcela dibujada o salida de dividir no tiene identificador: se rotula «(nueva)» (su localId lo propone la
+    #pestaña Parcela según la alteración; antes copiaba la referencia catastral y el mapa decía otra cosa que la tabla)
+    ajustes.fieldName = f"coalesce(nullif(\"{campo_etiqueta}\", ''), '{ETIQUETA_NUEVA}')"
+    ajustes.isExpression = True
     ajustes.setFormat(formato)
     capa.setLabeling(QgsVectorLayerSimpleLabeling(ajustes))
     capa.setLabelsEnabled(True)

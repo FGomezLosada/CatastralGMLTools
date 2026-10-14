@@ -78,8 +78,8 @@ fuente = (parcela is not None and all('Dirección General del Catastro' in c.met
                                       and 'descargado el' in c.customProperty(pd.PROPIEDAD_FUENTE) for c in capas.values())
           and 'no es cartografía oficial' in parcela.metadata().abstract())
 estilo = (parcela is not None and parcela.renderer().type() == 'categorizedSymbol' and parcela.labelsEnabled()
-          and capas['colindantes'].labeling().settings().fieldName == 'label'
-          and not capas['construcciones'].labelsEnabled() and capas['entorno'].labeling().settings().fieldName == 'label'
+          and '"label"' in capas['colindantes'].labeling().settings().fieldName
+          and not capas['construcciones'].labelsEnabled() and '"label"' in capas['entorno'].labeling().settings().fieldName
           and parcela.featureCount() == 1 and capas['colindantes'].featureCount() == 2
           and len(capas['colindantes'].renderer().categories()) == 2 and capas['entorno'].featureCount() == 1
           and capas['construcciones'].featureCount() == 2 and parcela.crs().authid() == 'EPSG:25830')
@@ -205,42 +205,60 @@ pp.crear_gml()
 navarra_ui = navarra_ui and 'catastro propio' in textos_barra()
 
 # 6. Mapa de fondo con el proyecto vacío: con conexión, Catastro (DGC y Navarra) y PNOA en un grupo al final y el proyecto en
-# EPSG:25830; sin conexión, nada (ni grupo vacío). Nunca se duplica.
+# EPSG:25830; sin conexión, nada (ni grupo vacío). Nunca se duplica. Un servicio caído o en mantenimiento (el Catastro lo
+# estuvo el 14/10/2026 de 15:15 a 19:00) no se añade, pero queda apuntado con su motivo
 proyecto.removeMapLayers([c.id() for c in proyecto.mapLayers().values()])
 raiz.removeAllChildren()
+_orden = [c[0] for c in fondo.CAPAS]
+_fuentes = {c[0]: c[5] for c in fondo.CAPAS}
 nuevas = fondo.asegurar(iface)
+_nombres = [c.name() for c in nuevas]
 if nuevas:
-    modo_fondo = "con conexión"
-    fondo_ok = (len(nuevas) == 3 and raiz.children()[-1].name() == fondo.GRUPO
-                and [n.name() for n in raiz.children()[-1].children()] == [c[0] for c in fondo.CAPAS]
+    modo_fondo = "con conexión" if len(nuevas) == len(fondo.CAPAS) else f"con conexión, sin {len(fondo.CAPAS) - len(nuevas)} servicio(s)"
+    fondo_ok = (raiz.children()[-1].name() == fondo.GRUPO
+                and [n.name() for n in raiz.children()[-1].children()] == [n for n in _orden if n in _nombres]
                 and proyecto.crs().authid() == 'EPSG:25830'
-                and any('Dirección General del Catastro' in c.metadata().rights()[0] for c in nuevas)
-                and any('Instituto Geográfico Nacional' in c.metadata().rights()[0] for c in nuevas)
-                and fondo.asegurar(iface) == [] and len(fondo.capas_fondo()) == 3
-                and any('Gobierno de Navarra' in c.metadata().rights()[0] for c in nuevas)
+                and all(c.metadata().rights()[0] == _fuentes[c.name()] for c in nuevas)
+                and fondo.asegurar(iface) == [] and len(fondo.capas_fondo()) == len(nuevas)
+                and sorted(n for n, _ in fondo.caidos()) == sorted(n for n in _orden if n not in _nombres)
                 and not raiz.findGroup(fondo.GRUPO).isExpanded()
                 and not any(raiz.findLayer(c.id()).isExpanded() for c in nuevas))
     #Proyecto con el fondo de una versión anterior (sin Navarra): se añade solo la que falta, en su sitio
-    proyecto.removeMapLayer([c for c in nuevas if 'Navarra' in c.name()][0].id())
-    falta = fondo.asegurar(iface)
-    fondo_ok = (fondo_ok and [c.name() for c in falta] == ['Catastro de Navarra (WMS)']
-                and [n.name() for n in raiz.findGroup(fondo.GRUPO).children()] == [c[0] for c in fondo.CAPAS])
+    if 'Catastro de Navarra (WMS)' in _nombres:
+        proyecto.removeMapLayer([c for c in nuevas if 'Navarra' in c.name()][0].id())
+        falta = fondo.asegurar(iface)
+        fondo_ok = (fondo_ok and [c.name() for c in falta] == ['Catastro de Navarra (WMS)']
+                    and [n.name() for n in raiz.findGroup(fondo.GRUPO).children()] == [n for n in _orden if n in _nombres])
 else:
     modo_fondo = "sin conexión"
     fondo_ok = raiz.findGroup(fondo.GRUPO) is None and not fondo.capas_fondo()
 
-# 6b. Servicios del fondo que no responden en esta sesión: no se intentan (QGIS no se bloquea) y la casilla se desmarca
-_estado = dict(fondo.ESTADO)
-fondo.ESTADO.clear()
-fondo.ESTADO.update({c[0]: False for c in fondo.CAPAS})
+# 6b. Servicio del fondo en mantenimiento: no se intenta (QGIS no se bloquea), la casilla sigue marcada y una línea fija
+# dice qué capa falta, por qué y que se volverá a probar (si no, quien empieza buscaría la capa a mano); pasado el plazo
+# o con «Reintentar ahora» se vuelve a probar
+_estado = (dict(fondo.ESTADO), dict(fondo.MOTIVO), dict(fondo.PROBADO))
+for _n in _orden:
+    fondo.apuntar(_n, False, "está en mantenimiento («Tiempo estimado desde las 15.15H hasta las 19.00.H»)"
+                  if _n == 'Catastro (WMS)' else "no responde (sin conexión o servicio caído)")
 proyecto.removeMapLayers([c.id() for c in proyecto.mapLayers().values()])
 raiz.removeAllChildren()
 pes.fondo.setChecked(True)
-caido = fondo.asegurar(iface) == [] and not fondo.pendientes() and pes.poner_fondo() == [] and pes.tarea_fondo is None
+dw.messageBar.clearWidgets()
+caido = not fondo.pendientes() and [n for n, _ in fondo.caidos()] == _orden and fondo.asegurar(iface) == []
 pes.fondo_comprobado()
-fondo_caido = caido and not pes.fondo.isChecked() and 'no responden' in textos_barra()
-fondo.ESTADO.clear()
-fondo.ESTADO.update(_estado)
+_linea = pes.estadoFondo.text()
+fondo_caido = (caido and pes.fondo.isChecked() and not pes.estadoFondo.isHidden() and '«Catastro (WMS)»' in _linea
+               and 'mantenimiento' in _linea and '19.00' in _linea and 'Reintentar ahora' in _linea
+               and 'no se ha añadido' in textos_barra())
+fondo.PROBADO['Catastro (WMS)'] -= fondo.REINTENTO + 1  #Pasado el plazo, se vuelve a probar
+fondo_caido = fondo_caido and fondo.pendientes() == ['Catastro (WMS)']
+pes.fondo.setChecked(False)  #Sin la casilla no se pide nada y la línea se oculta
+fondo_caido = fondo_caido and pes.estadoFondo.isHidden()
+pes.reintentar_fondo()
+fondo_caido = fondo_caido and 'Catastro (WMS)' not in fondo.ESTADO and pes.tarea_fondo is None
+for _d, _v in zip((fondo.ESTADO, fondo.MOTIVO, fondo.PROBADO), _estado):
+    _d.clear()
+    _d.update(_v)
 pes.fondo.setChecked(True)
 
 pd.servicios.pedir = original
@@ -262,7 +280,7 @@ checks = {
     "clic en el mapa: consulta la RC, descarga y devuelve la herramienta": clic,
     "clic sin parcela, cambio de herramienta y panel cerrado": herramienta,
     "tareas: motivo del fallo, cancelación, tiempo máximo y servicio en mantenimiento": tareas,
-    "mapa de fondo con los servicios caídos: no se intenta y se desmarca": fondo_caido,
+    "mapa de fondo con un servicio en mantenimiento: no se intenta, se dice cuál y por qué, se reintenta": fondo_caido,
     "Navarra: descarga del Gobierno de Navarra y sin GML de la Sede": navarra_ui,
     f"mapa de fondo ({modo_fondo})": fondo_ok,
     "ninguna ventana emergente": not ventanas,

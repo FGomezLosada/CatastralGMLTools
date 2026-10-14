@@ -17,6 +17,8 @@ from qgis.core import (
     Qgis,
     QgsCoordinateReferenceSystem,
     QgsCoordinateTransform,
+    QgsExpression,
+    QgsExpressionContext,
     QgsGeometry,
     QgsProject,
 )
@@ -200,6 +202,35 @@ bloque.operacion.setCurrentIndex(1)
 bloque.dividir()
 division_op = pt.tipo_alteracion() == alt.DIVISION and tabla() == [('Div_1', 'LOCAL'), ('Div_2', 'LOCAL'), ('Div_3', 'LOCAL')]
 capa.rollBack()
+#Prueba a mano del 14/10: las parcelas nuevas no copian la referencia catastral (el mapa rotulaba la RC en todas y la
+#tabla decía Seg_1…); en una segregación la RC se queda en la mayor, aunque no sea la primera desde el lado elegido
+from catastral_gml_tools.gui import estilos  # noqa: E402
+estilos.aplicar(capa)
+capa.selectAll()
+pt.poner_alteracion(alt.SIN_INDICAR, True)
+bloque.modo.setCurrentIndex(dv.MODOS.index(dv.PORCENTAJES))
+bloque.valores.setText("30")
+bloque.operacion.setCurrentIndex(0)
+_fids = bloque.dividir() or []
+_f = {f.id(): f for f in capa.getFeatures()}
+_contexto = QgsExpressionContext()
+_expresion = QgsExpression(capa.labeling().settings().fieldName)
+
+
+def _rotulo(f):
+    _contexto.setFeature(f)
+    return _expresion.evaluate(_contexto)
+_ref = {i: _f[i]['referencia'] for i in _fids}
+def _vacio(v):
+    return v is None or str(v) in ('', 'NULL')
+
+
+identidad = (len(_fids) == 2 and _ref[_fids[0]] == RC and _vacio(_ref[_fids[1]])
+             and abs(_f[_fids[0]].geometry().area() - 0.7 * TOTAL) < 0.01
+             and all(_vacio(_f[i]['localId']) and _vacio(_f[i]['label']) for i in _fids[1:])
+             and _rotulo(_f[_fids[0]]) == RC and _rotulo(_f[_fids[1]]) == estilos.ETIQUETA_NUEVA
+             and tabla() == sorted([(RC, 'SDGC'), ('Seg_1', 'LOCAL')]) and pt.tipo_alteracion() == alt.SEGREGACION)
+capa.rollBack()
 
 # 5. Capa en coordenadas geográficas: se divide en UTM (superficies en m²) y vuelve a la capa
 a4326 = QgsCoordinateTransform(QgsCoordinateReferenceSystem('EPSG:25830'), QgsCoordinateReferenceSystem('EPSG:4326'),
@@ -237,6 +268,7 @@ checks = {
     "Ctrl+Z y rehacer: capa, tabla y alteración": deshecha,
     "GML de la división sin errores, solapes ni huecos": gml_ok,
     "tras validar, de vuelta en Parcela: capa activa, Ctrl+Z y ayuda de los valores": activa_ok,
+    "parcelas nuevas sin la referencia catastral (rótulo «(nueva)»); la RC, en la mayor": identidad,
     "operación «División»: todas LOCAL (Div_1…Div_3)": division_op,
     "capa en coordenadas geográficas: se divide en UTM": geograficas,
     "ninguna ventana emergente": not ventanas,

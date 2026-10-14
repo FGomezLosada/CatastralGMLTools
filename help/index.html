@@ -195,6 +195,9 @@ mapa), y las parcelas salen en orden desde ese lado (o desde el opuesto). Antes 
 resultantes; si una forma irregular dejara una parcela en varios trozos, se avisa: pruebe con otro lado. Elija también la
 operación de la escritura: <strong>segregación</strong> (la mayor conserva la referencia catastral) o
 <strong>división</strong> (todas son parcelas nuevas).</p>
+<p>Las parcelas nuevas no heredan la referencia catastral: en el mapa se rotulan «(nueva)» y la tabla les propone el
+identificador según la operación (<code>Seg_1</code>, <code>Div_1</code>…). En una segregación, la referencia se queda en la
+parcela mayor.</p>
 <p>Al pulsar <strong>Dividir</strong> la parcela se sustituye en la capa por las nuevas (la capa queda en edición; guárdela
 para conservarlas) y el asistente propone la operación elegida. <strong>Ctrl+Z</strong> deshace la división y devuelve la
 tabla y la alteración a como estaban. Si la capa está en coordenadas geográficas, la división se calcula en el huso UTM del GML.</p>
@@ -216,7 +219,11 @@ están en zonas separadas, la Sede trata el fichero como una sola operación y n
   <li><strong>En el mapa:</strong> pulse <strong>Elegir en el mapa</strong>, acérquese a la zona y haga clic sobre la parcela.</li>
 </ul>
 <p>Con la casilla <strong>Mapa de fondo</strong> se añade, si no está, la cartografía del Catastro (la de la DGC y, para Navarra, la del
-Gobierno de Navarra) sobre la ortofoto PNOA del IGN (servicios WMS públicos), para localizar la parcela aunque el proyecto esté vacío. Se descarga de los servicios públicos de la
+Gobierno de Navarra) sobre la ortofoto PNOA del IGN (servicios WMS públicos), para localizar la parcela aunque el proyecto esté vacío. Si alguno de esos servicios no responde o está en
+mantenimiento, debajo de las casillas se dice qué capa falta y por qué (con el horario que dé el Catastro): no hace falta
+buscarla ni añadirla a mano, se vuelve a probar en cada descarga (o con «Reintentar ahora») y se añade sola cuando responde.
+Con el Catastro en mantenimiento tampoco se puede descargar: el panel lo dice con su horario.</p>
+<p>La parcela se descarga de los servicios públicos de la
 Dirección General del Catastro, en el huso UTM que le corresponde, y se añade al proyecto en un grupo
 «Catastro <em>referencia</em>»: la parcela, sus colindantes (las que la tocan, con su número de parcela), el entorno (las
 demás parcelas a menos de 25 m, por ejemplo al otro lado de la calle) y sus edificios y otras construcciones, según las

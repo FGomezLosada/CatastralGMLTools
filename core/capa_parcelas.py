@@ -275,12 +275,18 @@ def unir_seleccionadas(capa, campo_id=''):
     return principal.id(), tipo, incidencias
 
 
-def dividir_en_capa(capa, fid, piezas):
+#Campos que dicen qué parcela catastral es: una parcela nueva de una división no los hereda
+CAMPOS_IDENTIDAD = ('localId', 'namespace', 'label', 'referencia')
+
+
+def dividir_en_capa(capa, fid, piezas, campo_id=None):
     """
     Sustituye la parcela fid por las piezas de una división (geometrías en el SRC de la capa), dentro de un comando de
     edición (Ctrl+Z lo deshace): la primera pieza se queda en la parcela original y las demás son parcelas nuevas con sus
-    mismos datos (como «Dividir objetos» de QGIS), salvo la superficie, que se recalcula. Devuelve los fid en orden, o []
-    si la capa no deja editar.
+    mismos datos (como «Dividir objetos» de QGIS), salvo la superficie, que se recalcula, y su identidad catastral (el
+    campo de identificador campo_id y los de CAMPOS_IDENTIDAD), que se deja vacía: su identificador lo propone la pestaña
+    Parcela según la alteración (Seg_1, Div_2…). Así la capa no tiene varias parcelas con la misma referencia catastral
+    (prueba a mano del 14/10). Devuelve los fid en orden, o [] si la capa no deja editar.
     """
     from qgis.core import QgsVectorLayerUtils
 
@@ -294,7 +300,7 @@ def dividir_en_capa(capa, fid, piezas):
         if multi:
             g.convertToMultiType()
         geometrias.append(g)
-    sin_copiar = {capa.fields().indexOf(n) for n in ('sup_gml', 'sup_calc')} - {-1}  #Se recalculan o no valen ya
+    sin_copiar = {capa.fields().indexOf(n) for n in ('sup_gml', 'sup_calc', *CAMPOS_IDENTIDAD, campo_id or '')} - {-1}
     atributos = {i: v for i, v in enumerate(original.attributes()) if i not in sin_copiar}
     if not capa.isEditable():
         capa.startEditing()

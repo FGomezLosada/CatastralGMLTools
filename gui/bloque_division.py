@@ -226,10 +226,14 @@ class BloqueDivision(QgsCollapsibleGroupBox):
             piezas = [QgsGeometry(p) for p in piezas]
             for p in piezas:
                 p.transform(vuelta)
+        if self.operacion.currentData() == alt.SEGREGACION:
+            #La parcela original (con su referencia catastral) se queda con la pieza mayor: es la que la conserva
+            mayor = max(range(len(piezas)), key=lambda i: piezas[i].area())
+            piezas = [piezas[mayor]] + piezas[:mayor] + piezas[mayor + 1:]
         antes = self.pestana.estado_antes_de_editar()
         self.pestana.editando = True
         try:
-            fids = cp.dividir_en_capa(capa, entidad.id(), piezas)
+            fids = cp.dividir_en_capa(capa, entidad.id(), piezas, self.pestana.campoId.currentField())
         finally:
             self.pestana.editando = False
         if not fids:
