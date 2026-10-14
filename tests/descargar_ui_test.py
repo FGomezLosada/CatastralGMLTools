@@ -249,7 +249,7 @@ pes.fondo_comprobado()
 _linea = pes.estadoFondo.text()
 fondo_caido = (caido and pes.fondo.isChecked() and not pes.estadoFondo.isHidden() and '«Catastro (WMS)»' in _linea
                and 'mantenimiento' in _linea and '19.00' in _linea and 'Reintentar ahora' in _linea
-               and 'no se ha añadido' in textos_barra())
+               and 'no se ha añadido' not in textos_barra())  #Solo en la línea fija, no repetido en la barra
 fondo.PROBADO['Catastro (WMS)'] -= fondo.REINTENTO + 1  #Pasado el plazo, se vuelve a probar
 fondo_caido = fondo_caido and fondo.pendientes() == ['Catastro (WMS)']
 pes.fondo.setChecked(False)  #Sin la casilla no se pide nada y la línea se oculta
