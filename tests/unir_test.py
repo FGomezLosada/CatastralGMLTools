@@ -111,6 +111,20 @@ pu.lista.setCurrentRow(0)
 pu.lista.item(0).setSelected(True)
 pu.quitar()
 quitar = pu.rutas() == [b] and not pu.unirBoton.isEnabled()
+#Arrastrar una capa desde el panel de Capas (la cargada por el plugin trae su GML): se añade y la capa no se quita
+from qgis.core import QgsMimeDataUtils, QgsProject  # noqa: E402
+from qgis.PyQt.QtCore import QPointF, Qt  # noqa: E402
+from qgis.PyQt.QtGui import QDropEvent  # noqa: E402
+
+from catastral_gml_tools.gui import pestana_validar as pv_mod  # noqa: E402
+
+capa_a = pv_mod.cargar(gl.leer(a), a)
+mime = QgsMimeDataUtils.encodeUriList([QgsMimeDataUtils.Uri(capa_a)])
+soltar = QDropEvent(QPointF(5, 5), Qt.DropAction.MoveAction | Qt.DropAction.CopyAction, mime, Qt.MouseButton.LeftButton,
+                    Qt.KeyboardModifier.NoModifier)
+pu.dropEvent(soltar)
+quitar = (quitar and pu.rutas() == [b, os.path.normpath(a)] and soltar.dropAction() == Qt.DropAction.CopyAction
+          and QgsProject.instance().mapLayer(capa_a.id()) is not None)
 
 for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
@@ -125,7 +139,7 @@ checks = {
     "pestaña Utilidades integrada y lista sin repetidos": integrada and lista,
     "unir desde el panel: fichero y resultado en la barra": panel,
     "botón Validar: abre el GML unido en la pestaña Validar": validar,
-    "quitar ficheros de la lista": quitar,
+    "quitar ficheros de la lista y arrastrar una capa del panel de Capas": quitar,
     "ninguna ventana emergente": not ventanas,
 }
 

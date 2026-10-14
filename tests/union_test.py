@@ -96,7 +96,14 @@ rendijas = (fid_r is not None and 'UNION-RENDIJAS' in codigos(inc_r) and not g_r
             and abs(g_r.area() - 1200) < 0.2 and fid_h is not None and len(g_h.asPolygon()) == 1
             and 'UNION-RENDIJAS' in codigos(inc_h) and fid_p is not None and len(g_p.asPolygon()) == 2
             and 'UNION-RENDIJAS' not in codigos(inc_p))
-for _c in (rendija, hueco, patio):
+#Rendija en cuña de hasta 5 cm (el dibujo no encaja, como en la prueba a mano del 14/10/2026): se une, pero se avisa
+cuna = capa('cuna', [(rect(X0, Y0, 20, 30), 'A'),
+                     (f"POLYGON(({X0 + 20} {Y0}, {X0 + 40} {Y0}, {X0 + 40} {Y0 + 30}, {X0 + 20} {Y0 + 30}, {X0 + 20.05} {Y0 + 20}, "
+                      f"{X0 + 20} {Y0 + 10}, {X0 + 20} {Y0}))", 'B')])
+cuna.selectAll()
+fid_c, _, inc_c = cp.unir_seleccionadas(cuna, 'refcat')
+rendijas = rendijas and fid_c is not None and 'UNION-HUECOS' in codigos(inc_c) and 'UNION-HUECOS' not in codigos(inc_p)
+for _c in (rendija, hueco, patio, cuna):
     _c.rollBack()
 
 # 2. Pestaña Parcela: botón, agrupación propuesta (mitades iguales) y tabla resultante
@@ -127,7 +134,7 @@ checks = {
     "se deshace con la pila de edición de QGIS": deshacer,
     "errores: no colindantes y una sola seleccionada": errores,
     "capa de multipolígonos": multipoligono,
-    "rendijas de digitalización de menos de 1 cm: se cierran; un patio se conserva": rendijas,
+    "rendijas de menos de 1 cm: se cierran; un patio se conserva; una cuña de 5 cm se avisa": rendijas,
     "pestaña Parcela: botón, agrupación propuesta y tabla": interfaz,
     "ninguna ventana emergente": not ventanas,
 }

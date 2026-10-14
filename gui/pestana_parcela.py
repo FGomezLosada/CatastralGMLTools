@@ -38,7 +38,7 @@ from ..core import gml_lector as gl
 from ..core import gml_parcela as gp
 from ..core import refcat
 from ..core.ficheros import misma_ruta
-from ..core.incidencias import AVISO, ERROR
+from ..core.incidencias import AVISO, ERROR, INFO
 from .pestana_validar import cargar
 
 COL_N, COL_ID, COL_NS, COL_LABEL, COL_AREA, COL_ESTADO = range(6)
@@ -287,9 +287,15 @@ class PestanaParcela(QWidget):
         if tipo:
             self.alteracion.setCurrentIndex(alt.TIPOS.index(tipo))  #Lanza aplicar_alteracion
         self.actualizar_unir()
-        notas = ''.join(f". {i.mensaje}" for i in incidencias[1:])  #Notas informativas, no avisos: el mensaje sigue en verde
-        self.dock.success(incidencias[0].mensaje + f" · propuesta: {alt.NOMBRES[tipo]}{notas}. La tabla muestra solo la parcela unida. La capa queda en edición "
-                          "(Ctrl+Z deshace; guarde la capa para conservarla)")
+        notas = ''.join(f". {i.mensaje}" for i in incidencias[1:] if i.nivel == INFO)
+        texto = (incidencias[0].mensaje + f" · propuesta: {alt.NOMBRES[tipo]}{notas}. La tabla muestra solo la parcela unida "
+                 "(desmarque «Solo los elementos seleccionados» para ver todas). La capa queda en edición (Ctrl+Z deshace; "
+                 "guarde la capa para conservarla)")
+        avisos = [i.mensaje for i in incidencias if i.nivel == AVISO]
+        if avisos:  #El dibujo no encaja: aviso en naranja, no en verde
+            self.dock.notify(" ".join(avisos) + ". " + texto, Qgis.MessageLevel.Warning, 0)
+        else:
+            self.dock.success(texto)
         return fid
 
     def numero_parcelas(self, capa):
@@ -357,6 +363,7 @@ class PestanaParcela(QWidget):
             self.areas.append(area)
             self.tabla.item(i, COL_AREA).setText('' if area is None else miles(area))
             total += area or 0
+            self.marcar_namespace(i)
         self.mostrar_alteracion()
         if not self.filas:
             if capa is None:
@@ -449,6 +456,21 @@ class PestanaParcela(QWidget):
         self.alteracionInfo.setText("<small>" + "<br>".join(lineas) + "</small>")
         self.alteracionInfo.setToolTip(alt.AYUDA[tipo])
         self.alteracionInfo.show()
+
+    def marcar_namespace(self, i):
+        """Estado de la fila al momento si es SDGC sin referencia catastral (el GML no se crearía así)."""
+        item = self.tabla.item(i, COL_ESTADO)
+        if item is None:
+            return
+        local_id = self.tabla.item(i, COL_ID).text().strip()
+        if self.namespace_fila(i) == gp.SDGC and not refcat.es_rc_exacta(local_id):
+            item.setText("SDGC sin RC: use LOCAL")
+            item.setForeground(Qt.GlobalColor.red)
+            item.setToolTip("Con SDGC el identificador debe ser la referencia catastral de 14 caracteres; una parcela "
+                            "nueva va como LOCAL")
+        elif item.text() == "SDGC sin RC: use LOCAL":
+            item.setText('')
+            item.setToolTip('')
 
     def namespace_fila(self, i):
         combo = self.tabla.cellWidget(i, COL_NS)

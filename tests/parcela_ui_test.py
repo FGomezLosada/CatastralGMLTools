@@ -203,6 +203,11 @@ ids_div = [pt.tabla.item(i, pp.COL_ID).text() for i in range(pt.tabla.rowCount()
 nss_div = [pt.namespace_fila(i) for i in range(pt.tabla.rowCount())]
 labels_div = [pt.tabla.item(i, pp.COL_LABEL).text() for i in range(pt.tabla.rowCount())]
 division_ok = ids_div == ['Nueva_1', '1907401VK4810H'] and nss_div == ['LOCAL', 'SDGC'] and labels_div == ['Nueva_1', '01']
+#SDGC en una parcela nueva (sin RC): la fila lo dice al momento, antes de crear el GML
+pt.tabla.cellWidget(0, pp.COL_NS).setCurrentText('SDGC')
+division_ok = division_ok and 'SDGC sin RC' in pt.tabla.item(0, pp.COL_ESTADO).text()
+pt.tabla.cellWidget(0, pp.COL_NS).setCurrentText('LOCAL')
+division_ok = division_ok and pt.tabla.item(0, pp.COL_ESTADO).text() == ''
 fichero_propuesto = os.path.basename(pt.destino.filePath()) == 'Parcela_dividida_prueba.gml'
 pt.capaCombo.setLayer(segregacion)
 sigue_capa = os.path.basename(pt.destino.filePath()) == 'segregacion.gml'

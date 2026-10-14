@@ -96,20 +96,27 @@ def desvio(resto, b):
     return max((b.distance(QgsGeometry.fromPointXY(p)) for p in puntos), default=0.0)
 
 
-def parcelas_catastrales(caja, epsg):
-    """Parcelas catastrales que tocan un rectángulo (en trozos si es grande). Devuelve (lista de ElementoGML, errores)."""
-    trozos = _trozos(caja)
+def parcelas_catastrales(cajas, epsg):
+    """
+    Parcelas catastrales que tocan uno o varios rectángulos (en trozos si son grandes). Con un GML de varias zonas
+    separadas se pide cada zona, no el rectángulo que las abarca a todas (que podía ser de kilómetros: lento).
+    Devuelve (lista de ElementoGML, errores).
+    """
+    cajas = [cajas] if isinstance(cajas, QgsRectangle) else list(cajas)
+    trozos = [t for caja in cajas for t in _trozos(caja)]
     if len(trozos) > MAX_TROZOS:
         return [], [Incidencia(AVISO, 'CMP-DEMASIADO-GRANDE', "El parcelario es demasiado extenso para compararlo con el "
                                                               "Catastro desde el plugin")]
     vistas = {}
-    for trozo in trozos:
+    for n, trozo in enumerate(trozos):
+        servicios.progreso(n, len(trozos))
         resultado, errores = servicios.consultar_wfs(servicios.url_entorno(trozo, epsg), "las parcelas del Catastro")
         if errores or resultado is None:
             return [], errores or [Incidencia(AVISO, 'CMP-SIN-DATOS', "El Catastro no ha devuelto parcelas")]
         for e in resultado.elementos:
             if not e.geometria.isEmpty():
                 vistas.setdefault(e.local_id, e)
+    servicios.progreso(len(trozos), len(trozos))
     return list(vistas.values()), []
 
 
@@ -156,9 +163,13 @@ def comparar(lectura):
         c.incidencias.append(Incidencia(INFO, 'CMP-TRUNCADO', "El GML trae más de 2 decimales: se compara con las coordenadas "
                                                               "truncadas a 2, como hace la Sede"))
     union = QgsGeometry.unaryUnion([e.geometria for e in propuestas])
-    caja = union.boundingBox()
-    caja.grow(MARGEN)
-    catastrales, errores = parcelas_catastrales(caja, lectura.epsg)
+    grupos = geo.zonas([e.geometria for e in propuestas])
+    cajas = []
+    for parte, _ in grupos:
+        caja = parte.boundingBox()
+        caja.grow(MARGEN)
+        cajas.append(caja)
+    catastrales, errores = parcelas_catastrales(cajas, lectura.epsg)
     if errores:
         c.incidencias += [Incidencia(AVISO, 'CMP-NO-COMPARADO', f"No se ha podido comparar con el Catastro: {i.mensaje}")
                           for i in errores]
@@ -271,6 +282,20 @@ def comparar(lectura):
     c.operacion = texto
     c.incidencias.append(Incidencia(nivel, 'CMP-OPERACION', f"NPO {c.npo} (parcelas catastrales afectadas) · NPP {c.npp} "
                                                             f"(parcelas del GML) → {texto}"))
+    if len(grupos) > 1:  #Varias operaciones en un GML (p. ej. una multiparcela de dos segregaciones): se dice cada una
+        partes = []
+        for k, (parte, indices) in enumerate(grupos, start=1):
+            de_zona = [propuestas[i] for i in indices]
+            interior_zona = parte.buffer(-TOLERANCIA, 4)
+            origen_zona = [e for e in afectadas if e.geometria.intersects(interior_zona)
+                           and e.geometria.intersection(interior_zona).area() > RUIDO]
+            texto_zona, _ = operacion(len(origen_zona), len(de_zona), de_zona, [e.local_id for e in origen_zona])
+            partes.append(f"zona {k}: NPO {len(origen_zona)} · NPP {len(de_zona)} → {texto_zona.split(' (')[0]}")
+        c.incidencias.append(Incidencia(AVISO, 'CMP-ZONAS', f"El GML tiene {len(grupos)} zonas separadas: la Sede lo trata "
+                                                            "como una sola operación (la de arriba), puede dar validación "
+                                                            "positiva pero no la tramita de forma automática. Por zonas: "
+                                                            + "; ".join(partes) + ". Para tramitarlas, mejor un GML por "
+                                                            "operación"))
     #No impiden el IVG, pero sí la tramitación automática
     tipos = {refcat.tipo_parcela(i) for i in ids_origen} - {''}
     if len(tipos) > 1:

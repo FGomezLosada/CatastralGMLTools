@@ -16,7 +16,9 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
 from qgis.core import (
+    Qgis,
     QgsCoordinateReferenceSystem,
+    QgsDefaultValue,
     QgsFeature,
     QgsGeometry,
     QgsPointXY,
@@ -441,4 +443,24 @@ def capa(resultado, nombre):
     nueva.dataProvider().addFeatures(entidades)
     nueva.updateExtents()
     nueva.setCrs(QgsCoordinateReferenceSystem(f'EPSG:{epsg}'))
+    preparar_edicion(nueva, resultado.elementos)
     return nueva
+
+
+def preparar_edicion(capa_, elementos=()):
+    """
+    Al editar la capa (dividir una parcela, dibujar una nueva), sup_calc se recalcula sola (superficie plana en el SRC
+    de la capa) y, al dividir, sup_gml (la declarada en el Catastro o en el fichero) se deja vacía en vez de copiarse.
+    En una capa de parcelas, los polígonos nuevos son «parcela» (y se ven con su estilo).
+    """
+    campos = capa_.fields()
+    i_calc, i_gml, i_tipo = campos.indexOf('sup_calc'), campos.indexOf('sup_gml'), campos.indexOf('tipo')
+    if i_calc >= 0:
+        capa_.setDefaultValueDefinition(i_calc, QgsDefaultValue('round(area($geometry))', True))
+    if hasattr(capa_, 'setFieldSplitPolicy') and hasattr(Qgis, 'FieldDomainSplitPolicy'):  #QGIS 3.30 o posterior
+        if i_calc >= 0:
+            capa_.setFieldSplitPolicy(i_calc, Qgis.FieldDomainSplitPolicy.DefaultValue)
+        if i_gml >= 0 and hasattr(Qgis.FieldDomainSplitPolicy, 'UnsetField'):
+            capa_.setFieldSplitPolicy(i_gml, Qgis.FieldDomainSplitPolicy.UnsetField)
+    if i_tipo >= 0 and elementos and all(e.tipo == PARCELA for e in elementos):
+        capa_.setDefaultValueDefinition(i_tipo, QgsDefaultValue(f"'{PARCELA}'"))

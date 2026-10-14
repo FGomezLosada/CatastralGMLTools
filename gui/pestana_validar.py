@@ -48,6 +48,7 @@ PROPIEDAD_GML = 'catastral_gml_tools/gml'  #Propiedad de las capas que carga el 
 COMPARABLES = ('CP 4.0', 'BU 2.0')  #Parcela: operación y contorno; edificio: dentro de la parcela (ICUC)
 
 
+TEXTO_COMPARAR = "Comparar con el Catastro"
 UMBRAL_SEGUNDO_PLANO = 2_000_000  #bytes: por encima (unas 1.000 parcelas), Validar lee y valida en una QgsTask
 
 
@@ -122,7 +123,7 @@ class PestanaValidar(QWidget):
                                  "La primera vez se descargan de internet; después se usan los guardados")
         self.xsdBoton.setEnabled(False)
         botones.addWidget(self.xsdBoton)
-        self.cmpBoton = QPushButton(QgsApplication.getThemeIcon('/mActionAddWfsLayer.svg'), "Comparar con el Catastro", self)
+        self.cmpBoton = QPushButton(QgsApplication.getThemeIcon('/mActionAddWfsLayer.svg'), TEXTO_COMPARAR, self)
         self.cmpBoton.setToolTip("Descarga las parcelas catastrales vigentes bajo el GML y comprueba, como el informe de\n"
                                  "validación gráfica: parcelas afectadas (NPO), operación, contorno exterior (±1 cm),\n"
                                  "parcelas afectadas solo en parte, suelo sin parcela y referencias.\n"
@@ -223,6 +224,7 @@ class PestanaValidar(QWidget):
         self.cargarBoton.setEnabled(False)
         self.xsdBoton.setEnabled(False)
         self.cmpBoton.setEnabled(False)
+        self.cmpBoton.setText(TEXTO_COMPARAR)
         self.informeBoton.setEnabled(False)
         self.comparacion = None
         self.resultado = None
@@ -403,12 +405,22 @@ class PestanaValidar(QWidget):
         if not segundo_plano:
             return self.comparado(comparar(self.resultado))
         self.tarea_cmp = TareaComparacion(self.resultado, self, self.generacion)
+        self.tarea_cmp.progressChanged.connect(self.progreso_comparacion)
+        self.cmpBoton.setText("Comparando…")
         QgsApplication.taskManager().addTask(self.tarea_cmp)
         return None
 
+    def progreso_comparacion(self, avance):
+        """El botón dice cuánto lleva la comparación (con un GML de zonas separadas o grande puede tardar)."""
+        if not sip.isdeleted(self) and self.tarea_cmp is not None:
+            self.cmpBoton.setText(f"Comparando… {avance:.0f} %")
+
     def comparado(self, comparacion, generacion=None):
         """Llega de la tarea: añade el resultado al informe y lleva al mapa las parcelas catastrales y las diferencias."""
-        if sip.isdeleted(self) or (generacion is not None and generacion != self.generacion):
+        if sip.isdeleted(self):
+            return None
+        self.cmpBoton.setText(TEXTO_COMPARAR)
+        if generacion is not None and generacion != self.generacion:
             return None  #Resultado de un fichero que ya no está abierto
         self.tarea_cmp = None
         if self.informe is None or comparacion is None:
@@ -494,6 +506,7 @@ class TareaComparacion(QgsTask):
         self.generacion = generacion
         self.comparacion = None
         self.feedback = QgsFeedback()  #Cancelar corta la petición en curso y las siguientes (AU-38)
+        self.feedback.progressChanged.connect(self.setProgress)  #El avance (trozos pedidos) se ve en el gestor de tareas
 
     def cancel(self):
         self.feedback.cancel()

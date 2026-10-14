@@ -105,6 +105,8 @@ casos['HUECO'] = gml([gp.ParcelaGML('A', gp.LOCAL, QgsGeometry.fromWkt(
                           f"POLYGON(({X0 + 20} {Y0}, {X0 + 40} {Y0}, {X0 + 40} {Y0 + 30}, {X0 + 20} {Y0 + 30}, {X0 + 20} {Y0 + 20}, "
                           f"{X0 + 25} {Y0 + 20}, {X0 + 25} {Y0 + 10}, {X0 + 20} {Y0 + 10}, {X0 + 20} {Y0}))"))], 'hueco.gml')
 casos['ESBELTEZ'] = gml([gp.ParcelaGML('Larga', gp.LOCAL, rect(X0, Y0, 200, 10))], 'esbeltez.gml')
+casos['ZONAS-SEPARADAS'] = gml([gp.ParcelaGML('A', gp.LOCAL, rect(X0, Y0, 10, 10)),
+                                gp.ParcelaGML('B', gp.LOCAL, rect(X0 + 500, Y0, 10, 10))], 'zonas.gml')
 casos['N-PARCELAS'] = gml([gp.ParcelaGML(f'P_{i}', gp.LOCAL, rect(X0 + i * 10, Y0, 10, 10)) for i in range(31)], 'muchas.gml')
 casos['CP-30'] = os.path.join(RAIZ, 'tests', 'data', 'gml', 'parcela_cp30_sintetica.gml')
 casos['XML-MAL-FORMADO'] = os.path.join(RAIZ, 'tests', 'data', 'gml', 'mal_formado.gml')
