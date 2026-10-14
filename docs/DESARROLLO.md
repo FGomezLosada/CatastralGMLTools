@@ -186,5 +186,10 @@ Decisiones técnicas:
 ## 7. Método
 
 - Una mejora cada vez. Tras cada cambio: pruebas en 3.40 y 4.x, CHANGELOG y esta tabla actualizados, y mensaje de commit en español.
+- **Fallos encadenados (regla del 14/10/2026, para todo lo que se desarrolle):** antes de dar por hecho un cambio, repasar qué
+  más toca y qué puede hacer el usuario después: deshacer (Ctrl+Z) y rehacer, editar la capa a mano, cambiar de capa o de
+  pestaña, volver a pulsar el botón, cerrar el panel, datos raros o con varias partes, otra versión de QGIS. Cada flujo
+  real que pruebe el usuario se convierte en una prueba automática de principio a fin (p. ej. «caso real» en
+  `tests/union_test.py`), además de las pruebas de cada función.
 - Solo rama `main`. Comandos git para CMD, uno por bloque, empezando por `cd /d <carpeta>`.
 - Reglas de estabilidad (lecciones de ProjectBuilder y de este plugin): todo espaciador de un .ui lleva `sizeHint` (PyQt6); no usar objetos de una copia temporal de QGIS (p. ej. `renderer().categories()[0].symbol()`: guardar antes la lista, si no, QGIS se cierra); colores con transparencia en formato «R,G,B,A», no `#RRGGBBAA`; señales a métodos (no lambdas); QTimer hijos del panel y comprobación `sip.isdeleted(self)`; todo widget con padre o referencia; sin `QTreeWidgetItemIterator`; enums con nombre completo y comparación explícita.
