@@ -235,11 +235,11 @@ class PestanaDescargar(QWidget):
             return
         vacio = not QgsProject.instance().mapLayers()
         nuevas = fondo.asegurar(self.dock.iface)
+        #Lo que falta y por qué se dice solo en la línea fija bajo las casillas (también en la barra de avisos, el mismo
+        #texto salía dos veces y se repetía en cada descarga: prueba a mano del 14/10). La casilla sigue marcada: en la
+        #próxima descarga se vuelve a probar y la capa se añade cuando responda
         faltan = self.mostrar_estado_fondo()
-        if faltan:
-            #La casilla sigue marcada: en la próxima descarga se vuelve a probar y la capa se añade cuando responda
-            self.dock.notify(self.texto_fondo(faltan, enlace=False), Qgis.MessageLevel.Warning, 15)
-        elif aviso and nuevas and vacio:
+        if not faltan and aviso and nuevas and vacio:
             self.dock.notify("Acérquese a la zona (rueda del ratón) y haga clic sobre la parcela que quiere descargar",
                              Qgis.MessageLevel.Info, 10)
 
