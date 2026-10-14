@@ -16,7 +16,7 @@ import re
 from qgis.core import Qgis, QgsApplication, QgsCoordinateReferenceSystem, QgsProject
 from qgis.gui import QgsFieldComboBox, QgsFileWidget, QgsMapLayerComboBox
 from qgis.PyQt import sip
-from qgis.PyQt.QtCore import QDateTime, Qt, QTime
+from qgis.PyQt.QtCore import QDateTime, Qt, QTime, QTimer
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -40,6 +40,7 @@ from ..core import geometria as geo
 from ..core import gml_edificio as ge
 from ..core import refcat
 from ..core.incidencias import AVISO, ERROR
+from . import desplazable
 from .pestana_parcela import AUTOMATICO, MAX_FILAS, PROPIEDAD_TERRITORIO, miles
 
 COL_N, COL_ID, COL_TIPO, COL_PLANTAS, COL_OBRA, COL_AREA, COL_ESTADO = range(7)
@@ -109,6 +110,7 @@ class PestanaEdificio(QWidget):
         self.tabla = QTableWidget(0, len(CABECERAS), self)
         self.tabla.setHorizontalHeaderLabels(CABECERAS)
         self.tabla.verticalHeader().setVisible(False)
+        self.tabla.setMinimumHeight(desplazable.ALTO_MINIMO_TABLA)
         self.tabla.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         cabecera = self.tabla.horizontalHeader()
         cabecera.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
@@ -166,6 +168,7 @@ class PestanaEdificio(QWidget):
     def conectar(self):
         """Señales conectadas a métodos (nunca a lambdas: cerraban QGIS 4)."""
         self.capaCombo.layerChanged.connect(self.cambiar_capa)
+        QgsProject.instance().layersRemoved.connect(self.capas_quitadas)  #Como en Parcela: el combo cambia solo
         self.soloSeleccion.toggled.connect(self.recargar)
         self.campoPlantas.fieldChanged.connect(self.recargar)
         self.referencia.editingFinished.connect(self.proponer_ids)
@@ -185,6 +188,14 @@ class PestanaEdificio(QWidget):
         if ce.es_capa_huellas(capa):
             self.soloSeleccion.setChecked(False)
             self.capaCombo.setLayer(capa)
+
+    def capas_quitadas(self, *args):
+        if not sip.isdeleted(self):
+            QTimer.singleShot(0, self.comprobar_capa)
+
+    def comprobar_capa(self):
+        if not sip.isdeleted(self) and self.campoPlantas.layer() is not self.capa():
+            self.cambiar_capa()
 
     def cambiar_capa(self, *args):
         capa = self.capa()
@@ -289,6 +300,8 @@ class PestanaEdificio(QWidget):
             obra.setCurrentIndex(ge.ESTADOS.index(fila.estado))
             obra.setToolTip("Estado del edificio (conditionOfConstruction). Las piscinas no lo llevan")
             self.tabla.setCellWidget(i, COL_OBRA, obra)
+            desplazable.proteger(combo)  #La rueda desplaza la tabla, no cambia el tipo ni el estado
+            desplazable.proteger(obra)
             for col in (COL_AREA, COL_ESTADO):
                 item = QTableWidgetItem('')
                 item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)

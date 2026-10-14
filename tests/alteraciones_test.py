@@ -105,6 +105,12 @@ antes = tabla()
 pt.alteracion.setCurrentIndex(alt.TIPOS.index(alt.SEGREGACION))
 tras_seg = tabla()
 texto_seg = pt.alteracionInfo.text()
+#Las notas (ℹ) van plegadas tras un enlace; los avisos (⚠) y el ✔, siempre a la vista
+plegadas = "notas sobre la operación" in texto_seg and 'Se segrega el 33 %' not in texto_seg
+pt.alternar_notas()
+texto_notas = pt.alteracionInfo.text()
+pt.alternar_notas()
+plegadas = plegadas and 'Ocultar las notas' in texto_notas and 'notas sobre la operación' in pt.alteracionInfo.text()
 pt.alteracion.setCurrentIndex(alt.TIPOS.index(alt.DIVISION))
 tras_div = tabla()
 texto_div = pt.alteracionInfo.text()
@@ -117,7 +123,7 @@ ns_sdgc = 'SDGC'
 interfaz = (sin_info and antes[0][0] == RC and antes[1][0] == 'Nueva_1'
             and [(t[0], t[1]) for t in tras_seg] == [(RC, ns_sdgc), ('Seg_1', 'LOCAL')]
             and 'Segregación · 2 parcelas (1 SDGC)' in texto_seg and '✔' in texto_seg
-            and 'Se segrega el 33 %' in texto_seg and not pt.alteracionInfo.isHidden()
+            and 'Se segrega el 33 %' in texto_notas and plegadas and not pt.alteracionInfo.isHidden()
             and [(t[0], t[1]) for t in tras_div] == [('Div_1', 'LOCAL'), ('Div_2', 'LOCAL')]
             and 'División · 2 parcelas (0 SDGC)' in texto_div
             and [(t[0], t[1]) for t in tras_usuario] == [(RC, ns_sdgc), ('Finca_B', 'LOCAL')]

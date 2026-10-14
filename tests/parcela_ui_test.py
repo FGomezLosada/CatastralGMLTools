@@ -77,7 +77,7 @@ carpeta = tempfile.mkdtemp(prefix='cgt_ui_')
 
 dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
 pt = dw.pestanaParcela
-pestana_visible = dw.tabParcelaPendiente.isHidden() and pt.parent() is dw.tabParcela
+pestana_visible = dw.tabParcelaPendiente.isHidden() and dw.tabParcela.isAncestorOf(pt)
 
 # 1. Al elegir la capa: campo refcat propuesto, filas, namespaces y superficies
 pt.capaCombo.setLayer(segregacion)

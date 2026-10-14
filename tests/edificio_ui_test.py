@@ -73,7 +73,7 @@ QgsProject.instance().addMapLayer(capa)
 
 dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
 pe = dw.pestanaEdificio
-integrada = dw.tabEdificioPendiente.isHidden() and pe.parent() is dw.tabEdificio and pe.capa() is None
+integrada = dw.tabEdificioPendiente.isHidden() and dw.tabEdificio.isAncestorOf(pe) and pe.capa() is None
 
 # 1. La capa descargada pasa a la pestaña: referencia, tipos, plantas e identificadores propuestos
 dw.construcciones_descargadas(RC, capa)

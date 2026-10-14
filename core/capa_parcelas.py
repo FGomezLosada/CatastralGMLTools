@@ -41,6 +41,27 @@ def _texto(valor):
     return '' if texto.upper() == 'NULL' else texto
 
 
+def campo_con_rc(capa, excepto='', muestra=50):
+    """
+    Primer campo de texto de la capa (salvo «excepto») con referencias catastrales de parcela en sus valores, o ''. Sirve
+    para avisar si el identificador elegido no las tiene y otro campo sí (prueba a mano del 14/10: identificador «pos»,
+    las coordenadas del punto de referencia, en una capa con nationalCadastralReference).
+    """
+    if capa is None:
+        return ''
+    nombres = [c.name() for c in capa.fields()
+               if c.name() != excepto and any(t in c.typeName().lower() for t in ('string', 'text', 'char'))]
+    if not nombres:
+        return ''
+    for n, entidad in enumerate(capa.getFeatures()):
+        if n >= muestra:
+            break
+        for nombre in nombres:
+            if refcat.es_rc_parcela(_texto(entidad[nombre])):
+                return nombre
+    return ''
+
+
 def src_incorrecto(capa):
     """
     Texto del problema si la capa no tiene SRC o si sus coordenadas no encajan con él (lo típico de un DXF en UTM que

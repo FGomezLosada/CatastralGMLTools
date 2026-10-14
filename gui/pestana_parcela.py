@@ -8,13 +8,14 @@ copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
 import contextlib
+import html
 import os
 import re
 
 from qgis.core import Qgis, QgsApplication, QgsProject
 from qgis.gui import QgsFieldComboBox, QgsFileWidget, QgsMapLayerComboBox
 from qgis.PyQt import sip
-from qgis.PyQt.QtCore import QDateTime, QTime, Qt
+from qgis.PyQt.QtCore import QDateTime, QTime, QTimer, Qt
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -39,6 +40,7 @@ from ..core import gml_parcela as gp
 from ..core import refcat
 from ..core.ficheros import misma_ruta
 from ..core.incidencias import AVISO, ERROR, INFO
+from . import desplazable
 from .bloque_division import BloqueDivision
 from .pestana_validar import cargar
 
@@ -140,13 +142,17 @@ class PestanaParcela(QWidget):
         self.tabla.setToolTip("Puede cambiar el identificador, el namespace y el número de parcela de cada fila.\n"
                               "SDGC: la parcela existe en el Catastro y se conserva su referencia (14 caracteres).\n"
                               "LOCAL: parcela nueva con un identificador propio (Seg_1, Div_1_1…).")
+        self.tabla.setMinimumHeight(desplazable.ALTO_MINIMO_TABLA)  #En pantallas bajas el panel se desplaza, no la aplasta
         principal.addWidget(self.tabla, 1)
 
         self.resumen = QLabel(self)
         self.resumen.setWordWrap(True)
         principal.addWidget(self.resumen)
+        self.resumen.linkActivated.connect(self.enlace_resumen)
         self.alteracionInfo = QLabel(self)
         self.alteracionInfo.setWordWrap(True)
+        self.alteracionInfo.linkActivated.connect(self.alternar_notas)
+        self.notas_abiertas = False  #Las notas informativas de la operación, plegadas (se ven los avisos)
         self.alteracionInfo.hide()
         principal.addWidget(self.alteracionInfo)
 
@@ -192,6 +198,9 @@ class PestanaParcela(QWidget):
     def conectar(self):
         """Señales conectadas a métodos (nunca a lambdas: cerraban QGIS 4)."""
         self.capaCombo.layerChanged.connect(self.cambiar_capa)
+        #Al quitar del proyecto la capa elegida, el combo pasa solo a otra sin que siempre llegue layerChanged: los
+        #campos se quedaban sin capa (o con los de la anterior). Se comprueba después de quitarla
+        QgsProject.instance().layersRemoved.connect(self.capas_quitadas)
         self.soloSeleccion.toggled.connect(self.recargar)
         self.campoId.fieldChanged.connect(self.recargar)
         self.campoLabel.fieldChanged.connect(self.recargar)
@@ -216,6 +225,17 @@ class PestanaParcela(QWidget):
     def capa(self):
         capa = self.capaCombo.currentLayer()
         return capa if cp.es_capa_poligonos(capa) else None
+
+    def capas_quitadas(self, *args):
+        if not sip.isdeleted(self):
+            QTimer.singleShot(0, self.comprobar_capa)
+
+    def comprobar_capa(self):
+        """Si los campos no son de la capa que muestra el combo, se rehace todo como al elegirla."""
+        if sip.isdeleted(self):
+            return
+        if self.campoId.layer() is not self.capa():
+            self.cambiar_capa()
 
     def cambiar_capa(self, *args):
         capa = self.capa()
@@ -407,6 +427,7 @@ class PestanaParcela(QWidget):
             combo.addItems([gp.SDGC, gp.LOCAL])
             combo.setCurrentText(fila.namespace)
             combo.currentTextChanged.connect(self.namespace_cambiado)
+            desplazable.proteger(combo)  #La rueda desplaza la tabla, no cambia el namespace
             self.tabla.setCellWidget(i, COL_NS, combo)
             self.tabla.setItem(i, COL_LABEL, QTableWidgetItem(fila.label))
             for col in (COL_AREA, COL_ESTADO):
@@ -498,7 +519,19 @@ class PestanaParcela(QWidget):
         else:
             for aviso in cp.avisos_src(self.filas, capa.crs(), epsg, [f.local_id for f in self.filas]):  #AU-30, AU-32
                 texto += f"<br><span style='color:#e67700'>⚠ {aviso.mensaje}</span>"
+        if not sdgc and not any(refcat.es_rc_parcela(i) for i in self.filas_capa):
+            otro = cp.campo_con_rc(capa, self.campoId.currentField())
+            if otro:  #El identificador elegido no tiene referencias catastrales y otro campo sí
+                elegido = self.campoId.currentField() or 'ninguno'
+                texto += (f"<br><span style='color:#e67700'>⚠ El campo «{html.escape(otro)}» tiene referencias "
+                          f"catastrales y el identificador elegido («{html.escape(elegido)}») no.</span> "
+                          f"<a href='campo:{html.escape(otro)}'>Usar «{html.escape(otro)}»</a>")
         self.resumen.setText(texto)
+
+    def enlace_resumen(self, enlace):
+        """Enlace «Usar «campo»» del resumen: elige ese campo como identificador."""
+        if enlace.startswith('campo:'):
+            self.campoId.setField(enlace[len('campo:'):])
 
     # ------------------------------------------------------------------ Asistente de alteraciones
 
@@ -571,14 +604,29 @@ class PestanaParcela(QWidget):
         areas = list(getattr(self, 'areas', [None] * n))
         self.incidencias_alteracion = alt.comprobar(tipo, ids, nss, areas)
         lineas = [f"<b>{alt.resumen(tipo, ids, nss, areas)}</b>"]
+        #Los avisos (⚠) siempre a la vista; las notas informativas (ℹ), plegadas tras un enlace (con tantos textos, el
+        #panel no cabía en una pantalla baja: prueba a mano del 14/10)
+        notas = [i for i in self.incidencias_alteracion if i.nivel != AVISO]
         for inc in self.incidencias_alteracion:
-            color = '#e67700' if inc.nivel == AVISO else '#495057'
-            lineas.append(f"<span style='color:{color}'>{'⚠' if inc.nivel == AVISO else 'ℹ'} {inc.mensaje}</span>")
+            if inc.nivel == AVISO:
+                lineas.append(f"<span style='color:#e67700'>⚠ {inc.mensaje}</span>")
         if not any(i.nivel == AVISO for i in self.incidencias_alteracion):
             lineas.insert(1, "<span style='color:#2b8a3e'>✔ Identificadores y namespaces de acuerdo con la operación</span>")
+        if notas:
+            n = len(notas)
+            if self.notas_abiertas:
+                lineas.append("<a href='notas'>ℹ Ocultar las notas ▾</a>")
+                lineas += [f"<span style='color:#495057'>ℹ {inc.mensaje}</span>" for inc in notas]
+            else:
+                lineas.append(f"<a href='notas'>ℹ {n} nota{'s' if n != 1 else ''} sobre la operación ▸</a>")
         self.alteracionInfo.setText("<small>" + "<br>".join(lineas) + "</small>")
         self.alteracionInfo.setToolTip(alt.AYUDA[tipo])
         self.alteracionInfo.show()
+
+    def alternar_notas(self, *args):
+        """Enlace de las notas de la operación: las muestra u oculta."""
+        self.notas_abiertas = not self.notas_abiertas
+        self.mostrar_alteracion()
 
     def marcar_namespace(self, i):
         """Estado de la fila al momento si es SDGC sin referencia catastral (el GML no se crearía así)."""
