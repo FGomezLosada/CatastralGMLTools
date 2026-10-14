@@ -50,6 +50,10 @@ class BloqueDivision(QgsCollapsibleGroupBox):
                                 "espacios. Si los porcentajes o las superficies no llegan al total, lo que falta es una "
                                 "parcela más al final (como en el editor de la Sede)")
         formulario.addRow("Valores", self.valores)
+        self.ayuda = QLabel(self)  #Qué escribir en el modo elegido, siempre a la vista
+        self.ayuda.setWordWrap(True)
+        formulario.addRow("", self.ayuda)
+        self.poner_ayuda()
         self.direccion = QComboBox(self)
         self.direccion.addItem("Linderos paralelos al lado", False)
         self.direccion.addItem("Linderos perpendiculares al lado", True)
@@ -117,8 +121,13 @@ class BloqueDivision(QgsCollapsibleGroupBox):
         self.lado.blockSignals(False)
         self.previsualizar()
 
+    def poner_ayuda(self):
+        modo = self.modo.currentData()
+        self.valores.setPlaceholderText(f"p. ej. {dv.EJEMPLOS[modo]}")
+        self.ayuda.setText(f"<small style='color:#666'>{dv.AYUDAS[modo]}</small>")
+
     def modo_cambiado(self, *args):
-        self.valores.setPlaceholderText(f"p. ej. {dv.EJEMPLOS[self.modo.currentData()]}")
+        self.poner_ayuda()
         self.previsualizar()
 
     # ------------------------------------------------------------------ Previsualización
@@ -129,7 +138,10 @@ class BloqueDivision(QgsCollapsibleGroupBox):
         if capa is None:
             return [], "Elija una capa de parcelas."
         if entidad is None:
-            return [], "Seleccione en el mapa una sola parcela."
+            n = capa.selectedFeatureCount()
+            if n > 1:
+                return [], f"Hay {n} parcelas seleccionadas en «{capa.name()}»: deje seleccionada solo la que quiera dividir."
+            return [], f"Seleccione en el mapa una sola parcela de la capa «{capa.name()}»."
         if g is None:
             return [], "La capa no tiene un SRC que permita medir: revíselo."
         try:
@@ -141,7 +153,8 @@ class BloqueDivision(QgsCollapsibleGroupBox):
         errores = [i.mensaje for i in incidencias if i.nivel == ERROR]
         if errores or not piezas:
             return [], errores[0] if errores else "No se ha podido dividir."
-        texto = f"{len(piezas)} parcelas: " + " · ".join(f"{p.area():.2f}" for p in piezas) + " m²"
+        total = sum(p.area() for p in piezas) or 1
+        texto = f"{len(piezas)} parcelas: " + " · ".join(f"{p.area():.2f} m² ({100 * p.area() / total:.0f} %)" for p in piezas)
         avisos = [i.mensaje for i in incidencias if i.nivel == AVISO]
         return piezas, texto + ''.join(f"<br><span style='color:#e67700'>⚠ {a}</span>" for a in avisos)
 
@@ -186,6 +199,8 @@ class BloqueDivision(QgsCollapsibleGroupBox):
         return iface.mapCanvas() if iface is not None and hasattr(iface, 'mapCanvas') else None
 
     def plegado(self, *args):
+        if not self.isCollapsed():
+            self.pestana.activar_capa()  #La selección del mapa y Ctrl+Z van a la capa activa
         self.actualizar()
 
     def soltar(self):

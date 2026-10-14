@@ -33,6 +33,16 @@ MODOS = (PARTES, PORCENTAJES, SUPERFICIES, CUOTAS, FRANJAS)
 NOMBRES = {PARTES: "Partes iguales", PORCENTAJES: "Porcentajes (%)", SUPERFICIES: "Superficies (m²)",
            CUOTAS: "Cuotas (proporciones)", FRANJAS: "Franjas de ancho fijo (m)"}
 EJEMPLOS = {PARTES: "3", PORCENTAJES: "40 30 30", SUPERFICIES: "200 150", CUOTAS: "1 1 2", FRANJAS: "5 5"}
+#Qué escribir en cada modo (se ve siempre debajo de «Valores»: prueba a mano del 14/10, no se adivinaba que se pueden
+#poner uno o varios porcentajes)
+AYUDAS = {PARTES: "Cuántas parcelas de la misma superficie (de 2 a 100). Ej.: «3».",
+          PORCENTAJES: "Uno o varios % separados por espacios, sin pasar de 100 en total. Lo que falte hasta 100 es "
+                       "otra parcela: «30» da 30 % + 70 %; «40 30 30», tres parcelas.",
+          SUPERFICIES: "Uno o varios m² separados por espacios. Lo que sobre es otra parcela: «200» da 200 m² + el "
+                       "resto; «200 150», tres parcelas.",
+          CUOTAS: "Proporciones separadas por espacios: «1 1 2» da 25 % + 25 % + 50 %.",
+          FRANJAS: "Anchos en metros, medidos desde el lado elegido y separados por espacios. Lo que sobre es otra "
+                   "parcela: «5 5» da dos franjas de 5 m + el resto."}
 MAX_PARTES = 100          #Límite del editor de la Sede
 PRECISION_AREA = 1e-4     #m²: la bisección para a menos de 1 cm² de la superficie pedida
 RESTO_MINIMO = 0.5        #m²: un resto menor no da otra parcela (se suma a la última)
