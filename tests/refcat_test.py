@@ -5,6 +5,9 @@ Las RC de 20 caracteres "correctas" son referencias publicadas como ejemplo o co
 libres del Catastro (solo el identificador, sin ningún otro dato) para comprobar el cálculo con casos reales.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py refcat_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 from qgis.core import Qgis
 

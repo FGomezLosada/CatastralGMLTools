@@ -7,6 +7,9 @@ Uso (desde la carpeta del proyecto, con cualquier Python 3):
 Crea dist/catastral_gml_tools-<versión>.zip con una carpeta catastral_gml_tools/ dentro (lo que exige QGIS)
 y SOLO los ficheros del plugin: ni pruebas, ni documentación de desarrollo, ni .git, ni __pycache__.
 Comprueba además que metadata.txt tiene los campos obligatorios.
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import configparser
 import os

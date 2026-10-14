@@ -4,6 +4,9 @@ parcelas distintas y una repetida), rechaza identificadores repetidos con geomet
 pasa al mismo SRC ficheros de husos distintos y reescribe en 4.0 un GML 3.0. Sin internet.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py unir_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import os
 import tempfile

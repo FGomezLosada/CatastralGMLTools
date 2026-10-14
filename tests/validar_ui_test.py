@@ -3,6 +3,9 @@ Prueba de la pestaña Validar (parte de lectura): abrir un GML, tabla con su con
 coincide, avisos de esquema 3.0 y de fichero mal formado en la barra del panel y carga en el mapa con estilo. Sin internet.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py validar_ui_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import os
 import tempfile

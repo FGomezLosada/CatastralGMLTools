@@ -5,6 +5,9 @@ previos (piscina en dos partes, estado, plantas, SRC, identificador repetido) y 
 Sin internet salvo el esquema.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py gml_edificio_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import datetime
 import os

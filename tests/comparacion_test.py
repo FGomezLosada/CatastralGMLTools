@@ -5,6 +5,9 @@ suelo sin parcela, referencias que no existen o no son de las afectadas, dominio
 comparación en el mapa. Sin internet.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py comparacion_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import importlib.util
 import os

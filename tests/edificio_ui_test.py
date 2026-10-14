@@ -5,6 +5,9 @@ formato de la DGC, cambio de tipo, Crear GML, botón Validar, construcciones den
 Navarra y falta de referencia. Sin internet.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py edificio_ui_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import importlib.util
 import os

@@ -6,6 +6,9 @@ Sin internet: el resultado debe ser «no se ha podido comprobar», NUNCA «váli
 La prueba pasa en los dos casos, pero dice en cuál se ha ejecutado.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py esquemas_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import os
 import tempfile

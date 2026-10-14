@@ -4,6 +4,9 @@ y referencia catastral de un punto. Con los servicios simulados (tests/simulador
 una consulta real mínima (una parcela, sin guardar nada).
 
 Uso: tools\\probar.bat (o tools\\run_tests.py servicios_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import datetime
 import importlib.util

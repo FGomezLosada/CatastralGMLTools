@@ -140,5 +140,5 @@ aviso con el quíntuplo y mención del 80 % (AU-25); ED50 → aviso, no bloqueo 
 | A · Fiabilidad | ✅ 13/10/2026 (AU-01…AU-19; también AU-43 y parte de AU-40) |
 | B · Normativa y avisos | ✅ 13/10/2026 (AU-20…AU-36). AU-31 solo en la comparación: las cajas de Navarra y del País Vasco cogen bordes de La Rioja, Burgos y Cantabria, así que no se bloquea al crear; AU-33 con Consulta_DNPRC, comprobado con parcelas reales: BICE = clase «BI» (Almaraz, aeropuerto de Málaga) y diseminado = RC urbana con vía «DS» (Murcia) |
 | C · Robustez | ✅ 13/10/2026 (AU-37…AU-47 y AU-61; AU-43 ya estaba en el bloque A) |
-| D · Documentación | Pendiente (siguiente) |
-| E · Fases pendientes | Pendiente (tras A-C; luego manual, usabilidad y publicación) |
+| D · Documentación | ✅ 14/10/2026 (AU-48…AU-51; versión 0.2.0). El manual con capturas va después de las fases pendientes |
+| E · Fases pendientes | Pendiente (siguiente; luego manual, usabilidad y publicación) |

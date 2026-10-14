@@ -3,6 +3,9 @@ Prueba de core/validador.py: un GML correcto no da errores ni avisos, y cada reg
 alterado a propósito. Ficheros sintéticos (coordenadas inventadas cerca de Nerja). Sin internet.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py validador_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import os
 import re

@@ -21,6 +21,7 @@ Las peticiones son bloqueantes: llamar a comparar() desde una QgsTask.
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
+import datetime
 import math
 from dataclasses import dataclass, field, replace
 
@@ -52,6 +53,7 @@ class Comparacion:
     incidencias: list = field(default_factory=list)
     epsg: object = None
     edificio: bool = False                            #Comparación de un GML de edificio con su parcela (ICUC)
+    fecha: object = field(default_factory=datetime.datetime.now)  #Cuándo se consultaron los datos de la DGC
 
     @property
     def comparada(self):

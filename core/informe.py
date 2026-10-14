@@ -1,5 +1,5 @@
 """
-Informe de validación en HTML: un único fichero autocontenido (sin internet ni librerías externas) con el resultado,
+Informe de comprobación en HTML (no oficial): un único fichero autocontenido (sin internet ni librerías externas) con el resultado,
 la tabla de parcelas o construcciones, las incidencias, un croquis en SVG y la lista de coordenadas de cada recinto.
 Sirve para guardarlo junto al GML o adjuntarlo a un expediente.
 
@@ -13,7 +13,7 @@ from html import escape
 from . import geometria as geo
 from .ficheros import escribir_texto
 from .incidencias import AVISO, ERROR, INFO
-from .info import AVISO_LEGAL, NOMBRE, version
+from .info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, version
 from .validador import resumen
 
 COLORES = {ERROR: '#c92a2a', AVISO: '#e67700', 'correcta': '#2b8a3e'}
@@ -76,8 +76,11 @@ def coordenadas_html(elemento):
             + ''.join(filas) + '</tbody></table>')
 
 
-def html(informe, ahora=None):
-    """Texto HTML del informe de validación."""
+def html(informe, ahora=None, consulta=None):
+    """
+    Texto HTML del informe de comprobación. consulta: fecha y hora en que se compararon los datos con los de la Dirección
+    General del Catastro (None si no se ha comparado).
+    """
     ahora = ahora or datetime.datetime.now()
     lectura = informe.lectura
     n_err, n_av = len(informe.errores), len(informe.avisos)
@@ -111,7 +114,7 @@ def html(informe, ahora=None):
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Informe de validación · {escape(nombre)}</title>
+<title>Informe de comprobación · {escape(nombre)}</title>
 <style>
   :root {{ --fondo:#ffffff; --texto:#1d2327; --suave:#f1f3f5; --linea:#dee2e6; --acento:#1f6f78; }}
   @media (prefers-color-scheme: dark) {{ :root {{ --fondo:#15191b; --texto:#e6eaeb; --suave:#1e2426; --linea:#343a40; }} }}
@@ -144,11 +147,14 @@ def html(informe, ahora=None):
 </style>
 </head>
 <body>
-<h1>Informe de validación de GML</h1>
+<h1>Informe de comprobación de GML</h1>
+<p class="aviso-legal"><b>No es un documento oficial</b> ni tiene código seguro de verificación (CSV): no sustituye al
+informe de validación gráfica ni al ICUC de la Sede Electrónica del Catastro.</p>
 <div class="meta">{escape(nombre)} · {escape(lectura.version or '?')} · {len(lectura.elementos)} elemento{'s' if len(lectura.elementos) != 1 else ''}
 {f'· EPSG:{lectura.epsg}' if lectura.epsg else ''} · {ahora:%d/%m/%Y %H:%M}</div>
 <div class="resultado"><b>{simbolo} {escape(resumen(informe))}</b></div>
 <p class="aviso-legal">⚠ {escape(AVISO_LEGAL)} Este informe recoge las comprobaciones conocidas; la Sede puede aplicar otras.</p>
+{f'<p class="meta">Comparación con los datos públicos de la {escape(FUENTE_DGC)} consultados el {consulta:%d/%m/%Y a las %H:%M}.</p>' if consulta else '<p class="meta">Sin comparar con los datos del Catastro.</p>'}
 
 <h2>Parcelas y construcciones</h2>
 <table>
@@ -174,10 +180,10 @@ def html(informe, ahora=None):
 """
 
 
-def escribir(informe, ruta=None):
+def escribir(informe, ruta=None, consulta=None):
     """Escribe el informe HTML (por defecto junto al GML) y devuelve su ruta; lanza OSError si no se puede escribir."""
     ruta = ruta or ruta_por_defecto(informe.ruta)
-    problema = escribir_texto(ruta, html(informe), 'utf-8')
+    problema = escribir_texto(ruta, html(informe, consulta=consulta), 'utf-8')
     if problema is not None:
         raise OSError(problema.mensaje)
     return ruta
