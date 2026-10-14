@@ -100,7 +100,7 @@ cp30_ok = ok_3 and version_3 == 'CP 4.0' and 'UNIR-CP30' in codigos(inc_3)
 # 5. Pestaña Utilidades
 dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
 pu = dw.pestanaUtilidades
-integrada = dw.tabUtilidadesPendiente.isHidden() and pu.parent() is dw.tabUtilidades and not pu.unirBoton.isEnabled()
+integrada = dw.tabUtilidadesPendiente.isHidden() and dw.tabUtilidades.isAncestorOf(pu) and not pu.unirBoton.isEnabled()
 pu.agregar([a, b, a, os.path.join(carpeta, 'no_existe.gml')])
 lista = pu.rutas() == [a, b] and pu.unirBoton.isEnabled() and pu.destino.filePath().endswith('multiparcela.gml')
 pu.destino.setFilePath(os.path.join(carpeta, 'desde_panel.gml'))

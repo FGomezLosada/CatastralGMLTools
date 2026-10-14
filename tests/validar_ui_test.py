@@ -62,7 +62,7 @@ with open(alterado, 'w', encoding='utf-8') as f:
 
 dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
 pv = dw.pestanaValidar
-pestana_visible = dw.tabValidarPendiente.isHidden() and pv.parent() is dw.tabValidar and not pv.cargarBoton.isEnabled()
+pestana_visible = dw.tabValidarPendiente.isHidden() and dw.tabValidar.isAncestorOf(pv) and not pv.cargarBoton.isEnabled()
 
 # 1. Abrir un GML correcto
 pv.fichero.setFilePath(ruta)

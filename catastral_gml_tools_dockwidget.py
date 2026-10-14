@@ -21,6 +21,7 @@ from qgis.PyQt.QtWidgets import QHBoxLayout, QLabel, QPushButton, QToolButton, Q
 
 from .core.ficheros import misma_ruta
 from .core.info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, ruta, version
+from .gui import desplazable
 from .gui.pestana_descargar import PestanaDescargar
 from .gui.pestana_edificio import PestanaEdificio
 from .gui.pestana_parcela import PestanaParcela
@@ -56,6 +57,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.setup_validar()
         self.setup_descargar()
         self.setup_utilidades()
+        desplazable.proteger(self.dockWidgetContents)  #La rueda desplaza el panel; no cambia listas sin foco
         self.visibilityChanged.connect(self.visibilidad_cambiada)
         self.gml_pendiente = ''
         self.tabWidget.currentChanged.connect(self.pestana_cambiada)
@@ -96,19 +98,19 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.tabParcelaPendiente.hide()
         self.pestanaParcela = PestanaParcela(self, self.tabParcela)
         #Justo debajo del texto de la pestaña y con «stretch»: ocupa todo el alto (el espaciador del .ui se queda sin sitio)
-        self.tabParcelaLayout.insertWidget(1, self.pestanaParcela, 1)
+        self.tabParcelaLayout.insertWidget(1, desplazable.envolver(self.pestanaParcela, self.tabParcela), 1)
 
     def setup_edificio(self):
         """Pestaña Edificio: GML de edificios y piscinas (ICUC) a partir de una capa con sus huellas."""
         self.tabEdificioPendiente.hide()
         self.pestanaEdificio = PestanaEdificio(self, self.tabEdificio)
-        self.tabEdificioLayout.insertWidget(1, self.pestanaEdificio, 1)
+        self.tabEdificioLayout.insertWidget(1, desplazable.envolver(self.pestanaEdificio, self.tabEdificio), 1)
 
     def setup_validar(self):
         """Pestaña Validar: abrir un GML, ver su contenido y cargarlo en el mapa."""
         self.tabValidarPendiente.hide()
         self.pestanaValidar = PestanaValidar(self, self.tabValidar)
-        self.tabValidarLayout.insertWidget(1, self.pestanaValidar, 1)
+        self.tabValidarLayout.insertWidget(1, desplazable.envolver(self.pestanaValidar, self.tabValidar), 1)
 
     def gml_creado(self, ruta):
         """Un GML recién creado (Parcela, Edificio o Unir) es el que se abrirá al pasar a la pestaña Validar."""
@@ -138,13 +140,13 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         """Pestaña Descargar: una parcela por referencia catastral o con un clic en el mapa."""
         self.tabDescargarPendiente.hide()
         self.pestanaDescargar = PestanaDescargar(self, self.tabDescargar)
-        self.tabDescargarLayout.insertWidget(1, self.pestanaDescargar, 1)
+        self.tabDescargarLayout.insertWidget(1, desplazable.envolver(self.pestanaDescargar, self.tabDescargar), 1)
 
     def setup_utilidades(self):
         """Pestaña Utilidades: unir varios GML (multiparcela); el resto de utilidades, en próximas versiones."""
         self.tabUtilidadesPendiente.hide()
         self.pestanaUtilidades = PestanaUtilidades(self, self.tabUtilidades)
-        self.tabUtilidadesLayout.insertWidget(1, self.pestanaUtilidades, 1)
+        self.tabUtilidadesLayout.insertWidget(1, desplazable.envolver(self.pestanaUtilidades, self.tabUtilidades), 1)
 
     def parcela_descargada(self, capa):
         """Tras descargar una parcela, la pestaña Parcela pasa a trabajar con ella."""

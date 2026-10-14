@@ -51,7 +51,7 @@ def textos_barra():
 
 
 # 1. La pestaña sustituye al «Disponible en próximas versiones» y comprueba la referencia al escribirla
-integrada = dw.tabDescargarPendiente.isHidden() and pes.parent() is dw.tabDescargar
+integrada = dw.tabDescargarPendiente.isHidden() and dw.tabDescargar.isAncestorOf(pes)
 vacia = not pes.descargarBoton.isEnabled()
 pes.rc.setText('1907401VK48')
 corta = not pes.descargarBoton.isEnabled() and '14, 18 o 20' in pes.comprobacion.text()
