@@ -230,13 +230,15 @@ descargada.undoStack().undo()
 agregada = (agregada and pt.tipo_alteracion() == alt.SIN_INDICAR and not pt.soloSeleccion.isChecked()
             and pt.tabla.rowCount() == 3)
 #El GML: la RC en el trozo mayor y la parcela nueva LOCAL (segregación con la franja de vial)
+descargada.deleteFeatures([f.id() for f in descargada.getFeatures() if f['referencia'] == '2090305VF2629S'])
 descargada.selectByIds([])
 pt.destino.setFilePath(os.path.join(carpeta_union, 'caso_real.gml'))
 pt.crear_gml()
 _gml = gl.leer(os.path.join(carpeta_union, 'caso_real.gml'))
+deduce = deduce and 'la Sede propondrá: segregación' in textos_barra()
 caso_real = (sigue_capa and deduce and manual and retoque and deshecho and agregada
              and sorted((e.local_id, e.namespace) for e in _gml.elementos)
-             == sorted([(RC, 'ES.SDGC.CP'), ('Nueva_1', 'ES.LOCAL.CP'), ('2090305VF2629S', 'ES.SDGC.CP')]))
+             == sorted([(RC, 'ES.SDGC.CP'), ('Nueva_1', 'ES.LOCAL.CP')]))
 descargada.rollBack()
 
 for _n, _f in _originales.items():

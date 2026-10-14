@@ -712,6 +712,10 @@ class PestanaParcela(QWidget):
         resumen = f"GML creado: {os.path.basename(ruta)} · {len(filas)} parcelas · EPSG:{epsg}"
         if self.tipo_alteracion() != alt.SIN_INDICAR:
             resumen += f" · {alt.NOMBRES[self.tipo_alteracion()]}"
+        else:  #Sin indicar: la que deducirá la Sede de la tabla
+            deducida = alt.operacion_deducida(self.filas_capa, [f.namespace for f in filas])
+            if deducida:
+                resumen += f" · la Sede propondrá: {alt.NOMBRES[deducida].lower()}"
         self.dock.gml_creado(ruta)
         self.dock.success(resumen, [("Validar", self.validar), ("Abrir carpeta", self.abrir_carpeta),
                                     ("Cargar en el mapa", self.cargar_en_mapa)],
