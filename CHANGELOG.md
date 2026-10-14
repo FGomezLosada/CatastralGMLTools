@@ -4,6 +4,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 
 ## [Sin publicar]
 
+### Añadido
+- **Dividir la parcela seleccionada** (fase 10, AU-54), dentro de la pestaña Parcela junto a «Unir seleccionadas» (USABILIDAD U-09): partes iguales (hasta 100), porcentajes, superficies, cuotas o franjas de ancho fijo, con linderos paralelos o perpendiculares al lado elegido (marcado en rojo en el mapa) y la regla del resto del editor de la Sede (lo que falta o sobra es una parcela más; un resto de menos de 0,5 m² se suma a la última). Muestra antes las superficies resultantes y avisa si una parcela quedaría en varios trozos. Sustituye la parcela en la capa, propone segregación o división en el asistente y Ctrl+Z deshace también la tabla. En capas geográficas calcula en el huso UTM del GML.
+
+### Cambiado
+- Pestañas en el orden del trabajo: Descargar · Parcela · Edificio · Validar · Utilidades. La pestaña «Dividir» (vacía) desaparece: la división está en Parcela.
+
 ## [0.2.0] - 2026-10-14
 
 ### Añadido

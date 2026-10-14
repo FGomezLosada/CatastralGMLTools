@@ -39,7 +39,7 @@ CatastralGMLTools/                       (raíz del repositorio = carpeta del pl
 ├── __init__.py
 ├── metadata.txt                         (descripción en inglés, supportsQt6=True)
 ├── catastral_gml_tools.py               (initGui/unload, botón, menú Vectorial, proveedor Processing)
-├── catastral_gml_tools_dockwidget.py / _base.ui  (panel: Parcela · Edificio · Validar · Descargar · Dividir · Utilidades)
+├── catastral_gml_tools_dockwidget.py / _base.ui  (panel: Descargar · Parcela · Edificio · Validar · Utilidades)
 ├── icon.svg / icon.png
 ├── core/                                (sin interfaz; probado de forma aislada)
 │   ├── info.py                          (nombre, versión, aviso legal, fuente, territorios forales)
@@ -88,7 +88,7 @@ Decisiones técnicas:
 | 8d | Auditoría, bloques C y D: robustez, rendimiento, compatibilidad Qt6, documentación y metadatos (versión 0.2.0) | ✅ |
 | 8e | Ajuste por desplazamiento o giro (afín / CX-CY, dos GML con parámetros; Resolución de 29/03/2021) | — |
 | 9 | Conversor 3.0 → 4.0 y reparación | — |
-| 10 | División de parcelas (dentro de la pestaña Parcela, junto a «Unir seleccionadas»; USABILIDAD U-09) | — |
+| 10 | División de parcelas (dentro de la pestaña Parcela, junto a «Unir seleccionadas»; USABILIDAD U-09) | ✅ |
 | 11 | Informe de superficies y coordenadas | — |
 | 12 | Manual de usuario detallado con capturas reales (mejora 28) y campaña de pruebas a mano de todo el plugin | — |
 | 13 | Revisión de usabilidad: reorganizar el panel para que sea sencillo y se entienda (docs/USABILIDAD.md), con lo aprendido en las pruebas | — |
@@ -122,8 +122,8 @@ Decisiones técnicas:
 | 19 | Pestaña Edificio: capa de huellas, tipo, plantas, estado, RC de parcela | Generar el GML de edificio | ✅ |
 | 20 | Comprobaciones ICUC: dentro de la parcela, ≤100 m, sin solapes, ids, nº de ficheros | Simular el ICUC | ✅ (el nº de ficheros por solicitud, 60, no aplica: el plugin crea uno) |
 | 21 | Conversor 3.0 → 4.0 y reparaciones (cierre, orientación, `count`, `areaValue`, srsName; lista de cambios del documento «Diferencias GML parcela v3 v4» de la DGC en INVESTIGACION §7.3) | Aprovechar ficheros antiguos | |
-| 22 | División: superficie objetivo, partes iguales, porcentaje | Segregaciones y divisiones | |
-| 23 | División: franja de ancho fijo, línea paralela/perpendicular a un lado, pivote | Casos reales de campo | |
+| 22 | División: superficie objetivo, partes iguales, porcentaje, cuotas | Segregaciones y divisiones | ✅ |
+| 23 | División: franja de ancho fijo, línea paralela/perpendicular a un lado, pivote | Casos reales de campo | Franjas y paralela/perpendicular ✅; pivote pendiente |
 | 24 | Ajuste de lindero entre dos parcelas colindantes manteniendo el contorno | Subsanaciones | |
 | 25 | Informe de superficies y coordenadas (HTML/CSV), con superficie gráfica y diferencia con la catastral | Documentación técnica | |
 | 26 | Proveedor de Processing con los algoritmos principales | Modelos y lotes | |

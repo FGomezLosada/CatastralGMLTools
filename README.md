@@ -15,7 +15,7 @@ Plugin de QGIS para preparar los ficheros GML que pide la Sede Electrónica del 
 - **Comparar con el Catastro**: parcelas afectadas (NPO/NPP), operación, contorno exterior con ±1 cm, suelo sin parcela, dominio público, edificios dentro de su parcela.
 - **Unir** parcelas seleccionadas y varios GML en uno (multiparcela), e **informe** HTML de la comprobación.
 
-> Estado: **versión 0.2.0** (en desarrollo). Próximas: división de parcelas, conversor 3.0→4.0, informes de superficies y coordenadas, ajuste de cartografía desplazada. Ver [CHANGELOG](CHANGELOG.md) y [docs/DESARROLLO.md](docs/DESARROLLO.md).
+> Estado: **versión 0.2.0** (en desarrollo). Próximas: conversor 3.0→4.0, informes de superficies y coordenadas, ajuste de cartografía desplazada. Ver [CHANGELOG](CHANGELOG.md) y [docs/DESARROLLO.md](docs/DESARROLLO.md).
 
 ### Requisitos
 QGIS 3.34 o posterior, incluido QGIS 4 (Qt6). Sin dependencias externas.

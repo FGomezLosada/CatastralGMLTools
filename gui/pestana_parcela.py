@@ -39,6 +39,7 @@ from ..core import gml_parcela as gp
 from ..core import refcat
 from ..core.ficheros import misma_ruta
 from ..core.incidencias import AVISO, ERROR, INFO
+from .bloque_division import BloqueDivision
 from .pestana_validar import cargar
 
 COL_N, COL_ID, COL_NS, COL_LABEL, COL_AREA, COL_ESTADO = range(6)
@@ -125,6 +126,8 @@ class PestanaParcela(QWidget):
         fila_alteracion.addWidget(self.matrizBoton)
         formulario.addRow("Alteración", fila_alteracion)
         principal.addLayout(formulario)
+        self.division = BloqueDivision(self, self)  #Fase 10: dividir la parcela seleccionada (plegado)
+        principal.addWidget(self.division)
 
         self.tabla = QTableWidget(0, len(CABECERAS), self)
         self.tabla.setHorizontalHeaderLabels(CABECERAS)
@@ -219,6 +222,7 @@ class PestanaParcela(QWidget):
         self.manuales, self.antes_union, self.matriz_fid = {}, None, None  #Lo escrito y la unión eran de la otra capa
         self.seguir_seleccion(capa)
         self.actualizar_unir()
+        self.division.actualizar()
         #Sin señales mientras se rellenan los campos: si no, la tabla se recalculaba 3 o 4 veces seguidas
         for widget in (self.campoId, self.campoLabel, self.soloSeleccion):
             widget.blockSignals(True)
@@ -272,6 +276,11 @@ class PestanaParcela(QWidget):
                 (capa.featuresDeleted, self.capa_editada), (capa.geometryChanged, self.capa_editada),
                 (capa.attributeValueChanged, self.capa_editada), (capa.afterRollBack, self.capa_editada)]
 
+    def estado_antes_de_editar(self):
+        """Lo que hay que devolver a la tabla si se deshace una edición del plugin (unir o dividir)."""
+        return {'tipo': self.tipo_alteracion(), 'auto': self.alteracion_auto, 'solo': self.soloSeleccion.isChecked(),
+                'presentes': [], 'ausentes': []}
+
     def capa_editada(self, *args):
         """
         Al editar la capa (dibujar, dividir, mover vértices, Ctrl+Z…) la tabla se recarga sola, conservando lo que haya
@@ -280,8 +289,9 @@ class PestanaParcela(QWidget):
         if sip.isdeleted(self) or self.editando:
             return
         capa = self.capa()
-        if (self.antes_union is not None and capa is not None
-                and all(capa.getFeature(fid).isValid() for fid in self.antes_union['fids'])):  #La unión se ha deshecho
+        if (self.antes_union is not None and capa is not None  #La unión o la división se han deshecho (Ctrl+Z)
+                and all(capa.getFeature(fid).isValid() for fid in self.antes_union['presentes'])
+                and not any(capa.getFeature(fid).isValid() for fid in self.antes_union['ausentes'])):
             estado, self.antes_union = self.antes_union, None
             self.soloSeleccion.blockSignals(True)
             self.soloSeleccion.setChecked(estado['solo'])
@@ -289,11 +299,13 @@ class PestanaParcela(QWidget):
             self.poner_alteracion(estado['tipo'], estado['auto'])
         self.recargar()
         self.actualizar_unir()
+        self.division.actualizar()
 
     def seleccion_cambiada(self, *args):
         if sip.isdeleted(self):
             return
         self.actualizar_unir()
+        self.division.actualizar()  #Lados de la parcela seleccionada
         if self.soloSeleccion.isChecked():
             self.recargar()
 
@@ -305,8 +317,8 @@ class PestanaParcela(QWidget):
         """Une las parcelas seleccionadas en una y propone agregación o agrupación en el asistente."""
         self.dock.messageBar.clearWidgets()
         capa = self.capa()
-        antes = {'tipo': self.tipo_alteracion(), 'auto': self.alteracion_auto, 'solo': self.soloSeleccion.isChecked(),
-                 'fids': list(capa.selectedFeatureIds()) if capa is not None else []}
+        antes = self.estado_antes_de_editar()
+        antes['presentes'] = list(capa.selectedFeatureIds()) if capa is not None else []  #Al deshacer, vuelven
         self.editando = True  #La unión cambia y borra entidades: se recarga una vez al final, no por cada señal
         try:
             fid, tipo, incidencias = cp.unir_seleccionadas(capa, self.campoId.currentField())

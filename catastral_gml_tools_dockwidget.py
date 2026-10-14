@@ -35,7 +35,6 @@ ICONOS_PESTANAS = {
     'tabEdificio': '/mIconPolygonLayer.svg',
     'tabValidar': '/algorithms/mAlgorithmCheckGeometry.svg',
     'tabDescargar': '/mActionAddWfsLayer.svg',
-    'tabDividir': '/mActionSplitFeatures.svg',
     'tabUtilidades': '/mActionOptions.svg',
 }
 AYUDA = ruta('help', 'index.html')
@@ -130,6 +129,8 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         """Al pasar a Validar con un GML recién creado, se abre ese y no queda a la vista el anterior."""
         if self.tabWidget.widget(indice) is getattr(self, 'tabValidar', None) and getattr(self, 'gml_pendiente', ''):
             self.abrir_en_validar(self.gml_pendiente)
+        if hasattr(self, 'pestanaParcela'):
+            self.pestanaParcela.division.marcar_lado()  #La marca del lado solo con la pestaña Parcela a la vista
 
     def setup_descargar(self):
         """Pestaña Descargar: una parcela por referencia catastral o con un clic en el mapa."""
@@ -162,6 +163,8 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             return
         if hasattr(self, 'pestanaDescargar'):
             self.pestanaDescargar.soltar_herramienta()
+        if hasattr(self, 'pestanaParcela'):
+            self.pestanaParcela.division.soltar()  #La marca del lado en el mapa
         for nombre in ('pestanaDescargar', 'pestanaValidar'):
             pestana = getattr(self, nombre, None)
             if pestana is not None and hasattr(pestana, 'cancelar_tareas'):
@@ -169,8 +172,13 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
     def visibilidad_cambiada(self, visible):
         """Al cerrar el panel (también con la ×), «Elegir en el mapa» deja de estar activa (B6)."""
+        if sip.isdeleted(self):
+            return
+        self.cerrado = not visible
         if not visible and hasattr(self, 'pestanaDescargar') and not sip.isdeleted(self.pestanaDescargar):
             self.pestanaDescargar.soltar_herramienta()
+        if hasattr(self, 'pestanaParcela') and not sip.isdeleted(self.pestanaParcela):
+            self.pestanaParcela.division.marcar_lado()  #Sin panel no queda la marca roja en el mapa
 
     # ------------------------------------------------------------------ Avisos dentro del panel
 
