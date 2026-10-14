@@ -23,6 +23,26 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex"><number>0</number></property>
+      <widget class="QWidget" name="tabDescargar">
+       <attribute name="title"><string>Descargar</string></attribute>
+       <layout class="QVBoxLayout" name="tabDescargarLayout">
+        <item>
+         <widget class="QLabel" name="tabDescargarInfo">
+          <property name="text"><string>Descargar una parcela, sus colindantes y sus construcciones por referencia catastral.</string></property>
+          <property name="wordWrap"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="tabDescargarPendiente">
+          <property name="text"><string>&lt;i&gt;Disponible en próximas versiones.&lt;/i&gt;</string></property>
+          <property name="enabled"><bool>false</bool></property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="tabDescargarSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer>
+        </item>
+       </layout>
+      </widget>
       <widget class="QWidget" name="tabParcela">
        <attribute name="title"><string>Parcela</string></attribute>
        <layout class="QVBoxLayout" name="tabParcelaLayout">
@@ -80,46 +100,6 @@
         </item>
         <item>
          <spacer name="tabValidarSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="tabDescargar">
-       <attribute name="title"><string>Descargar</string></attribute>
-       <layout class="QVBoxLayout" name="tabDescargarLayout">
-        <item>
-         <widget class="QLabel" name="tabDescargarInfo">
-          <property name="text"><string>Descargar una parcela, sus colindantes y sus construcciones por referencia catastral.</string></property>
-          <property name="wordWrap"><bool>true</bool></property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="tabDescargarPendiente">
-          <property name="text"><string>&lt;i&gt;Disponible en próximas versiones.&lt;/i&gt;</string></property>
-          <property name="enabled"><bool>false</bool></property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="tabDescargarSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="tabDividir">
-       <attribute name="title"><string>Dividir</string></attribute>
-       <layout class="QVBoxLayout" name="tabDividirLayout">
-        <item>
-         <widget class="QLabel" name="tabDividirInfo">
-          <property name="text"><string>Dividir una parcela por superficie, en partes iguales, por porcentaje o por franjas.</string></property>
-          <property name="wordWrap"><bool>true</bool></property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="tabDividirPendiente">
-          <property name="text"><string>&lt;i&gt;Disponible en próximas versiones.&lt;/i&gt;</string></property>
-          <property name="enabled"><bool>false</bool></property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="tabDividirSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer>
         </item>
        </layout>
       </widget>

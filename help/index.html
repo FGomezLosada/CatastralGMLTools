@@ -34,13 +34,12 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
 <h2>Pestañas del panel</h2>
 <table>
   <tr><th>Pestaña</th><th>Qué hace</th></tr>
+  <tr><td>Descargar</td><td>Descarga una parcela concreta, sus colindantes y sus construcciones por referencia catastral.</td></tr>
   <tr><td>Parcela</td><td>Crea el GML de una o varias parcelas a partir de una capa de polígonos, con el asistente de
-      alteraciones (segregación, división, agregación…) y la unión de parcelas seleccionadas.</td></tr>
+      alteraciones (segregación, división, agregación…), la unión de parcelas seleccionadas y la división de la parcela
+      seleccionada (bloque «Dividir la parcela seleccionada»).</td></tr>
   <tr><td>Edificio</td><td>Crea el GML de edificios y otras construcciones (piscinas) para el ICUC.</td></tr>
   <tr><td>Validar</td><td>Abre un GML, lo comprueba como la Sede, lo compara con el Catastro y guarda un informe.</td></tr>
-  <tr><td>Descargar</td><td>Descarga una parcela concreta, sus colindantes y sus construcciones por referencia catastral.</td></tr>
-  <tr><td>Dividir</td><td><em>En desarrollo</em> (próxima versión): dividir una parcela por superficie, en partes iguales,
-      por porcentaje o por franjas. Pasará a la pestaña Parcela.</td></tr>
   <tr><td>Utilidades</td><td>Une varios GML de parcela en uno (multiparcela). <em>En desarrollo</em>: conversor del
       esquema 3.0 al 4.0 e informes de superficies y coordenadas.</td></tr>
 </table>
@@ -50,7 +49,7 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
   <li><strong>Descargar</strong> la parcela por su referencia catastral (o eligiéndola en el mapa): llega con sus
       colindantes y sus construcciones.</li>
   <li><strong>Dibujar la operación</strong> en la capa descargada con las herramientas de QGIS (dividir objetos, mover
-      vértices, añadir polígonos) o con «Unir seleccionadas». La tabla de la pestaña Parcela sigue a la capa, también al
+      vértices, añadir polígonos), con «Unir seleccionadas» o con «Dividir la parcela seleccionada». La tabla de la pestaña Parcela sigue a la capa, también al
       deshacer (Ctrl+Z).</li>
   <li><strong>Elegir la operación</strong> que figurará en la escritura (o dejar «Sin indicar»: el panel dice cuál
       deducirá la Sede) y revisar identificadores y namespaces.</li>
@@ -177,6 +176,25 @@ guardada desde QGIS). El informe que emite la Sede va firmado: use solo construc
 </ul>
 <p>Las parcelas con bienes de características especiales (BICE) no tienen ICUC. Si hay construcciones solapadas o
 alguna está a más de 100 m de la parcela, la Sede no emite el informe.</p>
+
+<h2>Dividir una parcela</h2>
+<p>En la pestaña <strong>Parcela</strong>, seleccione en el mapa <strong>una sola</strong> parcela y abra el bloque
+<strong>Dividir la parcela seleccionada</strong>. Elija cómo dividir (como la división automática del editor de la Sede):</p>
+<ul>
+  <li><strong>Partes iguales</strong>: cuántas (de 2 a 100).</li>
+  <li><strong>Porcentajes</strong>: p. ej. <code>40 30 30</code>. Si suman menos de 100, lo que falta es una parcela más al final.</li>
+  <li><strong>Superficies</strong> en m²: p. ej. <code>200 150</code>. Lo que sobra es una parcela más (si sobra menos de 0,5 m², se suma a la última).</li>
+  <li><strong>Cuotas</strong>: proporciones; <code>1 1 2</code> es lo mismo que <code>25 25 50</code> %.</li>
+  <li><strong>Franjas</strong> de ancho fijo en metros, medido en perpendicular a los linderos nuevos; lo que sobra es una parcela más.</li>
+</ul>
+<p>Los linderos nuevos son rectos, <strong>paralelos o perpendiculares</strong> al lado elegido (se marca en rojo en el
+mapa), y las parcelas salen en orden desde ese lado (o desde el opuesto). Antes de dividir se ven las superficies
+resultantes; si una forma irregular dejara una parcela en varios trozos, se avisa: pruebe con otro lado. Elija también la
+operación de la escritura: <strong>segregación</strong> (la mayor conserva la referencia catastral) o
+<strong>división</strong> (todas son parcelas nuevas).</p>
+<p>Al pulsar <strong>Dividir</strong> la parcela se sustituye en la capa por las nuevas (la capa queda en edición; guárdela
+para conservarlas) y el asistente propone la operación elegida. <strong>Ctrl+Z</strong> deshace la división y devuelve la
+tabla y la alteración a como estaban. Si la capa está en coordenadas geográficas, la división se calcula en el huso UTM del GML.</p>
 
 <h2>Unir varios GML (multiparcela)</h2>
 <p>En la pestaña <strong>Utilidades</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse

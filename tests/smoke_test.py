@@ -90,8 +90,8 @@ checks = {
         and general.get('qgisMinimumVersion') == '3.34' and info.version() == general.get('version'),
     "LICENSE es la GPL v2": 'GNU GENERAL PUBLIC LICENSE' in licencia and 'Version 2' in licencia,
     "botón con icono propio": accion_ok,
-    "seis pestañas en orden": titulos == ['Parcela', 'Edificio', 'Validar', 'Descargar', 'Dividir', 'Utilidades']
-        and nombres[0] == 'tabParcela',
+    "cinco pestañas en el orden del trabajo": titulos == ['Descargar', 'Parcela', 'Edificio', 'Validar', 'Utilidades']
+        and nombres[0] == 'tabDescargar',
     "iconos nativos en todas las pestañas": iconos,
     "título con nombre y versión": titulo_ventana == f"Catastral GML Tools {general.get('version')}",
     "aviso legal visible": legal,

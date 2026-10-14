@@ -273,3 +273,40 @@ def unir_seleccionadas(capa, campo_id=''):
                                                             "de lo agregado del Reglamento Hipotecario (≈ 83 %): manda la "
                                                             "escritura"))
     return principal.id(), tipo, incidencias
+
+
+def dividir_en_capa(capa, fid, piezas):
+    """
+    Sustituye la parcela fid por las piezas de una división (geometrías en el SRC de la capa), dentro de un comando de
+    edición (Ctrl+Z lo deshace): la primera pieza se queda en la parcela original y las demás son parcelas nuevas con sus
+    mismos datos (como «Dividir objetos» de QGIS), salvo la superficie, que se recalcula. Devuelve los fid en orden, o []
+    si la capa no deja editar.
+    """
+    from qgis.core import QgsVectorLayerUtils
+
+    original = capa.getFeature(fid)
+    if not original.isValid() or not piezas:
+        return []
+    multi = QgsWkbTypes.isMultiType(capa.wkbType())
+    geometrias = []
+    for pieza in piezas:
+        g = QgsGeometry(pieza)
+        if multi:
+            g.convertToMultiType()
+        geometrias.append(g)
+    sin_copiar = {capa.fields().indexOf(n) for n in ('sup_gml', 'sup_calc')} - {-1}  #Se recalculan o no valen ya
+    atributos = {i: v for i, v in enumerate(original.attributes()) if i not in sin_copiar}
+    if not capa.isEditable():
+        capa.startEditing()
+    capa.beginEditCommand("Dividir parcela (Catastral GML Tools)")
+    ok = capa.changeGeometry(fid, geometrias[0])
+    fids = [fid]
+    for g in geometrias[1:]:
+        nueva = QgsVectorLayerUtils.createFeature(capa, g, atributos)
+        ok = capa.addFeature(nueva) and ok
+        fids.append(nueva.id())
+    if not ok:
+        capa.destroyEditCommand()
+        return []
+    capa.endEditCommand()
+    return fids
