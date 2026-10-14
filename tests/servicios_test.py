@@ -133,6 +133,20 @@ mantenimiento_ok = ('mantenimiento' in _aviso and '15.15H hasta las 19.00' in _a
                     and servicios.mantenimiento(b'<consulta_dnp><lerr><err><des>LA REFERENCIA CATASTRAL NO EXISTE</des></err></lerr></consulta_dnp>') == ''
                     and not en_mantenimiento.correcta and 'mantenimiento' in str(en_mantenimiento.incidencias)
                     and '19.00' in str(en_mantenimiento.incidencias))
+#Otro día, otra redacción: el aviso se cita tal cual (sin título ni botón «Cerrar»), con el horario que traiga
+_otro = servicios.mantenimiento(b'<html><head><title>Sede</title></head><body><p>Servicio temporalmente no disponible. '
+                                b'Volveremos a las 20:00.</p> Cerrar </body></html>')
+_sin_hora = servicios.mantenimiento(b'<HTML><BODY>Sede en mantenimiento. Disculpe las molestias</BODY></HTML>')
+_largo = servicios.mantenimiento(('<html><body>' + 'Aviso importante del servicio. ' * 30 + '</body></html>').encode())
+_cita_larga = _largo.split('«')[1].split('»')[0] if '«' in _largo else ''
+mantenimiento_ok = (mantenimiento_ok
+                    and _otro == ("el servicio responde con un aviso en lugar de los datos: «Servicio temporalmente no "
+                                  "disponible. Volveremos a las 20:00.»; pruebe más tarde")
+                    and _sin_hora == ("el Catastro tiene sus servicios en mantenimiento («Sede en mantenimiento. Disculpe "
+                                      "las molestias»); pruebe más tarde")
+                    and _cita_larga.endswith('…') and len(_cita_larga) <= servicios.MAX_CITA + 1
+                    and servicios.aviso_servicio(b'<html><body></body></html>') == (False, '')
+                    and 'página vacía' in servicios.mantenimiento(b'<html><body></body></html>'))
 
 # 6. Referencia catastral de un punto
 p = servicios.rc_en_punto(-3.7085, 40.4207)
@@ -206,7 +220,7 @@ checks = {
     "con un EPSG indicado no se cambia de huso": huso_fijo,
     "errores: inexistente, RC no válida, foral (sin pedir nada) y sin red": errores,
     "lee el ExceptionReport del WFS": excepcion,
-    "Catastro en mantenimiento: aviso claro con el horario (página de la Sede y callejero)": mantenimiento_ok,
+    "aviso del servicio en lugar de datos: mantenimiento con su horario, u otro aviso citado tal cual": mantenimiento_ok,
     "referencia catastral de un punto (y sin parcela, con aviso foral)": punto,
     "Navarra: parcela, colindantes, entorno y edificios del Gobierno de Navarra; clic en Navarra": nav_ok,
     f"servicio real ({modo})": real_ok,

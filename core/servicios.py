@@ -173,26 +173,54 @@ def progreso(hecho, total):
         feedback.setProgress(100.0 * hecho / total)
 
 
-def mantenimiento(datos):
+MAX_CITA = 200  #Caracteres del aviso del servicio que se citan tal cual
+
+
+def aviso_servicio(datos):
     """
-    Texto del aviso de mantenimiento o de «problemas técnicos» del Catastro, o '' si la respuesta no lo es. Durante un
-    corte, la Sede devuelve una página HTML («INTERRUPCIÓN DEL SERVICIO POR MOTIVOS DE MANTENIMIENTO. Tiempo estimado
-    desde las 15.15H hasta las 19.00.H») y los servicios del callejero un XML de error con ese tiempo (14/10/2026).
+    Lee el aviso que da un servicio en lugar de los datos. Devuelve (en_mantenimiento, cita) o None si la respuesta no
+    es un aviso (son datos, o un error normal del callejero como «LA REFERENCIA CATASTRAL NO EXISTE»).
+
+    Durante un corte, la Sede devuelve una página HTML («INTERRUPCIÓN DEL SERVICIO POR MOTIVOS DE MANTENIMIENTO. Tiempo
+    estimado desde las 15.15H hasta las 19.00.H») y el callejero un XML de error («problemas tecnicos. Tiempo estimado…»;
+    14/10/2026). El horario no está en el plugin: se cita el que dé el servicio cada vez. Si el aviso dice
+    «mantenimiento» o «problemas técnicos», la cita es su «Tiempo estimado…» (o, si no lo hay, el principio del aviso);
+    una página HTML con otra redacción se cita tal cual (sus primeras frases), para que cualquier aviso nuevo llegue al
+    usuario sin cambiar el plugin.
     """
     cabeza = bytes(datos[:6000])
     minus = cabeza.lower()
-    if b'<html' not in minus and b'lerr' not in minus:  #Solo una página web o un error del callejero: no los datos
-        return ''
-    texto = cabeza.decode('utf-8', 'replace')
-    plano = re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', re.sub(r'(?is)<(style|script).*?</\1>', ' ', texto))))
-    plano = plano.replace('\xa0', ' ')
+    pagina, error_callejero = b'<html' in minus, b'lerr' in minus
+    if not pagina and not error_callejero:  #Datos: no se miran
+        return None
+    texto = re.sub(r'(?is)<(style|script|title|head)\b.*?</\1>', ' ', cabeza.decode('utf-8', 'replace'))
+    plano = re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', texto)).replace('\xa0', ' ')).strip()
+    plano = re.sub(r'^<\?xml[^>]*\?>\s*', '', plano)
+    plano = re.sub(r'\s*\bCerrar\s*$', '', plano)  #Botón de la página de la Sede
     minusculas = plano.lower()
-    if 'mantenimiento' not in minusculas and 'problemas tecnicos' not in minusculas and 'problemas técnicos' not in minusculas:
-        return ''
+    en_mantenimiento = any(p in minusculas for p in ('mantenimiento', 'problemas tecnicos', 'problemas técnicos'))
+    if not en_mantenimiento and not pagina:
+        return None  #Error normal del callejero: lo trata quien lo pidió
     hora = r'\d{1,2}[.:]\d{2}\.?\s*h\b'
-    estimado = re.search(rf'(?i)tiempo estimado.{{0,40}}?{hora}(?:.{{0,30}}?{hora})?', plano)
-    detalle = estimado.group(0).strip() if estimado else ''
-    return "el Catastro tiene sus servicios en mantenimiento" + (f" («{detalle}»)" if detalle else '') + "; pruebe más tarde"
+    estimado = re.search(rf'(?i)tiempo estimado.{{0,40}}?{hora}(?:.{{0,30}}?{hora})?', plano) if en_mantenimiento else None
+    if estimado:
+        return True, estimado.group(0).strip()
+    plano = re.sub(r'^\s*1\s+0\s+', '', plano)  #Códigos <cuerr>/<cod> del XML del callejero
+    cita = plano if len(plano) <= MAX_CITA else plano[:MAX_CITA].rsplit(' ', 1)[0] + '…'
+    return en_mantenimiento, cita
+
+
+def mantenimiento(datos):
+    """Texto del fallo si el servicio responde con un aviso en lugar de los datos (ver aviso_servicio), o ''."""
+    aviso = aviso_servicio(datos)
+    if aviso is None:
+        return ''
+    en_mantenimiento, cita = aviso
+    if en_mantenimiento:
+        return "el Catastro tiene sus servicios en mantenimiento" + (f" («{cita}»)" if cita else '') + "; pruebe más tarde"
+    if not cita:
+        return "el servicio responde con una página vacía en lugar de los datos (puede estar caído); pruebe más tarde"
+    return f"el servicio responde con un aviso en lugar de los datos: «{cita}»; pruebe más tarde"
 
 
 def pedir(url):

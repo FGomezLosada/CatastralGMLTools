@@ -21,7 +21,7 @@ from qgis.PyQt.QtNetwork import QNetworkRequest
 import time
 
 from ..core.info import FUENTE_DGC, FUENTE_NAVARRA
-from ..core.servicios import mantenimiento
+from ..core.servicios import aviso_servicio
 
 PROPIEDAD_FONDO = 'catastral_gml_tools/fondo'
 GRUPO = 'Fondo (Catastro e IGN)'  #Catastro de la DGC, de Navarra y ortofoto del IGN
@@ -81,9 +81,11 @@ def _responde(url, feedback=None):
     datos = bytes(red.reply().content())
     if b'Capabilities' in datos[:4000]:
         return True, ''
-    aviso = mantenimiento(datos)
-    return False, (aviso.replace("el Catastro tiene sus servicios", "está").replace("; pruebe más tarde", "")
-                   if aviso else "responde con una página que no es un servicio WMS (puede estar en mantenimiento)")
+    aviso = aviso_servicio(datos)
+    if aviso is None or not aviso[1]:
+        return False, "responde con algo que no es un servicio WMS (puede estar en mantenimiento)"
+    en_mantenimiento, cita = aviso
+    return False, f"está en mantenimiento («{cita}»)" if en_mantenimiento else f"responde con este aviso: «{cita}»"
 
 
 def apuntar(nombre, ok, motivo=''):
