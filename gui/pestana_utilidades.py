@@ -25,6 +25,7 @@ from qgis.PyQt.QtWidgets import (
 
 from ..core import unir as un
 from ..core.incidencias import AVISO, ERROR
+from .pestana_validar import PestanaValidar
 
 
 class PestanaUtilidades(QWidget):
@@ -91,6 +92,7 @@ class PestanaUtilidades(QWidget):
         """Añade ficheros GML a la lista (sin repetir). Propone el fichero de salida junto al primero."""
         actuales = self.rutas()
         for ruta in rutas:
+            ruta = os.path.normpath(ruta) if ruta else ruta
             if ruta and ruta.lower().endswith('.gml') and os.path.isfile(ruta) and ruta not in actuales:
                 self.lista.addItem(ruta)
                 actuales.append(ruta)
@@ -110,14 +112,22 @@ class PestanaUtilidades(QWidget):
         self.quitarBoton.setEnabled(self.lista.count() > 0)
 
     def dragEnterEvent(self, event):  # noqa: N802 (nombre impuesto por Qt)
-        if event.mimeData().hasUrls():
+        #Del Explorador de Windows (ficheros) o del panel de Capas y el Navegador de QGIS (capas: su GML de origen)
+        if PestanaValidar.rutas_gml(event.mimeData()):
             event.setDropAction(Qt.DropAction.CopyAction)  #Nunca «mover» (quitaría la capa o el fichero de su origen)
             event.accept()
         else:
             event.ignore()
 
+    def dragMoveEvent(self, event):  # noqa: N802 (nombre impuesto por Qt)
+        self.dragEnterEvent(event)
+
     def dropEvent(self, event):  # noqa: N802 (nombre impuesto por Qt)
-        self.agregar([u.toLocalFile() for u in event.mimeData().urls() if u.isLocalFile()])
+        rutas = PestanaValidar.rutas_gml(event.mimeData())
+        if not rutas:
+            event.ignore()
+            return
+        self.agregar(rutas)
         event.setDropAction(Qt.DropAction.CopyAction)
         event.accept()
 

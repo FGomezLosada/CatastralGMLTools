@@ -85,6 +85,18 @@ viario = comparar('viario', [('Nueva_1', 'L', rect(X0 + 40, Y0, 30, 30))])
 sin_parcela = (sin_parcela and 'CMP-VIARIO' in codigos(viario.incidencias)
                and 'CMP-SIN-PARCELA' not in codigos(viario.incidencias) and 'negativo' not in str(sin.incidencias))
 
+# 5b. Dos segregaciones separadas en un GML (multiparcela): la operación del conjunto y la de cada zona; cada zona se
+#pide aparte (no el rectángulo de 5 km que las abarca)
+sim.peticiones.clear()
+dos_zonas = comparar('dos_zonas', [(sim.RC, 'S', rect(X0, Y0, 20, 18)), ('Nueva_1', 'L', rect(X0, Y0 + 18, 20, 12)),
+                                   (sim.RC_GRANDE, 'S', rect(X0 + 5000, Y0, 600, 1000)),
+                                   ('Nueva_2', 'L', rect(X0 + 5600, Y0, 600, 1000))])
+_zonas = [i.mensaje for i in dos_zonas.incidencias if i.codigo == 'CMP-ZONAS']
+_wfs = [u for u in sim.peticiones if 'storedquerie' not in u.lower() and 'bbox' in u.lower()]
+zonas_ok = (len(_zonas) == 1 and 'zona 1: NPO 1 · NPP 2 → Segregación' in _zonas[0]
+            and 'zona 2: NPO 1 · NPP 2 → Segregación' in _zonas[0] and dos_zonas.npo == 2 and dos_zonas.npp == 4
+            and 'CMP-ZONAS' not in codigos(seg.incidencias) and len(_wfs) <= 6)
+
 # 6. Referencia que no existe en el Catastro
 noex = comparar('no_existe', [('1907499VK4810H', 'S', rect(X0, Y0, 20, 30))])
 no_existe = 'CMP-RC-NO-EXISTE' in codigos(noex.incidencias)
@@ -216,6 +228,7 @@ checks = {
     "colindante afectada en parte: error y superficie sin cubrir": parcial,
     "suelo sin parcela: error con SDGC; aviso (positivo condicionado) con parcela LOCAL": sin_parcela,
     "referencia que no existe en el Catastro": no_existe,
+    "dos operaciones separadas en un GML: la de cada zona, pidiendo solo cada zona": zonas_ok,
     "sin parcelas de la DGC: pista de catastro foral por la posición": foral_posicion,
     "dominio público afectado: aviso; dos municipios: error": dominio,
     "sin conexión: no se compara y se avisa": sin_red,
@@ -236,7 +249,7 @@ if not all(checks.values()):
     print("Detalles:", {n: [(c.operacion, c.npo, c.npp, [str(i) for i in c.incidencias],
                              c.exceso.area() if c.exceso else None, c.defecto.area() if c.defecto else None)]
                         for n, c in (('seg', seg), ('div', div), ('agr', agr), ('agp', agp), ('np', np_), ('par', par),
-                                     ('sin', sin), ('noex', noex), ('vitoria', vitoria), ('bice', bice), ('disem', disem), ('bu_bice', bu_bice), ('vacio', vacio), ('dp', dp), ('caido', caido))},
+                                     ('sin', sin), ('noex', noex), ('dos_zonas', dos_zonas), ('vitoria', vitoria), ('bice', bice), ('disem', disem), ('bu_bice', bu_bice), ('vacio', vacio), ('dp', dp), ('caido', caido))},
           {'lista': lista, 'barra': barra, 'textos': textos, 'ui': [desactivado, activo, grupo is not None]})
 print("RESULTADO:", "TODO CORRECTO" if all(checks.values()) else "HAY FALLOS")
 print("=" * 60)

@@ -28,6 +28,7 @@ Reglas (código de la incidencia entre corchetes):
              [ESBELTEZ]       proporción largo/ancho mayor que 15: la Sede no tramita automáticamente
   Conjunto   [SOLAPE]         parcelas o construcciones que se superponen
              [HUECO]          huecos entre las parcelas aportadas
+             [ZONAS-SEPARADAS] parcelas en zonas que no se tocan (varias operaciones en un fichero)
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
@@ -223,6 +224,12 @@ def validar_conjunto(elementos, es_parcela):
         inc.append(Incidencia(ERROR, 'SOLAPE', f"Se superpone con {validos[j].local_id} ({area:.2f} m², hasta "
                                                f"{anchura * 100:.0f} cm de ancho)", validos[i].local_id))
     if es_parcela and len(validos) > 1:
+        n_zonas = len(geo.zonas([e.geometria for e in validos]))
+        if n_zonas > 1:  #Varias operaciones en un fichero (multiparcela): la Sede no las tramita de forma automática
+            inc.append(Incidencia(AVISO, 'ZONAS-SEPARADAS', f"Las parcelas forman {n_zonas} zonas separadas: la Sede trata el "
+                                                            "GML como una sola operación; puede dar validación positiva, "
+                                                            "pero no la propone ni la tramita de forma automática (Comparar "
+                                                            "con el Catastro dice la operación de cada zona)"))
         hueco = geo.huecos([e.geometria for e in validos])
         if hueco > 0:
             inc.append(Incidencia(AVISO, 'HUECO', f"Hay huecos o franjas sin cubrir entre las parcelas aportadas "

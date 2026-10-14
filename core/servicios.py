@@ -164,6 +164,13 @@ def en_tarea(feedback, tiempo_maximo=TIEMPO_MAXIMO):
         _contexto.feedback = _contexto.limite = None
 
 
+def progreso(hecho, total):
+    """Avance (0-100) de la tarea que corre en este hilo, si la hay (se ve en el gestor de tareas y en el panel)."""
+    feedback = getattr(_contexto, 'feedback', None)
+    if feedback is not None and total:
+        feedback.setProgress(100.0 * hecho / total)
+
+
 def pedir(url):
     """Descarga una dirección con la red de QGIS (respeta el proxy). Devuelve (contenido, texto de error o '')."""
     feedback = getattr(_contexto, 'feedback', None)

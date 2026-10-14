@@ -356,6 +356,19 @@ def ajustar_a_lindero(geometrias):
     return resultado, peor
 
 
+def zonas(geometrias, separacion=0.01):
+    """
+    Grupos de geometrías que se tocan (a menos de «separacion» m): lista de (unión de la zona, índices de sus
+    geometrías). Un GML con varias zonas son varias operaciones en un fichero (p. ej. una multiparcela).
+    """
+    validas = [(i, g) for i, g in enumerate(geometrias) if g is not None and not g.isNull() and not g.isEmpty()]
+    if not validas:
+        return []
+    union = QgsGeometry.unaryUnion([g.buffer(separacion / 2, 2) for _, g in validas])
+    partes = union.asGeometryCollection() if union.isMultipart() else [union]
+    return [(parte, [i for i, g in validas if g.intersects(parte)]) for parte in partes]
+
+
 def truncar(geometria, decimales=DECIMALES):
     """
     Copia de un polígono o multipolígono con las coordenadas truncadas (no redondeadas) a 2 decimales, como hace la Sede

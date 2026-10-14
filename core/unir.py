@@ -17,7 +17,7 @@ license   : GNU GPL v2 or later
 """
 import os
 
-from qgis.core import QgsCoordinateReferenceSystem, QgsGeometry
+from qgis.core import QgsCoordinateReferenceSystem
 
 from . import geometria as geo
 from . import gml_lector as gl
@@ -112,11 +112,7 @@ def nombre_libre(local_id, usados):
 
 def zonas_separadas(parcelas):
     """Número de grupos de parcelas que no se tocan entre sí (a más de 1 cm)."""
-    geometrias = [p.geometria.buffer(TOLERANCIA / 2, 2) for p in parcelas if not p.geometria.isEmpty()]
-    if not geometrias:
-        return 0
-    union = QgsGeometry.unaryUnion(geometrias)
-    return len(union.asGeometryCollection()) if union.isMultipart() else 1
+    return len(geo.zonas([p.geometria for p in parcelas], TOLERANCIA))
 
 
 def unir(rutas, destino, fecha=None):

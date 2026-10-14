@@ -5,6 +5,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 ## [Sin publicar]
 
 ### Añadido
+- **Pruebas a mano del bloque C (14/10/2026):**
+  - Comparar con el Catastro un GML de varias zonas separadas (p. ej. una multiparcela de dos segregaciones) pide al Catastro solo cada zona, no el rectángulo que las abarca (tardaba cerca de un minuto), dice la operación de cada zona («zona 1: NPO 1 · NPP 2 → Segregación…») y el botón muestra el avance («Comparando… 40 %»). El validador avisa de las zonas separadas.
+  - Unir GML: se pueden arrastrar capas desde el panel de Capas (se toma su GML de origen).
+  - Unir seleccionadas: si las parcelas no encajan (huecos o rendijas de más de 1 cm, como una cuña de dibujo), se une pero se avisa en naranja; el aviso explica cómo ver todas las parcelas en la tabla.
+  - Capas descargadas y vistas del GML: al editar, `sup_calc` se recalcula sola; al dividir, `sup_gml` (la del Catastro) no se copia a los trozos; los polígonos nuevos son de tipo «parcela» y se ven con su estilo.
+  - Pestaña Parcela: una fila SDGC sin referencia catastral lo dice al momento en la columna Estado («SDGC sin RC: use LOCAL»).
 - **Auditoría, bloque C (robustez, rendimiento y compatibilidad)** — el plugin no se bloquea ni se rompe con ficheros grandes, servicios caídos o datos raros:
   - Validar: solapes con índice espacial (4.900 parcelas en 0,7 s; antes 15 s) y lectura y validación en segundo plano para ficheros de más de 2 MB; los huecos entre parcelas se reconocen por su geometría (un patio relleno ya no compensa un hueco real) (AU-37, AU-40).
   - Tareas de red cancelables (cancelar en el gestor de tareas corta la petición en curso y las siguientes) y con un tiempo máximo de 3 minutos; al descargar o recargar el plugin se cancelan las tareas en marcha. El mapa de fondo comprueba antes en segundo plano que sus servicios responden: con uno caído, QGIS ya no se queda esperando y la casilla se desmarca (AU-38).

@@ -197,7 +197,7 @@ def unir_seleccionadas(capa, campo_id=''):
     Devuelve (fid de la parcela resultante o None, tipo de alteración propuesto, incidencias).
     """
     from . import alteraciones as alt
-    from .incidencias import ERROR, INFO, Incidencia
+    from .incidencias import AVISO, ERROR, INFO, Incidencia
 
     if not es_capa_poligonos(capa):
         return None, '', [Incidencia(ERROR, 'UNION-CAPA', "Elija una capa de polígonos")]
@@ -207,15 +207,16 @@ def unir_seleccionadas(capa, campo_id=''):
     geometrias = [QgsGeometry(f.geometry()) for f in seleccion]
     union = QgsGeometry.unaryUnion(geometrias)
     rendijas = 0.0
+    ajustadas = geometrias
     if _partes(union) > 1 or _rendijas(union):
         #Rendijas o huecos de digitalización de menos de 1 cm entre las parcelas: se ajustan los vértices de cada una a
         #las demás (como el autoensamblado de QGIS) y se vuelve a unir (AU-42)
-        ajustadas = [QgsGeometrySnapper.snapGeometry(g, CIERRE_UNION, [h for k, h in enumerate(geometrias) if k != i])
-                     for i, g in enumerate(geometrias)]
-        cerrada = _sin_rendijas(QgsGeometry.unaryUnion(ajustadas))
+        ajustes = [QgsGeometrySnapper.snapGeometry(g, CIERRE_UNION, [h for k, h in enumerate(geometrias) if k != i])
+                   for i, g in enumerate(geometrias)]
+        cerrada = _sin_rendijas(QgsGeometry.unaryUnion(ajustes))
         if not cerrada.isEmpty() and _partes(cerrada) == 1:
             rendijas = abs(cerrada.area() - union.area())
-            union = cerrada
+            union, ajustadas = cerrada, ajustes
     if union.isEmpty() or _partes(union) > 1:
         return None, '', [Incidencia(ERROR, 'UNION-NO-COLINDANTES', "Las parcelas seleccionadas no forman un solo recinto: "
                                                                     "para unirlas han de ser colindantes")]
@@ -243,6 +244,12 @@ def unir_seleccionadas(capa, campo_id=''):
     if rendijas:
         incidencias.append(Incidencia(INFO, 'UNION-RENDIJAS', f"Se han cerrado rendijas de digitalización de menos de 1 cm "
                                                               f"entre las parcelas ({rendijas:.4f} m²)"))
+    #Huecos o franjas de más de 1 cm entre las parcelas (el dibujo no encaja): la parcela unida los conserva, se avisa
+    hueco = geo.huecos(ajustadas)
+    if hueco > 0:
+        incidencias.append(Incidencia(AVISO, 'UNION-HUECOS', f"Las parcelas no encajan: entre ellas quedan huecos o rendijas "
+                                                             f"({hueco:.2f} m²) que la parcela unida conserva. Revise el dibujo "
+                                                             "(con el autoensamblado de QGIS activado) y vuelva a unirlas"))
     if con_rc and tipo == alt.AGRUPACION:
         incidencias.append(Incidencia(INFO, 'UNION-AGRUPACION', "La mayor no llega al 80 % del total: se propone agrupación "
                                                                 "(parcela nueva). Si conserva su referencia, elija agregación"))

@@ -135,6 +135,24 @@ px, py = geo.punto_interior(recintos[0])
 interior = (recintos[0].geometria().contains(QgsGeometry.fromWkt(f"POINT({px} {py})"))
             and round(px, 2) == px and round(py, 2) == py)
 
+# 8b. Capas del plugin (descarga, vista del GML): al editar, sup_calc se recalcula y los polígonos nuevos son «parcela»
+from qgis.core import QgsVectorLayerUtils  # noqa: E402
+
+_lectura = gl.ResultadoLectura()
+_lectura.epsg = 25830
+_lectura.elementos = [gl.ElementoGML(gl.PARCELA, 'X', 'ES.SDGC.CP', rect(X0, Y0, 10, 10), area_declarada=100)]
+editable = gl.capa(_lectura, 'edicion')
+editable.startEditing()
+_f = next(editable.getFeatures())
+_mitad = QgsGeometry(rect(X0, Y0, 5, 10))
+_mitad.convertToMultiType()
+editable.changeGeometry(_f.id(), _mitad)
+_nueva = QgsVectorLayerUtils.createFeature(editable, rect(X0 + 20, Y0, 3, 3), {}, None)
+editable.addFeature(_nueva)
+_valores = sorted((g['sup_calc'], g['tipo']) for g in editable.getFeatures())
+edicion = _valores == [(9, gl.PARCELA), (50, gl.PARCELA)] and editable.getFeature(_f.id())['sup_gml'] == 100
+editable.rollBack()
+
 # 9. Descargar el plugin con una tarea en marcha: la tarea se cancela y termina enseguida (AU-38)
 def esperar_cancelacion(rc):
     fin = time.time() + 30
@@ -178,6 +196,7 @@ checks = {
     "comparación demasiado extensa (sin peticiones) y trozo que falla a mitad": comparacion,
     "referencias con Ñ: carácter de control": con_enye,
     "punto interior de una parcela en U": interior,
+    "capas del plugin: superficie recalculada al editar y polígonos nuevos de tipo parcela": edicion,
     "descargar el plugin con una tarea en marcha: se cancela": descarga_plugin,
     "ninguna ventana emergente": not ventanas,
 }
@@ -191,6 +210,6 @@ if not all(checks.values()):
                         'rustica': (lista, diccionario, roto), 'svg': svg[:200],
                         'comparacion': (codigos(err_grande), len(peticiones), [str(i) for i in err_trozo]),
                         'enye': (control, refcat.comprobar(rc18 + control).mensaje),
-                        'interior': (px, py), 'tarea': (tarea.status(), tarea.resultado)})
+                        'interior': (px, py), 'edicion': _valores, 'tarea': (tarea.status(), tarea.resultado)})
 print("RESULTADO:", "TODO CORRECTO" if all(checks.values()) else "HAY FALLOS")
 print("=" * 60)
