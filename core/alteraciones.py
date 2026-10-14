@@ -57,6 +57,22 @@ UMBRAL_SEGREGACION = 0.20  #Segregada menor del 20 % de la matriz (editor de la 
 UMBRAL_DIVISION = 0.20     #Cada resultante mayor que 1/5 de la original (editor de la Sede)
 
 
+def deducir(ids_capa, namespaces):
+    """
+    Operación que deducirá la Sede de la tabla (NPO/NPP) cuando no se elige ninguna, como texto; '' si no se puede
+    saber. ids_capa: identificadores tal como vienen de la capa (los trozos de una división copian la referencia).
+    """
+    origen = {refcat.parcela_de(i) for i in ids_capa} - {''}
+    npp, sdgc = len(namespaces), sum(1 for n in namespaces if n == SDGC)
+    if len(origen) != 1:
+        return ''
+    if npp > 1:
+        operacion = "segregación (la que conserva la referencia es la matriz)" if sdgc == 1 else \
+            "división" if sdgc == 0 else "ninguna: de una parcela no pueden salir dos con referencia (SDGC)"
+        return f"Sin indicar: de 1 parcela catastral salen {npp}; la Sede propondrá {operacion}"
+    return "Sin indicar: 1 parcela catastral y 1 en el GML; si cambia su contorno, la Sede propondrá una subsanación"
+
+
 def es_automatico(local_id):
     return bool(AUTOMATICO.match(local_id or ''))
 

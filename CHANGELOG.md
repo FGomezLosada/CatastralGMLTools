@@ -5,6 +5,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 ## [Sin publicar]
 
 ### Añadido
+- **Tercera prueba a mano del bloque C (14/10/2026):**
+  - La tabla de la pestaña Parcela sigue a la capa: al dibujar, dividir, mover vértices o deshacer (Ctrl+Z) se recarga sola, conservando lo escrito a mano (identificador, namespace y nº de parcela, por parcela) y la matriz elegida. «Recargar» vuelve a lo que dice la capa.
+  - Ctrl+Z tras «Unir seleccionadas» devuelve también la tabla, la alteración y la casilla «Solo los elementos seleccionados» a como estaban.
+  - Unir seleccionadas solo propone agregación o agrupación si se unen parcelas catastrales distintas (dos referencias o más). Unir un trozo dibujado (sin referencia o con la que copió al dividir) es un retoque del dibujo: no cambia la operación ni la tabla (antes proponía «Agrupación» y la RC desaparecía del GML).
+  - Con la alteración «Sin indicar», el asistente dice qué operación deducirá la Sede de la tabla (p. ej. «de 1 parcela catastral salen 2; la Sede propondrá segregación»).
+  - Los avisos al crear un GML se leen en el propio mensaje (antes solo «1 aviso», con el texto oculto al pasar el ratón). Un relleno de menos de 50 cm² al unir ya no sale como aviso de «0.00 m²».
 - **Segunda prueba a mano del bloque C (14/10/2026):**
   - Unir seleccionadas ajusta siempre los vértices a menos de 1 cm (también las rendijas abiertas al borde, como una de 0,07 mm que quedaba) y rellena los huecos y cuñas de hasta 20 cm entre las parcelas, con aviso; la parcela unida queda válida (antes el GML daba «geometría no válida»). Los patios se conservan.
   - Al cambiar de capa en Parcela o Edificio se propone el fichero de la capa nueva (en la carpeta elegida): el nombre escrito vale para su capa, no para la siguiente.

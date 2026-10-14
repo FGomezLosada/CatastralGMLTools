@@ -239,13 +239,22 @@ def unir_seleccionadas(capa, campo_id=''):
     id_principal = _texto(principal[campo_id]) if campo_id else ''
     con_rc = refcat.es_rc_parcela(id_principal)
     proporcion = principal.geometry().area() / total if total else 0
-    tipo = alt.AGREGACION if con_rc and proporcion >= 0.8 else alt.AGRUPACION
+    #Solo es una agregación o agrupación si se unen parcelas catastrales distintas (dos referencias o más). Unir un
+    #trozo dibujado (sin referencia, o con la misma que copió al dividir) es retocar el dibujo: no cambia la operación
+    #(prueba a mano del 14/10/2026: unir el trozo de una segregación con una franja de vial proponía «Agrupación»)
+    referencias = {refcat.parcela_de(_texto(f[campo_id])) for f in seleccion} - {''} if campo_id else set()
+    if len(referencias) >= 2:
+        tipo = alt.AGREGACION if con_rc and proporcion >= 0.8 else alt.AGRUPACION
+    else:
+        tipo = alt.SIN_INDICAR
     incidencias = [Incidencia(INFO, 'UNION-HECHA', f"Unidas {len(seleccion)} parcelas en una de {round(total)} m²; la mayor "
                                                    f"({round(100 * proporcion)} % del total) conserva sus datos")]
+    if rellenado < 0.005:  #Rellenos de menos de 50 cm²: son rendijas de dibujo, no merecen un aviso
+        rendijas, rellenado = rendijas + rellenado, 0.0
     if rendijas > 1e-6:
-        incidencias.append(Incidencia(INFO, 'UNION-RENDIJAS', f"Se han cerrado rendijas de digitalización de menos de 1 cm "
-                                                              f"entre las parcelas ({rendijas:.4f} m²)"))
-    if rellenado > 1e-4:
+        incidencias.append(Incidencia(INFO, 'UNION-RENDIJAS', f"Se han cerrado rendijas de digitalización entre las parcelas "
+                                                              f"({rendijas:.4f} m²)"))
+    if rellenado:
         incidencias.append(Incidencia(AVISO, 'UNION-RELLENO', f"Las parcelas no encajaban: se han rellenado {rellenado:.2f} m² "
                                                               "de huecos o cuñas entre ellas. Compruebe en el mapa que la "
                                                               "parcela unida es la que quiere"))
@@ -253,7 +262,10 @@ def unir_seleccionadas(capa, campo_id=''):
         incidencias.append(Incidencia(AVISO, 'UNION-INVALIDA', "La parcela unida no es una geometría válida (el dibujo tiene "
                                                                "huecos o picos de más de 20 cm entre las parcelas): revísela "
                                                                "antes de crear el GML"))
-    if con_rc and tipo == alt.AGRUPACION:
+    if not tipo:
+        incidencias.append(Incidencia(INFO, 'UNION-DIBUJO', "No son parcelas catastrales distintas: es un retoque del dibujo y "
+                                                            "no cambia la operación"))
+    elif con_rc and tipo == alt.AGRUPACION:
         incidencias.append(Incidencia(INFO, 'UNION-AGRUPACION', "La mayor no llega al 80 % del total: se propone agrupación "
                                                                 "(parcela nueva). Si conserva su referencia, elija agregación"))
     elif tipo == alt.AGREGACION and proporcion < alt.UMBRAL_AGREGACION:

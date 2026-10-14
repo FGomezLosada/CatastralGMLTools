@@ -69,6 +69,11 @@ class PestanaParcela(QWidget):
         self.labels_auto = []  #Por fila: True si el nº de parcela lo ha puesto el plugin (se recalcula al cambiar el id)
         self.ultimo_gml = ''
         self.capa_conectada = None
+        self.alteracion_auto = True   #El tipo de alteración lo propone el plugin (hasta que el usuario elige uno)
+        self.manuales = {}            #fid → {columna: valor} que ha escrito el usuario en la tabla (se conservan al recargar)
+        self.antes_union = None       #Estado de la tabla antes de «Unir seleccionadas» (para volver a él con Ctrl+Z)
+        self.editando = False         #True mientras el plugin edita la capa (no se recarga por cada señal)
+        self.matriz_fid = None        #Parcela elegida con «Es la matriz» (por su fid)
         self.destino_automatico = ''  #Último nombre de fichero propuesto (si el usuario no lo cambia, sigue a la capa)  #Capa cuya selección se sigue (para desconectarla al cambiar)
         self.construir()
         activa = self.dock.iface.activeLayer() if self.dock.iface is not None else None
@@ -193,7 +198,7 @@ class PestanaParcela(QWidget):
         self.tabla.itemSelectionChanged.connect(self.actualizar_matriz)
         self.matrizBoton.clicked.connect(self.marcar_matriz)
         self.tabla.itemChanged.connect(self.celda_cambiada)
-        self.recargarBoton.clicked.connect(self.recargar)
+        self.recargarBoton.clicked.connect(self.recargar_desde_capa)
         self.unirBoton.clicked.connect(self.unir_seleccionadas)
         self.crearBoton.clicked.connect(self.crear_gml)
 
@@ -211,6 +216,7 @@ class PestanaParcela(QWidget):
 
     def cambiar_capa(self, *args):
         capa = self.capa()
+        self.manuales, self.antes_union, self.matriz_fid = {}, None, None  #Lo escrito y la unión eran de la otra capa
         self.seguir_seleccion(capa)
         self.actualizar_unir()
         #Sin señales mientras se rellenan los campos: si no, la tabla se recalculaba 3 o 4 veces seguidas
@@ -252,11 +258,37 @@ class PestanaParcela(QWidget):
         """Con «Solo los elementos seleccionados», la tabla se actualiza al seleccionar parcelas en el mapa."""
         anterior = self.capa_conectada
         if anterior is not None and not sip.isdeleted(anterior):
-            with contextlib.suppress(TypeError, RuntimeError):  #Ya desconectada
-                anterior.selectionChanged.disconnect(self.seleccion_cambiada)
+            for senal, metodo in self.senales(anterior):
+                with contextlib.suppress(TypeError, RuntimeError):  #Ya desconectada
+                    senal.disconnect(metodo)
         self.capa_conectada = capa
         if capa is not None:
-            capa.selectionChanged.connect(self.seleccion_cambiada)
+            for senal, metodo in self.senales(capa):
+                senal.connect(metodo)
+
+    def senales(self, capa):
+        """Señales de la capa que sigue la tabla: selección y ediciones (dibujar, dividir, deshacer…)."""
+        return [(capa.selectionChanged, self.seleccion_cambiada), (capa.featureAdded, self.capa_editada),
+                (capa.featuresDeleted, self.capa_editada), (capa.geometryChanged, self.capa_editada),
+                (capa.attributeValueChanged, self.capa_editada), (capa.afterRollBack, self.capa_editada)]
+
+    def capa_editada(self, *args):
+        """
+        Al editar la capa (dibujar, dividir, mover vértices, Ctrl+Z…) la tabla se recarga sola, conservando lo que haya
+        escrito el usuario. Si se deshace «Unir seleccionadas», la tabla vuelve a como estaba antes de unir.
+        """
+        if sip.isdeleted(self) or self.editando:
+            return
+        capa = self.capa()
+        if (self.antes_union is not None and capa is not None
+                and all(capa.getFeature(fid).isValid() for fid in self.antes_union['fids'])):  #La unión se ha deshecho
+            estado, self.antes_union = self.antes_union, None
+            self.soloSeleccion.blockSignals(True)
+            self.soloSeleccion.setChecked(estado['solo'])
+            self.soloSeleccion.blockSignals(False)
+            self.poner_alteracion(estado['tipo'], estado['auto'])
+        self.recargar()
+        self.actualizar_unir()
 
     def seleccion_cambiada(self, *args):
         if sip.isdeleted(self):
@@ -273,23 +305,35 @@ class PestanaParcela(QWidget):
         """Une las parcelas seleccionadas en una y propone agregación o agrupación en el asistente."""
         self.dock.messageBar.clearWidgets()
         capa = self.capa()
-        fid, tipo, incidencias = cp.unir_seleccionadas(capa, self.campoId.currentField())
+        antes = {'tipo': self.tipo_alteracion(), 'auto': self.alteracion_auto, 'solo': self.soloSeleccion.isChecked(),
+                 'fids': list(capa.selectedFeatureIds()) if capa is not None else []}
+        self.editando = True  #La unión cambia y borra entidades: se recarga una vez al final, no por cada señal
+        try:
+            fid, tipo, incidencias = cp.unir_seleccionadas(capa, self.campoId.currentField())
+        finally:
+            self.editando = False
         if fid is None:
             self.dock.warn("\n".join(i.mensaje for i in incidencias))
             return None
-        #El GML de una agregación o agrupación lleva solo la parcela resultante (que queda seleccionada): la tabla pasa a
-        #«Solo los elementos seleccionados» para no aplicar la operación a las demás parcelas de la capa
-        self.soloSeleccion.blockSignals(True)
-        self.soloSeleccion.setChecked(True)
-        self.soloSeleccion.blockSignals(False)
-        self.recargar()
+        self.antes_union = antes  #Con Ctrl+Z la tabla vuelve a este estado (capa_editada)
         if tipo:
-            self.alteracion.setCurrentIndex(alt.TIPOS.index(tipo))  #Lanza aplicar_alteracion
+            #Agregación o agrupación de parcelas catastrales: el GML lleva solo la parcela resultante (que queda
+            #seleccionada), así que la tabla pasa a «Solo los elementos seleccionados»
+            self.soloSeleccion.blockSignals(True)
+            self.soloSeleccion.setChecked(True)
+            self.soloSeleccion.blockSignals(False)
+            self.recargar()
+            self.poner_alteracion(tipo, False)
+            vista = (". La tabla muestra solo la parcela unida (desmarque «Solo los elementos seleccionados» para ver "
+                     "todas)")
+            propuesta = f" · propuesta: {alt.NOMBRES[tipo]}"
+        else:
+            self.recargar()  #Retoque del dibujo: la tabla sigue con todas sus parcelas y la operación se vuelve a deducir
+            vista, propuesta = '', ''
         self.actualizar_unir()
         notas = ''.join(f". {i.mensaje}" for i in incidencias[1:] if i.nivel == INFO)
-        texto = (incidencias[0].mensaje + f" · propuesta: {alt.NOMBRES[tipo]}{notas}. La tabla muestra solo la parcela unida "
-                 "(desmarque «Solo los elementos seleccionados» para ver todas). La capa queda en edición (Ctrl+Z deshace; "
-                 "guarde la capa para conservarla)")
+        texto = (incidencias[0].mensaje + f"{propuesta}{notas}{vista}. La capa queda en edición (Ctrl+Z deshace también "
+                 "la tabla; guarde la capa para conservarla)")
         avisos = [i.mensaje for i in incidencias if i.nivel == AVISO]
         if avisos:  #El dibujo no encaja: aviso en naranja, no en verde
             self.dock.notify(" ".join(avisos) + ". " + texto, Qgis.MessageLevel.Warning, 0)
@@ -299,6 +343,21 @@ class PestanaParcela(QWidget):
 
     def numero_parcelas(self, capa):
         return capa.selectedFeatureCount() if self.soloSeleccion.isChecked() else capa.featureCount()
+
+    def recargar_desde_capa(self, *args):
+        """Botón Recargar: la tabla vuelve a lo que dice la capa (se olvida lo escrito a mano)."""
+        self.manuales = {}
+        self.recargar()
+
+    def poner_alteracion(self, tipo, automatica):
+        """Elige el tipo de alteración desde el plugin (automatica: lo ha deducido él, y puede volver a deducirlo)."""
+        self.alteracion.blockSignals(True)
+        self.alteracion.setCurrentIndex(alt.TIPOS.index(tipo))
+        self.alteracion.blockSignals(False)
+        self.alteracion_auto = automatica
+        self.actualizar_matriz()
+        self.aplicar_alteracion()
+        self.actualizar_superficies()
 
     def recargar(self, *args):
         capa = self.capa()
@@ -335,9 +394,36 @@ class PestanaParcela(QWidget):
         self.ajustar_columnas()
         self.areas = []
         self.filas_capa = [f.local_id for f in self.filas]  #Identificadores tal como vienen de la capa
-        self.matriz = None  #Fila matriz elegida por el usuario (None: la mayor)
+        #Fila matriz elegida por el usuario (None: la mayor); se sigue por su fid aunque cambie el orden de la tabla
+        fids = [f.fid for f in self.filas]
+        self.matriz = fids.index(self.matriz_fid) if getattr(self, 'matriz_fid', None) in fids else None
         self.aplicar_alteracion()  #Si hay un tipo de alteración elegido, se propone también para la capa nueva
+        self.aplicar_manuales()
         self.actualizar_superficies()
+
+    def aplicar_manuales(self):
+        """Vuelve a poner en la tabla lo que el usuario había escrito a mano en cada parcela (por su fid)."""
+        if not self.manuales:
+            return
+        self.tabla.blockSignals(True)
+        for i, fila in enumerate(self.filas):
+            valores = self.manuales.get(fila.fid, {})
+            for columna in (COL_ID, COL_LABEL):
+                if columna in valores:
+                    self.tabla.item(i, columna).setText(valores[columna])
+                    if columna == COL_LABEL:
+                        self.labels_auto[i] = not valores[columna]
+            combo = self.tabla.cellWidget(i, COL_NS)
+            #El namespace elegido a mano o, si solo se escribió el identificador, el que le corresponde (SDGC si es RC)
+            namespace = valores.get(COL_NS) or (cp.namespace_propuesto(valores[COL_ID]) if valores.get(COL_ID) else '')
+            if namespace and combo is not None:
+                combo.blockSignals(True)
+                combo.setCurrentText(namespace)
+                combo.blockSignals(False)
+        self.tabla.blockSignals(False)
+        for i in range(len(self.filas)):
+            if COL_LABEL not in self.manuales.get(self.filas[i].fid, {}):
+                self.actualizar_label(i)
 
     def ajustar_columnas(self):
         """Ancho de cada columna según su contenido (con un mínimo para el identificador); luego se puede cambiar a mano."""
@@ -403,11 +489,13 @@ class PestanaParcela(QWidget):
         if len(filas) != 1:
             return
         self.matriz = filas[0].row()
+        self.matriz_fid = self.filas[self.matriz].fid if self.matriz < len(self.filas) else None
         self.aplicar_alteracion()
         self.actualizar_superficies()
 
     def alteracion_cambiada(self, *args):
         """Al elegir el tipo de alteración se proponen identificadores y namespaces (respetando los del usuario)."""
+        self.alteracion_auto = False  #Lo ha elegido el usuario: el plugin ya no lo cambia al recargar
         self.actualizar_matriz()
         self.aplicar_alteracion()
         self.actualizar_superficies()
@@ -438,9 +526,19 @@ class PestanaParcela(QWidget):
         """Resumen de la operación elegida y avisos si la tabla no encaja con ella."""
         tipo = self.tipo_alteracion()
         n = len(self.filas)
-        if tipo == alt.SIN_INDICAR or not n:
+        if not n:
             self.alteracionInfo.hide()
             self.incidencias_alteracion = []
+            return
+        if tipo == alt.SIN_INDICAR:  #Sin elegir: se dice qué operación deducirá la Sede de la tabla (NPO/NPP)
+            self.incidencias_alteracion = []
+            deducida = alt.deducir(self.filas_capa, [self.namespace_fila(i) for i in range(n)])
+            if deducida:
+                self.alteracionInfo.setText(f"<small>ℹ {deducida}</small>")
+                self.alteracionInfo.setToolTip(alt.AYUDA[alt.SIN_INDICAR])
+                self.alteracionInfo.show()
+            else:
+                self.alteracionInfo.hide()
             return
         ids = [self.tabla.item(i, COL_ID).text().strip() for i in range(n)]
         nss = [self.namespace_fila(i) for i in range(n)]
@@ -483,6 +581,8 @@ class PestanaParcela(QWidget):
         fila = item.row()
         if not 0 <= fila < len(self.filas):
             return
+        if item.column() in (COL_ID, COL_LABEL):  #Escrito por el usuario: se conserva al recargar la tabla
+            self.manuales.setdefault(self.filas[fila].fid, {})[item.column()] = item.text().strip()
         if item.column() == COL_LABEL:
             self.labels_auto[fila] = not item.text().strip()
             if self.labels_auto[fila]:
@@ -508,6 +608,8 @@ class PestanaParcela(QWidget):
         combo = self.sender()
         for i in range(self.tabla.rowCount()):
             if self.tabla.cellWidget(i, COL_NS) is combo:
+                if i < len(self.filas):
+                    self.manuales.setdefault(self.filas[i].fid, {})[COL_NS] = combo.currentText()
                 self.actualizar_label(i)
                 break
         self.actualizar_superficies()
