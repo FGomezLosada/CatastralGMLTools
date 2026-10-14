@@ -113,6 +113,27 @@ errores = (not no_existe.correcta and codigos(no_existe.incidencias) == ['WFS-EX
 excepcion = (servicios.excepcion_wfs(sim.EXCEPCION.format(rc='X', huso=25830).encode('latin-1'))
              == 'No se ha encontrado la parcela X para el huso 25830' and servicios.excepcion_wfs(b'<a/>') == '')
 
+# 5b. Catastro en mantenimiento (respuestas reales del 14/10/2026): la página de la Sede y el error del callejero dan un
+# aviso claro con el horario; los datos buenos (aunque digan «mantenimiento») no
+PAGINA_MANTENIMIENTO = ('\r\n<HTML>\r\n\t<HEAD>\r\n\t\t<title>Sede Electrónica del Catastro</title><style> .textoblanco { '
+                        'FONT-SIZE: 10px }</style></HEAD><BODY><td>&nbsp;INTERRUPCIÓN DEL SERVICIO POR MOTIVOS DE '
+                        'MANTENIMIENTO</td><td>&nbsp;Tiempo estimado desde las 15.15H hasta las 19.00.H. Disculpe las '
+                        'molestias.</td> Cerrar </BODY></HTML>').encode()
+ERROR_CALLEJERO = (b'<?xml version="1.0" encoding="utf-8" ?> <consulta_dnp xmlns="http://www.catastro.meh.es/"><control>'
+                   b'<cuerr>1</cuerr></control><lerr><err><cod>0</cod><des>problemas tecnicos. Tiempo estimado desde las '
+                   b'15.15H hasta las 19.00.H</des></err></lerr></consulta_dnp>')
+_aviso = servicios.mantenimiento(PAGINA_MANTENIMIENTO)
+_simulada = servicios.pedir
+servicios.pedir = lambda url: (b'', _aviso)
+en_mantenimiento = servicios.descargar(sim.RC)
+servicios.pedir = _simulada
+mantenimiento_ok = ('mantenimiento' in _aviso and '15.15H hasta las 19.00' in _aviso
+                    and '19.00' in servicios.mantenimiento(ERROR_CALLEJERO)
+                    and servicios.mantenimiento(b'<FeatureCollection><x>NAVE DE MANTENIMIENTO</x></FeatureCollection>') == ''
+                    and servicios.mantenimiento(b'<consulta_dnp><lerr><err><des>LA REFERENCIA CATASTRAL NO EXISTE</des></err></lerr></consulta_dnp>') == ''
+                    and not en_mantenimiento.correcta and 'mantenimiento' in str(en_mantenimiento.incidencias)
+                    and '19.00' in str(en_mantenimiento.incidencias))
+
 # 6. Referencia catastral de un punto
 p = servicios.rc_en_punto(-3.7085, 40.4207)
 p_vacio = servicios.rc_en_punto(3.0, 40.0)
@@ -139,7 +160,10 @@ nav_ok = (nav_ok and not nav_no.correcta and 'No se ha encontrado la parcela 999
 # 7. Servicio real (si hay internet): una parcela, sin colindantes ni construcciones; no se guarda nada
 servicios.pedir = original
 real = servicios.descargar('9872023VH5797S', colindantes=False, construcciones=False)
-if 'RED' in codigos(real.incidencias):
+if 'mantenimiento' in str(real.incidencias):
+    modo = "el Catastro está en mantenimiento: no se ha probado el servicio real"
+    real_ok = True
+elif 'RED' in codigos(real.incidencias):
     modo = "sin conexión: no se ha probado el servicio real"
     real_ok = True
 else:
@@ -182,6 +206,7 @@ checks = {
     "con un EPSG indicado no se cambia de huso": huso_fijo,
     "errores: inexistente, RC no válida, foral (sin pedir nada) y sin red": errores,
     "lee el ExceptionReport del WFS": excepcion,
+    "Catastro en mantenimiento: aviso claro con el horario (página de la Sede y callejero)": mantenimiento_ok,
     "referencia catastral de un punto (y sin parcela, con aviso foral)": punto,
     "Navarra: parcela, colindantes, entorno y edificios del Gobierno de Navarra; clic en Navarra": nav_ok,
     f"servicio real ({modo})": real_ok,

@@ -18,7 +18,10 @@ from qgis.core import (
 from qgis.PyQt.QtCore import QUrl
 from qgis.PyQt.QtNetwork import QNetworkRequest
 
+import time
+
 from ..core.info import FUENTE_DGC, FUENTE_NAVARRA
+from ..core.servicios import mantenimiento
 
 PROPIEDAD_FONDO = 'catastral_gml_tools/fondo'
 GRUPO = 'Fondo (Catastro e IGN)'  #Catastro de la DGC, de Navarra y ortofoto del IGN
@@ -39,35 +42,67 @@ CAPAS = (
 )
 
 
-#Servicios que responden (True) o no (False) en esta sesión de QGIS. Se comprueban en segundo plano antes de crear las
-#capas: crear una capa WMS pide sus capacidades en el hilo principal y, con un servicio caído, QGIS se quedaba
-#esperando hasta un minuto por capa (AU-38)
+#Servicios que responden (True) o no (False). Se comprueban en segundo plano antes de crear las capas: crear una capa
+#WMS pide sus capacidades en el hilo principal y, con un servicio caído, QGIS se quedaba esperando hasta un minuto por
+#capa (AU-38). Un servicio que no respondía se vuelve a probar pasados REINTENTO segundos (antes quedaba fuera toda la
+#sesión de QGIS y el usuario no sabía por qué faltaba la capa; prueba a mano del 14/10, Catastro en mantenimiento)
 ESTADO = {}
+MOTIVO = {}     #Por qué no responde: «en mantenimiento («Tiempo estimado…»)», «sin respuesta»…
+PROBADO = {}    #Cuándo se comprobó (time.monotonic)
+REINTENTO = 120
 
 
 def pendientes():
-    """Servicios del fondo que aún no se han comprobado en esta sesión."""
-    return [c[0] for c in CAPAS if c[0] not in ESTADO]
+    """Servicios del fondo sin comprobar, o que no respondían y toca volver a probar."""
+    ahora = time.monotonic()
+    return [c[0] for c in CAPAS if c[0] not in ESTADO
+            or (ESTADO[c[0]] is False and ahora - PROBADO.get(c[0], 0) > REINTENTO)]
+
+
+def olvidar_caidos():
+    """«Reintentar»: los servicios que no respondían se vuelven a probar ya."""
+    for nombre in [n for n, ok in ESTADO.items() if ok is False]:
+        ESTADO.pop(nombre)
+
+
+def caidos():
+    """[(nombre, motivo)] de los servicios que no responden ahora."""
+    return [(c[0], MOTIVO.get(c[0], "no responde")) for c in CAPAS if ESTADO.get(c[0]) is False]
 
 
 def _responde(url, feedback=None):
+    """(True, '') si el servicio da sus capacidades; si no, (False, motivo)."""
     peticion = QNetworkRequest(QUrl(f"{url}?SERVICE=WMS&REQUEST=GetCapabilities"))
     peticion.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
                           QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
     red = QgsBlockingNetworkRequest()
     if red.get(peticion, False, feedback) != QgsBlockingNetworkRequest.ErrorCode.NoError:
-        return False
-    return b'Capabilities' in bytes(red.reply().content())[:4000]
+        return False, "no responde (sin conexión o servicio caído)"
+    datos = bytes(red.reply().content())
+    if b'Capabilities' in datos[:4000]:
+        return True, ''
+    aviso = mantenimiento(datos)
+    return False, (aviso.replace("el Catastro tiene sus servicios", "está").replace("; pruebe más tarde", "")
+                   if aviso else "responde con una página que no es un servicio WMS (puede estar en mantenimiento)")
+
+
+def apuntar(nombre, ok, motivo=''):
+    ESTADO[nombre], PROBADO[nombre] = ok, time.monotonic()
+    if ok:
+        MOTIVO.pop(nombre, None)
+    else:
+        MOTIVO[nombre] = motivo
 
 
 def comprobar_servicios(feedback=None):
-    """Pide las capacidades de cada servicio aún no comprobado (fuera del hilo principal, en una QgsTask)."""
+    """Pide las capacidades de cada servicio pendiente (fuera del hilo principal, en una QgsTask)."""
+    pendiente = pendientes()
     for nombre, url, *_ in CAPAS:
-        if nombre in ESTADO:
+        if nombre not in pendiente:
             continue
         if feedback is not None and feedback.isCanceled():
             return
-        ESTADO[nombre] = _responde(url, feedback)
+        apuntar(nombre, *_responde(url, feedback))
 
 
 def capas_fondo(proyecto=None):
@@ -99,9 +134,9 @@ def asegurar(iface=None):
             continue
         capa = QgsRasterLayer(uri(url, capa_wms, formato, transparente, src), nombre, 'wms')
         if not capa.isValid():  #Sin conexión o servicio caído: QGIS no admite capas no válidas
-            ESTADO[nombre] = False
+            apuntar(nombre, False, MOTIVO.get(nombre) or "no responde (sin conexión o servicio caído)")
             continue
-        ESTADO[nombre] = True
+        apuntar(nombre, True)
         capa.setCustomProperty(PROPIEDAD_FONDO, fuente)
         metadatos = capa.metadata()
         metadatos.setRights([fuente])

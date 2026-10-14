@@ -20,7 +20,9 @@ license   : GNU GPL v2 or later
 """
 import contextlib
 import datetime
+import html
 import json
+import re
 import threading
 import time
 import xml.etree.ElementTree as ET
@@ -171,6 +173,28 @@ def progreso(hecho, total):
         feedback.setProgress(100.0 * hecho / total)
 
 
+def mantenimiento(datos):
+    """
+    Texto del aviso de mantenimiento o de «problemas técnicos» del Catastro, o '' si la respuesta no lo es. Durante un
+    corte, la Sede devuelve una página HTML («INTERRUPCIÓN DEL SERVICIO POR MOTIVOS DE MANTENIMIENTO. Tiempo estimado
+    desde las 15.15H hasta las 19.00.H») y los servicios del callejero un XML de error con ese tiempo (14/10/2026).
+    """
+    cabeza = bytes(datos[:6000])
+    minus = cabeza.lower()
+    if b'<html' not in minus and b'lerr' not in minus:  #Solo una página web o un error del callejero: no los datos
+        return ''
+    texto = cabeza.decode('utf-8', 'replace')
+    plano = re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', re.sub(r'(?is)<(style|script).*?</\1>', ' ', texto))))
+    plano = plano.replace('\xa0', ' ')
+    minusculas = plano.lower()
+    if 'mantenimiento' not in minusculas and 'problemas tecnicos' not in minusculas and 'problemas técnicos' not in minusculas:
+        return ''
+    hora = r'\d{1,2}[.:]\d{2}\.?\s*h\b'
+    estimado = re.search(rf'(?i)tiempo estimado.{{0,40}}?{hora}(?:.{{0,30}}?{hora})?', plano)
+    detalle = estimado.group(0).strip() if estimado else ''
+    return "el Catastro tiene sus servicios en mantenimiento" + (f" («{detalle}»)" if detalle else '') + "; pruebe más tarde"
+
+
 def pedir(url):
     """Descarga una dirección con la red de QGIS (respeta el proxy). Devuelve (contenido, texto de error o '')."""
     feedback = getattr(_contexto, 'feedback', None)
@@ -187,7 +211,9 @@ def pedir(url):
         if feedback is not None and feedback.isCanceled():
             return b'', CANCELADO
         return b'', red.errorMessage() or 'error de red'
-    return bytes(red.reply().content()), ''
+    datos = bytes(red.reply().content())
+    aviso = mantenimiento(datos) if len(datos) < 20000 else ''  #Las respuestas buenas grandes no se miran
+    return (b'', aviso) if aviso else (datos, '')
 
 
 def excepcion_wfs(datos):

@@ -9,6 +9,7 @@ copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
 import contextlib
+import html
 
 from qgis.core import (
     Qgis,
@@ -77,6 +78,7 @@ class PestanaDescargar(QWidget):
         self.rc.returnPressed.connect(self.descargar)
         self.descargarBoton.clicked.connect(self.descargar)
         self.mapaBoton.toggled.connect(self.elegir_en_mapa)
+        self.fondo.toggled.connect(self.mostrar_estado_fondo)
         self.rc_cambiada(self.rc.text())
 
     def construir(self):
@@ -118,6 +120,13 @@ class PestanaDescargar(QWidget):
             opciones.addWidget(casilla)
         opciones.addStretch(1)
         principal.addLayout(opciones)
+        #Qué capa del fondo falta y por qué (siempre a la vista: si no, quien empieza buscaría la capa a mano)
+        self.estadoFondo = QLabel(self)
+        self.estadoFondo.setWordWrap(True)
+        self.estadoFondo.setTextFormat(Qt.TextFormat.RichText)
+        self.estadoFondo.linkActivated.connect(self.reintentar_fondo)
+        self.estadoFondo.hide()
+        principal.addWidget(self.estadoFondo)
 
         fila_mapa = QHBoxLayout()
         self.mapaBoton = QToolButton(self)
@@ -208,9 +217,12 @@ class PestanaDescargar(QWidget):
         plano (TareaFondo): si alguno está caído, QGIS no se bloquea (AU-38). Devuelve las capas añadidas ya.
         """
         if not self.fondo.isChecked():
+            self.mostrar_estado_fondo()
             return []
         if not segundo_plano or not fondo.pendientes():
-            return fondo.asegurar(self.dock.iface)
+            nuevas = fondo.asegurar(self.dock.iface)
+            self.mostrar_estado_fondo()
+            return nuevas
         if self.tarea_fondo is None:
             self.tarea_fondo = TareaFondo(self, aviso)
             QgsApplication.taskManager().addTask(self.tarea_fondo)
@@ -223,12 +235,38 @@ class PestanaDescargar(QWidget):
             return
         vacio = not QgsProject.instance().mapLayers()
         nuevas = fondo.asegurar(self.dock.iface)
-        if fondo.ESTADO and not any(fondo.ESTADO.values()):
-            self.fondo.setChecked(False)
-            self.dock.notify("Los servicios del mapa de fondo no responden ahora: se sigue sin él", Qgis.MessageLevel.Info, 8)
+        faltan = self.mostrar_estado_fondo()
+        if faltan:
+            #La casilla sigue marcada: en la próxima descarga se vuelve a probar y la capa se añade cuando responda
+            self.dock.notify(self.texto_fondo(faltan, enlace=False), Qgis.MessageLevel.Warning, 15)
         elif aviso and nuevas and vacio:
             self.dock.notify("Acérquese a la zona (rueda del ratón) y haga clic sobre la parcela que quiere descargar",
                              Qgis.MessageLevel.Info, 10)
+
+    def texto_fondo(self, faltan, enlace=True):
+        varias = len(faltan) > 1
+        partes = "; ".join(f"«{n}», que {m}" for n, m in faltan)
+        s, n = ('s', 'n') if varias else ('', '')
+        texto = (f"Mapa de fondo: no se ha añadido {partes}. Se añadirá{n} sola{s} cuando vuelva{n} a responder (se "
+                 f"prueba otra vez en cada descarga): no hace falta buscarla{s} ni añadirla{s} a mano.")
+        return texto + (" <a href='reintentar'>Reintentar ahora</a>" if enlace else '')
+
+    def mostrar_estado_fondo(self):
+        """Línea fija bajo las casillas con las capas del fondo que faltan y por qué. Devuelve [(nombre, motivo)]."""
+        presentes = {c.name() for c in fondo.capas_fondo()}
+        faltan = [(n, m) for n, m in fondo.caidos() if n not in presentes] if self.fondo.isChecked() else []
+        if faltan:
+            texto = html.escape(self.texto_fondo(faltan, enlace=False))
+            self.estadoFondo.setText(f"<small><span style='color:#e67700'>⚠</span> {texto} "
+                                     "<a href='reintentar'>Reintentar ahora</a></small>")
+        self.estadoFondo.setVisible(bool(faltan))
+        return faltan
+
+    def reintentar_fondo(self, *args):
+        """Enlace «Reintentar ahora»: vuelve a probar los servicios del fondo que no respondían."""
+        fondo.olvidar_caidos()
+        self.estadoFondo.setText("<small>Comprobando el mapa de fondo…</small>")
+        self.poner_fondo(aviso=False)
 
     def motivo(self, texto):
         """Texto del fallo con el motivo que dejó la tarea (excepción o cancelación), si lo hay."""
