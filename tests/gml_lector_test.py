@@ -3,6 +3,9 @@ Prueba de core/gml_lector.py: lee el GML de parcela 4.0 que escribe el plugin, u
 (ficheros sintéticos de tests/data/gml), detecta errores de lectura y crea la capa de memoria. Sin internet.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py gml_lector_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import os
 import re

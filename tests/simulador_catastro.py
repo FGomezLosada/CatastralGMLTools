@@ -15,6 +15,9 @@ Consulta_DNPRC: el camino es «VT · vía de comunicación de dominio público»
 El clic en el mapa (Consulta_RCCOOR) devuelve 1907401VK4810H salvo en longitudes positivas (sin parcela).
 
 No es una prueba: lo importan las pruebas con importlib (no está en la lista de tools/run_tests.py).
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import json
 import os

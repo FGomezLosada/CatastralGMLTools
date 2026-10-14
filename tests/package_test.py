@@ -3,6 +3,9 @@ Prueba del empaquetado: tools/package.py genera un ZIP con una sola carpeta cata
 ficheros del plugin (sin pruebas, documentación de desarrollo, .git ni __pycache__). Sin internet.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py package_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import configparser
 import importlib.util

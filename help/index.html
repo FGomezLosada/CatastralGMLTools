@@ -34,14 +34,40 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
 <h2>Pestañas del panel</h2>
 <table>
   <tr><th>Pestaña</th><th>Qué hace</th></tr>
-  <tr><td>Parcela</td><td>Crea el GML de una o varias parcelas a partir de una capa de polígonos.</td></tr>
-  <tr><td>Edificio</td><td>Crea el GML de edificios y otras construcciones (piscinas).</td></tr>
-  <tr><td>Validar</td><td>Abre un GML y lo comprueba: estructura, identificadores, geometría y sistema de referencia.</td></tr>
+  <tr><td>Parcela</td><td>Crea el GML de una o varias parcelas a partir de una capa de polígonos, con el asistente de
+      alteraciones (segregación, división, agregación…) y la unión de parcelas seleccionadas.</td></tr>
+  <tr><td>Edificio</td><td>Crea el GML de edificios y otras construcciones (piscinas) para el ICUC.</td></tr>
+  <tr><td>Validar</td><td>Abre un GML, lo comprueba como la Sede, lo compara con el Catastro y guarda un informe.</td></tr>
   <tr><td>Descargar</td><td>Descarga una parcela concreta, sus colindantes y sus construcciones por referencia catastral.</td></tr>
-  <tr><td>Dividir</td><td>Divide una parcela por superficie, en partes iguales, por porcentaje o por franjas.</td></tr>
-  <tr><td>Utilidades</td><td>Une varios GML, convierte del esquema 3.0 al 4.0 y genera informes de superficies y coordenadas.</td></tr>
+  <tr><td>Dividir</td><td><em>En desarrollo</em> (próxima versión): dividir una parcela por superficie, en partes iguales,
+      por porcentaje o por franjas. Pasará a la pestaña Parcela.</td></tr>
+  <tr><td>Utilidades</td><td>Une varios GML de parcela en uno (multiparcela). <em>En desarrollo</em>: conversor del
+      esquema 3.0 al 4.0 e informes de superficies y coordenadas.</td></tr>
 </table>
-<p><small>Las funciones se irán activando versión a versión; las que aún no están disponibles lo indican en su pestaña.</small></p>
+
+<h2>Flujo de trabajo habitual</h2>
+<ol>
+  <li><strong>Descargar</strong> la parcela por su referencia catastral (o eligiéndola en el mapa): llega con sus
+      colindantes y sus construcciones.</li>
+  <li><strong>Dibujar la operación</strong> en la capa descargada con las herramientas de QGIS (dividir objetos, mover
+      vértices, añadir polígonos) o con «Unir seleccionadas». La tabla de la pestaña Parcela sigue a la capa, también al
+      deshacer (Ctrl+Z).</li>
+  <li><strong>Elegir la operación</strong> que figurará en la escritura (o dejar «Sin indicar»: el panel dice cuál
+      deducirá la Sede) y revisar identificadores y namespaces.</li>
+  <li><strong>Crear el GML</strong> y pasar a <strong>Validar</strong>: comprobaciones de la Sede, esquema XSD y
+      <strong>Comparar con el Catastro</strong> (operación, contorno exterior ±1 cm, suelo sin parcela…).</li>
+  <li>Subir el fichero a la <strong>Sede Electrónica del Catastro</strong> y obtener allí el informe de validación
+      gráfica: es el único que vale para el trámite.</li>
+</ol>
+<p>Para el ICUC el camino es el mismo con la pestaña <strong>Edificio</strong>: huellas de las construcciones, plantas,
+estado, crear el GML, validarlo y compararlo con la parcela catastral.</p>
+
+<h2>Marco legal</h2>
+<p>La representación gráfica alternativa se rige por la Ley Hipotecaria (arts. 9, 10, 199 y 201, en la redacción de la
+Ley 13/2015), la Resolución conjunta de 26/10/2015 (requisitos técnicos), la de 23/09/2020 (criterio de identidad gráfica)
+y la de 29/03/2021 (documentos notariales y cartografía desplazada). El informe de validación gráfica de la Sede exige que
+el contorno de las parcelas resultantes coincida con el de las de origen con ±1 cm en los vértices. Más detalles en
+«Antes de presentar el GML».</p>
 
 <h2>Crear el GML de parcela</h2>
 <ol>
@@ -52,7 +78,7 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
       <code>Parcela_1</code>, <code>Parcela_2</code>…</li>
   <li>Revise la tabla: <strong>SDGC</strong> para la parcela que existe en el Catastro y conserva su referencia de 14
       caracteres; <strong>LOCAL</strong> para las parcelas nuevas, con un identificador propio sin espacios ni tildes
-      (por ejemplo <code>Seg_1</code> en una segregación, <code>Div_1_1</code> en una división o <code>Agrupa_1_2</code>
+      (por ejemplo <code>Seg_1</code> en una segregación, <code>Div_1</code> en una división o <code>Agrupa_1</code>
       en una agrupación).</li>
   <li>Indique la fecha y la hora, el SRC (automático por defecto) y el fichero, y pulse <strong>Crear GML</strong>.</li>
 </ol>
@@ -64,8 +90,11 @@ que el plugin añade al mapa (la descargada o la «vista del GML») son temporal
 «Guardar como» GML de QGIS, que escribe un GML genérico y no el INSPIRE CadastralParcels 4.0 que pide la Sede.</p>
 <p><strong>Agregación o agrupación.</strong> Seleccione en el mapa las parcelas colindantes y pulse <strong>Unir
 seleccionadas</strong>: se unen en una sola (las rendijas de digitalización de menos de 1 cm entre ellas se cierran, y los
-huecos o cuñas de hasta 20 cm se rellenan con un aviso para que compruebe el resultado), la mayor conserva sus datos y el asistente propone agregación (si la mayor conserva
-su referencia y es al menos el 80 % del total) o agrupación. La capa queda en edición: Ctrl+Z deshace la unión.</p>
+huecos o cuñas de hasta 20 cm se rellenan con un aviso para que compruebe el resultado) y la mayor conserva sus datos. Si
+son parcelas catastrales distintas (dos referencias o más), el asistente propone agregación (si la mayor conserva su
+referencia y es al menos el 80 % del total) o agrupación, y la tabla muestra solo la parcela unida. Si no (por ejemplo, un
+trozo dibujado que se pega a una parcela), es un retoque del dibujo y la operación no cambia. La capa queda en edición:
+Ctrl+Z deshace la unión, también en la tabla.</p>
 <p><strong>Vértices sobre un lindero.</strong> Las coordenadas van al centímetro. Un vértice nuevo que cae sobre un lindero
 inclinado (donde la línea de una división corta el contorno) se lleva al punto de centímetro más cercano a ese lindero, el
 mismo en las dos parcelas que lo comparten: así no queda fuera de él al redondear.</p>

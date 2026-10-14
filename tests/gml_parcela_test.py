@@ -3,6 +3,9 @@ Prueba de core/gml_parcela.py: estructura del GML de parcela 4.0, identificadore
 Geometrías inventadas cerca de Nerja (EPSG:25830); las RC son de formato válido pero se usan solo como identificador.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py gml_parcela_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import datetime
 import os

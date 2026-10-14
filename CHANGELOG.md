@@ -4,7 +4,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 
 ## [Sin publicar]
 
+## [0.2.0] - 2026-10-14
+
 ### Añadido
+- **Auditoría, bloque D (documentación y metadatos):** versión 0.2.0; `metadata.txt`, README y ayuda describen solo lo que ya funciona (Dividir, el conversor 3.0→4.0 y los informes de superficies figuran como «en desarrollo»). La ayuda tiene «Flujo de trabajo habitual» y «Marco legal», y los ejemplos de identificadores son los que propone el asistente (`Div_1`, `Agrupa_1`). El informe HTML se llama «Informe de comprobación», dice que no es oficial ni tiene CSV y cita la fuente y la fecha de la consulta al Catastro; la capa del Catastro de la comparación lleva esa fecha en sus metadatos. Cabecera GPL en todos los ficheros `.py` (AU-48…AU-51).
 - **Tercera prueba a mano del bloque C (14/10/2026):**
   - La tabla de la pestaña Parcela sigue a la capa: al dibujar, dividir, mover vértices o deshacer (Ctrl+Z) se recarga sola, conservando lo escrito a mano (identificador, namespace y nº de parcela, por parcela) y la matriz elegida. «Recargar» vuelve a lo que dice la capa.
   - Ctrl+Z tras «Unir seleccionadas» devuelve también la tabla, la alteración y la casilla «Solo los elementos seleccionados» a como estaban.

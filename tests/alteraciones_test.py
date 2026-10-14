@@ -4,6 +4,9 @@ comprobación de la tabla NPO/NPP/namespace y criterios orientativos de superfic
 Sin internet.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py alteraciones_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import os
 import tempfile

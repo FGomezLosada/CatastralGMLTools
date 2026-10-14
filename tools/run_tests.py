@@ -9,6 +9,9 @@ Uso (CMD, desde la carpeta del proyecto):
 
 El resumen sale en pantalla y en tests/resultados_qgis<versión>.txt (p. ej. resultados_qgis3.40.txt). Usa la configuración de pruebas de QGIS, no la tuya
 (favoritos, plantillas y configuraciones guardadas no se tocan).
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import datetime
 import importlib.util

@@ -5,6 +5,9 @@ con huecos y multipartes, zonas separadas en la multiparcela, comparación demas
 referencias con Ñ, punto interior en parcelas en U y descarga del plugin con tareas en marcha. Sin internet.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py robustez_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import json
 import time

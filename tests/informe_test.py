@@ -4,6 +4,9 @@ Prueba de core/informe.py y del botón «Informe» de la pestaña Validar: el HT
 coordenadas, y el botón lo abre. Sin internet.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py informe_test.py)
+
+copyright : (C) 2026 by Francisco Gómez Losada
+license   : GNU GPL v2 or later
 """
 import datetime
 import os
@@ -66,7 +69,11 @@ analisis = Etiquetas()
 analisis.feed(texto)
 contenido = ('segregacion.gml' in texto and 'CP 4.0' in texto and 'EPSG:25830' in texto and '07/10/2026 10:00' in texto
              and 'Sin errores' in texto and 'no oficial' in texto and texto.count('<tr><td>Parcela</td>') == 2
-             and '1907401VK4810H' in texto and 'Nueva_1' in texto)
+             and '1907401VK4810H' in texto and 'Nueva_1' in texto and 'Informe de comprobación' in texto
+             and 'código seguro de verificación' in texto and 'Sin comparar con los datos del Catastro' in texto)
+#Tras comparar con el Catastro: la fuente y la fecha de la consulta (AU-49)
+_con_consulta = informe.html(inf, consulta=datetime.datetime(2026, 10, 14, 13, 30))
+contenido = contenido and 'Dirección General del Catastro consultados el 14/10/2026 a las 13:30' in _con_consulta
 croquis = '<svg' in texto and texto.count('<path') == 2 and 'fill-rule="evenodd"' in texto
 coordenadas = ('Hueco 1 · 4 vértices' in texto and 'Exterior · 4 vértices' in texto and '421500.00' in texto
                and texto.count('<details>') == 2)
