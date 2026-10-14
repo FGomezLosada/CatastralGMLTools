@@ -18,6 +18,7 @@ from qgis.PyQt.QtCore import QUrl
 from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtWidgets import QHBoxLayout, QLabel, QPushButton, QToolButton, QWidget
 
+from .core.ficheros import misma_ruta
 from .core.info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, ruta, version
 from .gui.pestana_descargar import PestanaDescargar
 from .gui.pestana_edificio import PestanaEdificio
@@ -54,6 +55,8 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.setup_descargar()
         self.setup_utilidades()
         self.visibilityChanged.connect(self.visibilidad_cambiada)
+        self.gml_pendiente = ''
+        self.tabWidget.currentChanged.connect(self.pestana_cambiada)
 
     # ------------------------------------------------------------------ Cabecera: aviso legal y ayuda
 
@@ -104,6 +107,26 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.tabValidarPendiente.hide()
         self.pestanaValidar = PestanaValidar(self, self.tabValidar)
         self.tabValidarLayout.insertWidget(1, self.pestanaValidar, 1)
+
+    def gml_creado(self, ruta):
+        """Un GML recién creado (Parcela, Edificio o Unir) es el que se abrirá al pasar a la pestaña Validar."""
+        self.gml_pendiente = ruta
+
+    def abrir_en_validar(self, ruta):
+        """Pasa a la pestaña Validar con ese GML abierto (si ya lo estaba, se vuelve a comprobar)."""
+        if not hasattr(self, 'pestanaValidar'):
+            return
+        self.gml_pendiente = ''
+        self.tabWidget.setCurrentWidget(self.tabValidar)
+        if misma_ruta(self.pestanaValidar.fichero.filePath(), ruta):
+            self.pestanaValidar.abrir()
+        else:
+            self.pestanaValidar.fichero.setFilePath(ruta)
+
+    def pestana_cambiada(self, indice):
+        """Al pasar a Validar con un GML recién creado, se abre ese y no queda a la vista el anterior."""
+        if self.tabWidget.widget(indice) is getattr(self, 'tabValidar', None) and getattr(self, 'gml_pendiente', ''):
+            self.abrir_en_validar(self.gml_pendiente)
 
     def setup_descargar(self):
         """Pestaña Descargar: una parcela por referencia catastral o con un clic en el mapa."""

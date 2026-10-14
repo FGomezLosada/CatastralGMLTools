@@ -205,18 +205,19 @@ def unir_seleccionadas(capa, campo_id=''):
     if len(seleccion) < 2:
         return None, '', [Incidencia(ERROR, 'UNION-POCAS', "Seleccione en el mapa dos parcelas o más")]
     geometrias = [QgsGeometry(f.geometry()) for f in seleccion]
-    union = QgsGeometry.unaryUnion(geometrias)
-    rendijas = 0.0
-    ajustadas = geometrias
-    if _partes(union) > 1 or _rendijas(union):
-        #Rendijas o huecos de digitalización de menos de 1 cm entre las parcelas: se ajustan los vértices de cada una a
-        #las demás (como el autoensamblado de QGIS) y se vuelve a unir (AU-42)
-        ajustes = [QgsGeometrySnapper.snapGeometry(g, CIERRE_UNION, [h for k, h in enumerate(geometrias) if k != i])
-                   for i, g in enumerate(geometrias)]
-        cerrada = _sin_rendijas(QgsGeometry.unaryUnion(ajustes))
-        if not cerrada.isEmpty() and _partes(cerrada) == 1:
-            rendijas = abs(cerrada.area() - union.area())
-            union, ajustadas = cerrada, ajustes
+    original = QgsGeometry.unaryUnion(geometrias)
+    #1. Rendijas de digitalización de menos de 1 cm: los vértices de cada parcela se ajustan a las demás (como el
+    #autoensamblado de QGIS; AU-42). Siempre: también deja rendijas abiertas al borde, no solo huecos cerrados
+    ajustadas = [QgsGeometrySnapper.snapGeometry(g, CIERRE_UNION, [h for k, h in enumerate(geometrias) if k != i])
+                 for i, g in enumerate(geometrias)]
+    union = _sin_rendijas(QgsGeometry.unaryUnion(ajustadas))
+    if union.isEmpty() or _partes(union) > 1:  #El ajuste no basta para que se toquen: se prueba sin él
+        union, ajustadas = original, geometrias
+    rendijas = abs(union.area() - original.area()) if union is not original else 0.0
+    #2. Huecos y cuñas de hasta 20 cm entre ellas (el dibujo no encaja): al unirlas desaparece el lindero común, así que
+    #se rellenan y se avisa (si no, la parcela unida quedaba con un hueco o una grieta y su GML no era válido)
+    union, rellenado = geo.rellenar_huecos(ajustadas) if len(ajustadas) > 1 else (union, 0.0)
+    union = _sin_rendijas(union)
     if union.isEmpty() or _partes(union) > 1:
         return None, '', [Incidencia(ERROR, 'UNION-NO-COLINDANTES', "Las parcelas seleccionadas no forman un solo recinto: "
                                                                     "para unirlas han de ser colindantes")]
@@ -241,15 +242,17 @@ def unir_seleccionadas(capa, campo_id=''):
     tipo = alt.AGREGACION if con_rc and proporcion >= 0.8 else alt.AGRUPACION
     incidencias = [Incidencia(INFO, 'UNION-HECHA', f"Unidas {len(seleccion)} parcelas en una de {round(total)} m²; la mayor "
                                                    f"({round(100 * proporcion)} % del total) conserva sus datos")]
-    if rendijas:
+    if rendijas > 1e-6:
         incidencias.append(Incidencia(INFO, 'UNION-RENDIJAS', f"Se han cerrado rendijas de digitalización de menos de 1 cm "
                                                               f"entre las parcelas ({rendijas:.4f} m²)"))
-    #Huecos o franjas de más de 1 cm entre las parcelas (el dibujo no encaja): la parcela unida los conserva, se avisa
-    hueco = geo.huecos(ajustadas)
-    if hueco > 0:
-        incidencias.append(Incidencia(AVISO, 'UNION-HUECOS', f"Las parcelas no encajan: entre ellas quedan huecos o rendijas "
-                                                             f"({hueco:.2f} m²) que la parcela unida conserva. Revise el dibujo "
-                                                             "(con el autoensamblado de QGIS activado) y vuelva a unirlas"))
+    if rellenado > 1e-4:
+        incidencias.append(Incidencia(AVISO, 'UNION-RELLENO', f"Las parcelas no encajaban: se han rellenado {rellenado:.2f} m² "
+                                                              "de huecos o cuñas entre ellas. Compruebe en el mapa que la "
+                                                              "parcela unida es la que quiere"))
+    if not union.isGeosValid():
+        incidencias.append(Incidencia(AVISO, 'UNION-INVALIDA', "La parcela unida no es una geometría válida (el dibujo tiene "
+                                                               "huecos o picos de más de 20 cm entre las parcelas): revísela "
+                                                               "antes de crear el GML"))
     if con_rc and tipo == alt.AGRUPACION:
         incidencias.append(Incidencia(INFO, 'UNION-AGRUPACION', "La mayor no llega al 80 % del total: se propone agrupación "
                                                                 "(parcela nueva). Si conserva su referencia, elija agregación"))

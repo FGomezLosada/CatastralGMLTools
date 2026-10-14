@@ -102,7 +102,20 @@ cuna = capa('cuna', [(rect(X0, Y0, 20, 30), 'A'),
                       f"{X0 + 20} {Y0 + 10}, {X0 + 20} {Y0}))", 'B')])
 cuna.selectAll()
 fid_c, _, inc_c = cp.unir_seleccionadas(cuna, 'refcat')
-rendijas = rendijas and fid_c is not None and 'UNION-HUECOS' in codigos(inc_c) and 'UNION-HUECOS' not in codigos(inc_p)
+g_c = cuna.getFeature(fid_c).geometry() if fid_c is not None else QgsGeometry()
+#Se rellena la cuña (0,5 m²) y se avisa; la parcela unida queda sin huecos, válida y con la superficie de las dos más la cuña
+rendijas = (rendijas and fid_c is not None and 'UNION-RELLENO' in codigos(inc_c) and 'UNION-INVALIDA' not in codigos(inc_c)
+            and g_c.isGeosValid() and len(g_c.asPolygon() or g_c.asMultiPolygon()[0]) == 1 and abs(g_c.area() - 1200) < 0.01
+            and 'UNION-RELLENO' not in codigos(inc_p) and len(g_p.asPolygon()) == 2)
+#Rendija paralela de 0,07 mm abierta al borde (prueba a mano del 14/10/2026): se cierra al ajustar los vértices
+paralela = capa('paralela', [(rect(X0, Y0, 20, 30), 'A'),
+                             (f"POLYGON(({X0 + 20} {Y0}, {X0 + 40} {Y0}, {X0 + 40} {Y0 + 30}, {X0 + 20.00007} {Y0 + 30}, "
+                              f"{X0 + 20} {Y0}))", 'B')])
+paralela.selectAll()
+fid_l, _, inc_l = cp.unir_seleccionadas(paralela, 'refcat')
+g_l = paralela.getFeature(fid_l).geometry() if fid_l is not None else QgsGeometry()
+rendijas = rendijas and fid_l is not None and g_l.isGeosValid() and abs(g_l.area() - 1200) < 0.01 and len(g_l.asPolygon() or [0]) == 1
+paralela.rollBack()
 for _c in (rendija, hueco, patio, cuna):
     _c.rollBack()
 
@@ -134,7 +147,7 @@ checks = {
     "se deshace con la pila de edición de QGIS": deshacer,
     "errores: no colindantes y una sola seleccionada": errores,
     "capa de multipolígonos": multipoligono,
-    "rendijas de menos de 1 cm: se cierran; un patio se conserva; una cuña de 5 cm se avisa": rendijas,
+    "rendijas de menos de 1 cm y cuñas de 5 cm: se cierran (con aviso); un patio se conserva; resultado válido": rendijas,
     "pestaña Parcela: botón, agrupación propuesta y tabla": interfaz,
     "ninguna ventana emergente": not ventanas,
 }

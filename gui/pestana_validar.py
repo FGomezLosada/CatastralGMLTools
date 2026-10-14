@@ -36,6 +36,7 @@ from ..core import informe as informe_html
 from ..core import validador
 from ..core import servicios
 from ..core.incidencias import AVISO, ERROR, INFO, Incidencia
+from ..core.ficheros import misma_ruta
 from ..core.info import FUENTE_DGC
 from . import estilos
 
@@ -553,8 +554,27 @@ class TareaEsquema(QgsTask):
             self.pestana.esquema_comprobado(self.incidencias, self.generacion)
 
 
+def quitar_vistas_anteriores(ruta):
+    """
+    Quita del mapa las vistas y comparaciones de otros GML que cargó el plugin (son temporales: el fichero es lo que
+    vale), para que no se mezclen con las del GML actual. Las que el usuario esté editando o haya editado se dejan.
+    """
+    proyecto = QgsProject.instance()
+    otras = [c.id() for c in proyecto.mapLayers().values()
+             if c.customProperty(PROPIEDAD_GML) and not misma_ruta(c.customProperty(PROPIEDAD_GML), ruta)
+             and not (hasattr(c, 'isEditable') and (c.isEditable() or c.isModified()))]
+    raiz = proyecto.layerTreeRoot()
+    for grupo in [g for g in raiz.findGroups(True) if g.customProperty(PROPIEDAD_GML)
+                  and not misma_ruta(g.customProperty(PROPIEDAD_GML), ruta)]:
+        ids = grupo.findLayerIds()
+        if all(i in otras for i in ids):
+            (grupo.parent() or raiz).removeChildNode(grupo)
+    proyecto.removeMapLayers([i for i in otras if proyecto.mapLayer(i) is not None])
+
+
 def cargar(resultado, ruta, iface=None):
     """Capa con estilo a partir de un resultado de lectura, añadida al proyecto (sin crear ficheros .gfs)."""
+    quitar_vistas_anteriores(ruta)
     nombre = os.path.splitext(os.path.basename(ruta))[0]
     capa = estilos.aplicar(gl.capa(resultado, f"{nombre} (vista del GML)"))
     capa.setCustomProperty(PROPIEDAD_GML, ruta)  #Para poder arrastrar la capa a la pestaña Validar
@@ -581,6 +601,7 @@ def cargar_comparacion(comparacion, ruta, iface=None):
     diferencias con el GML: exceso (suelo del GML fuera de ellas, rojo) y defecto (suelo de ellas que el GML deja
     fuera, azul). Si ya existía, se sustituye.
     """
+    quitar_vistas_anteriores(ruta)
     proyecto = QgsProject.instance()
     raiz = proyecto.layerTreeRoot()
     nombre = f"Comparación {os.path.splitext(os.path.basename(ruta))[0]}"
@@ -589,6 +610,7 @@ def cargar_comparacion(comparacion, ruta, iface=None):
         proyecto.removeMapLayers(viejo.findLayerIds())
         raiz.removeChildNode(viejo)
     grupo = raiz.insertGroup(0, nombre)
+    grupo.setCustomProperty(PROPIEDAD_GML, ruta)  #Se quita al abrir otro GML (quitar_vistas_anteriores)
     capas = []
     exceso = "Fuera de la parcela catastral" if comparacion.edificio else "Exceso: fuera de las parcelas catastrales"
     for geometria, titulo, color in ((comparacion.exceso, exceso, '#e03131'),
@@ -604,6 +626,7 @@ def cargar_comparacion(comparacion, ruta, iface=None):
     catastro.setMetadata(metadatos)
     capas.append(catastro)
     for capa in capas:
+        capa.setCustomProperty(PROPIEDAD_GML, ruta)
         proyecto.addMapLayer(capa, False)
         grupo.addLayer(capa)
     return capas
