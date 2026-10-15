@@ -44,7 +44,8 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
       (o repara uno 4.0). <em>En desarrollo</em>: informes de superficies y coordenadas.</td></tr>
 </table>
 
-<p>Si el panel no cabe en la pantalla, cada pestaña se desplaza con su barra (o con la rueda del ratón). La rueda no
+<p>La pestaña <strong>Utilidades</strong> es una lista numerada: pulse el nombre de una para abrirla (al pasar el ratón se
+ve qué hace). Si la pestaña Parcela no cabe en la pantalla, se desplaza con su barra (o con la rueda del ratón). La rueda no
 cambia las listas desplegables por las que pasa el puntero: para cambiar una con la rueda, haga clic antes en ella. Las
 notas informativas de la operación se abren con el enlace «ℹ … notas sobre la operación»; los avisos se ven siempre.</p>
 
@@ -212,7 +213,7 @@ tabla y la alteración a como estaban. Si la capa está en coordenadas geográfi
 Si es un 4.0 con fallos que se arreglan al reescribirlo (falta <code>xmlns:xlink</code>, anillos abiertos o en el sentido
 contrario, <code>count</code> erróneo, más de 2 decimales, superficie que no coincide con la geometría, geometría que no es
 <code>gml:MultiSurface</code>…), el botón dice <strong>Reparar</strong> y la copia es <code>…_reparado.gml</code>. Lo mismo
-se puede hacer en <strong>Utilidades › Convertir a 4.0 o reparar</strong>, eligiendo el fichero y la salida.</p>
+se puede hacer en <strong>Utilidades › 2. Convertir a 4.0 o reparar</strong>, eligiendo el fichero y la salida.</p>
 <p>El fichero se lee y se vuelve a escribir con el mismo escritor que la pestaña Parcela, así que el resultado sigue las
 reglas de la Sede. Se conservan los identificadores, los namespaces, el número de parcela, la referencia y la fecha
 (<code>beginLifespanVersion</code>; si el original no la tiene, se pone la actual y se dice). El mensaje final dice qué ha
@@ -221,7 +222,7 @@ inventa: una parcela SDGC sin referencia catastral válida, una parcela con vari
 mano. El original nunca se toca y una copia ya creada no se pisa (la siguiente sería <code>…_v4_2.gml</code>).</p>
 
 <h2>Unir varios GML (multiparcela)</h2>
-<p>En la pestaña <strong>Utilidades</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse
+<p>En la pestaña <strong>Utilidades › 1. Unir GML</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse
 <strong>Unir GML</strong>. Las parcelas que estén en varios ficheros se incluyen una sola vez. Si dos parcelas nuevas (LOCAL) se
 llaman igual pero son distintas (por ejemplo, el <code>Seg_1</code> de dos segregaciones), la segunda se renombra a un nombre
 libre (<code>Seg_2</code>…) y se indica; si es una referencia catastral (SDGC) con geometrías distintas, no se une. Si los ficheros están en husos distintos, todo se pasa al huso del primero. Con el botón
