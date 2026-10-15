@@ -31,7 +31,7 @@ for _n in _originales:
 abiertos = []
 dock_module.CatastralGMLToolsDockWidget.open_path = lambda self, ruta: abiertos.append(ruta)
 _validar_xsd = pv_module.esquemas.validar
-pv_module.esquemas.validar = lambda datos, version: []
+pv_module.esquemas.validar = lambda datos, version, feedback=None: []
 
 X0, Y0 = 421500.0, 4070500.0
 carpeta = tempfile.mkdtemp(prefix='cgt_informe_')

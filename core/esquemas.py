@@ -37,8 +37,15 @@ ESQUEMA_EDIFICIO = {
 MAX_ERRORES = 15
 
 
+#Cancelación de la descarga en curso (la tarea de Validar pone aquí su QgsFeedback). Antes la descarga de los ~80
+#esquemas no se podía cortar: al cerrar QGIS o el plugin a mitad, el proceso podía quedarse esperando a la red
+_contexto = threading.local()
+
+
 def carpeta_cache():
-    ruta = os.path.join(QgsApplication.qgisSettingsDirPath(), 'catastral_gml_tools', 'esquemas')
+    #CGT_ESQUEMAS: otra carpeta (las pruebas usan una común para no bajar los esquemas en cada una)
+    ruta = os.environ.get('CGT_ESQUEMAS') or os.path.join(QgsApplication.qgisSettingsDirPath(), 'catastral_gml_tools',
+                                                           'esquemas')
     os.makedirs(ruta, exist_ok=True)
     return ruta
 
@@ -88,11 +95,14 @@ def descargar(url):
             return datos
         with contextlib.suppress(OSError):  #Caché estropeada (de una versión anterior del plugin): se vuelve a bajar
             os.remove(cache)
+    feedback = getattr(_contexto, 'feedback', None)
+    if feedback is not None and feedback.isCanceled():
+        return b''
     peticion = QNetworkRequest(QUrl(url))
     peticion.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
                           QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
     red = QgsBlockingNetworkRequest()
-    if red.get(peticion, True) != QgsBlockingNetworkRequest.ErrorCode.NoError:
+    if red.get(peticion, True, feedback) != QgsBlockingNetworkRequest.ErrorCode.NoError:
         return b''
     datos = bytes(red.reply().content())
     if not es_esquema(datos):
@@ -131,11 +141,20 @@ def envoltorio(esquemas):
             f'elementFormDefault="qualified">{importa}</xs:schema>').encode()
 
 
-def validar(datos, version):
+def validar(datos, version, feedback=None):
     """
     Valida los bytes de un GML. version: 'CP 4.0' o 'BU 2.0' (otra cosa no se valida).
-    Devuelve una lista de Incidencia. Nunca dice «válido» si falta algún esquema.
+    Devuelve una lista de Incidencia. Nunca dice «válido» si falta algún esquema. feedback: QgsFeedback para cortar la
+    descarga de los esquemas (al cancelar, los que falten cuentan como no descargados).
     """
+    _contexto.feedback = feedback
+    try:
+        return _validar(datos, version)
+    finally:
+        _contexto.feedback = None
+
+
+def _validar(datos, version):
     try:
         from lxml import etree
     except ImportError:

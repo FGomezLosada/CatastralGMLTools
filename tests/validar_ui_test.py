@@ -24,7 +24,7 @@ from catastral_gml_tools.core.incidencias import INFO, Incidencia  # noqa: E402
 #El esquema XSD se prueba en esquemas_test.py; aquí se sustituye por una respuesta inmediata para no depender de la red
 _validar_xsd = pv_module.esquemas.validar
 esquema_ok = "Cumple el esquema XSD público de INSPIRE (la Sede comprueba además otras reglas: vea los errores de arriba, si los hay)"
-pv_module.esquemas.validar = lambda datos, version: [Incidencia(INFO, 'XSD-VALIDO', "Cumple el esquema XSD público de INSPIRE (la Sede comprueba además otras reglas: vea los errores de arriba, si los hay)")]
+pv_module.esquemas.validar = lambda datos, version, feedback=None: [Incidencia(INFO, 'XSD-VALIDO', "Cumple el esquema XSD público de INSPIRE (la Sede comprueba además otras reglas: vea los errores de arriba, si los hay)")]
 from catastral_gml_tools.core import gml_parcela as gp  # noqa: E402
 from catastral_gml_tools.core.info import RAIZ  # noqa: E402
 

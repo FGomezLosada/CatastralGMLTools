@@ -76,6 +76,19 @@ os.remove(envenenada)
 checks["la caché no guarda ni usa páginas de error ni ficheros a medias"] = recuperada
 checks["versiones sin esquema y carpeta de caché"] = otros
 checks["XML mal formado: error o sin comprobar, nunca válido"] = 'XSD-VALIDO' not in codigos(mal_formado)
+#Cancelar corta la descarga: con el QgsFeedback cancelado no se pide nada y no se da por válido (15/10/2026)
+from qgis.core import QgsFeedback  # noqa: E402
+
+_cancelado = QgsFeedback()
+_cancelado.cancel()
+_inicio = time.time()
+esquemas._contexto.feedback = _cancelado
+_nada = esquemas.descargar('https://inspire.ec.europa.eu/schemas/no-existe-en-cache-cgt.xsd')
+esquemas._contexto.feedback = None
+_sin = esquemas.validar(b'<a xmlns="http://inspire.ec.europa.eu/schemas/cp/4.0"/>', 'CP 4.0', _cancelado)
+checks["cancelar corta la descarga de esquemas (nunca «válido»)"] = (_nada == b'' and time.time() - _inicio < 5
+                                                                    and 'XSD-VALIDO' not in codigos(_sin)
+                                                                    and esquemas._contexto.feedback is None)
 
 print("=" * 60)
 print("QGIS", Qgis.version(), "· esquema XSD ·", modo)
