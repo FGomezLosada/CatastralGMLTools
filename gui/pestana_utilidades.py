@@ -245,10 +245,10 @@ class PestanaUtilidades(QWidget):
             return None
         self.ultimo = destino
         self.dock.gml_creado(destino)
-        accion = "convertido a 4.0" if version == 'CP 3.0' else "reparado"
-        self.dock.success(f"GML {accion}: {os.path.basename(destino)} (el original no se ha tocado)",
+        accion = "Convertido a 4.0" if version == 'CP 3.0' else "Reparado"  #Corto: el mensaje no se come el panel
+        self.dock.success(f"{accion}: {os.path.basename(destino)}",
                           [("Validar", self.validar), ("Abrir carpeta", self.abrir_carpeta)],
-                          detalles=[str(i) for i in incidencias if i.nivel in (ERROR, AVISO)], notas=cambios)
+                          detalles=[str(i) for i in incidencias if i.nivel in (ERROR, AVISO)], notas=cambios + ["El original no se ha tocado"])
         self.destino_conv_auto = destino  #Se propone otro nombre libre: un segundo clic no pisa el que se acaba de crear
         self.origen_cambiado()
         return destino
