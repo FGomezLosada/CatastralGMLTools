@@ -501,6 +501,12 @@ class PestanaValidar(QWidget):
                          else "no se ha podido comprobar el esquema XSD (¿sin conexión?): pulse «Comprobar esquema XSD» "
                               "antes de subirlo")
                 self.dock.warn(f"{texto}, pero {falta}")
+        elif any(i.nivel == AVISO for i in comparacion.incidencias):
+            #Sin errores pero con avisos (operación que no se tramita sola, GML igual al Catastro…): en naranja, no en verde
+            #con ✔ (prueba a mano del 15/10); la línea de la operación ya va en el título
+            avisos = [i.mensaje for i in comparacion.incidencias if i.nivel == AVISO and i.codigo != 'CMP-OPERACION']
+            self.dock.warn(f"Comparación con el Catastro: {texto}. Contorno coincidente"
+                           + ("\n" + "\n".join(avisos) if avisos else ''))
         else:
             self.dock.success(f"Comparación con el Catastro: {texto}" + ("" if comparacion.edificio else ". Contorno coincidente"))
         return comparacion
