@@ -209,10 +209,11 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         """Aviso al usuario en la barra del panel. Los avisos largos (con detalles) se quedan hasta cerrarlos."""
         self.notify(message, Qgis.MessageLevel.Warning, 0 if '\n' in message.strip() else 15)
 
-    def success(self, message, buttons=(), detalles=()):
+    def success(self, message, buttons=(), detalles=(), notas=()):
         """
         Resultado final en la barra del panel, con botones (texto, método) para abrir lo creado. Se queda hasta cerrarlo.
-        Si hay avisos (detalles), el mensaje sale en naranja y los avisos se ven al pasar el ratón.
+        Si hay avisos (detalles), el mensaje sale en naranja y los avisos se leen en él. notas: lo que se ha hecho
+        (p. ej. los cambios del conversor), en gris bajo el mensaje; no cambian su color.
         """
         if sip.isdeleted(self):
             return None
@@ -221,14 +222,14 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         fila.setContentsMargins(0, 0, 0, 0)
         etiqueta = QLabel(message, contenido)
         etiqueta.setWordWrap(True)
-        if detalles:  #Los avisos se leen en el propio mensaje (antes solo al pasar el ratón: no se encontraban)
-            lineas = [html.escape(d) for d in detalles[:MAX_AVISOS_MENSAJE]]
+        if detalles or notas:  #Los avisos se leen en el propio mensaje (antes solo al pasar el ratón: no se encontraban)
+            lineas = [f"⚠ {html.escape(d)}" for d in detalles[:MAX_AVISOS_MENSAJE]]
             if len(detalles) > MAX_AVISOS_MENSAJE:
-                lineas.append(f"… y {len(detalles) - MAX_AVISOS_MENSAJE} más (pase el ratón por el mensaje)")
+                lineas.append(f"⚠ … y {len(detalles) - MAX_AVISOS_MENSAJE} más (pase el ratón por el mensaje)")
+            lineas += [f"<span style='color:#495057'>· {html.escape(n)}</span>" for n in notas]
             etiqueta.setTextFormat(Qt.TextFormat.RichText)
-            etiqueta.setText(f"{html.escape(message)}<br><small>" + "<br>".join(f"⚠ {linea}" for linea in lineas)
-                             + "</small>")
-            etiqueta.setToolTip("\n".join(detalles))
+            etiqueta.setText(f"{html.escape(message)}<br><small>" + "<br>".join(lineas) + "</small>")
+            etiqueta.setToolTip("\n".join(list(detalles) + list(notas)))
         fila.addWidget(etiqueta, 1)
         for texto, metodo in buttons:
             boton = QPushButton(texto, contenido)

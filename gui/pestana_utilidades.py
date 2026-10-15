@@ -1,5 +1,7 @@
 """
-Pestaña «Utilidades». De momento, «Unir GML» (multiparcela, core/unir.py): varios GML de parcela en uno solo.
+Pestaña «Utilidades»: «Unir GML» (multiparcela, core/unir.py): varios GML de parcela en uno solo; y «Convertir a 4.0 o
+reparar» (core/conversor.py): un GML de parcela del esquema 3.0 al 4.0, o un 4.0 con fallos que se arreglan al
+reescribirlo.
 Las demás utilidades (conversor 3.0 → 4.0, informes de superficies y coordenadas) irán apareciendo aquí.
 
 copyright : (C) 2026 by Francisco Gómez Losada
@@ -14,6 +16,7 @@ from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
     QFileDialog,
+    QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -23,6 +26,8 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
+from ..core import conversor as cv
+from ..core import gml_lector as gl
 from ..core import unir as un
 from ..core.incidencias import AVISO, ERROR
 from .pestana_validar import PestanaValidar
@@ -37,6 +42,8 @@ class PestanaUtilidades(QWidget):
         self.anadirBoton.clicked.connect(self.elegir)
         self.quitarBoton.clicked.connect(self.quitar)
         self.unirBoton.clicked.connect(self.unir)
+        self.origenConv.fileChanged.connect(self.origen_cambiado)
+        self.convertirBoton.clicked.connect(self.convertir)
         self.lista.model().rowsInserted.connect(self.actualizar)
         self.lista.model().rowsRemoved.connect(self.actualizar)
         self.actualizar()
@@ -76,12 +83,44 @@ class PestanaUtilidades(QWidget):
         botones.addWidget(self.unirBoton)
         caja.addLayout(botones)
         principal.addWidget(grupo, 1)
-        pendiente = QLabel("<i>Conversor del esquema 3.0 al 4.0 e informes de superficies y coordenadas: en próximas "
-                           "versiones.</i>", self)
+        principal.addWidget(self.grupo_convertir())
+        pendiente = QLabel("<i>Informes de superficies y coordenadas: en próximas versiones.</i>", self)
         pendiente.setWordWrap(True)
         pendiente.setEnabled(False)
         principal.addWidget(pendiente)
         self.setAcceptDrops(True)
+
+    def grupo_convertir(self):
+        grupo = QGroupBox("Convertir a 4.0 o reparar un GML de parcela", self)
+        caja = QVBoxLayout(grupo)
+        ayuda = QLabel("La Sede solo admite el esquema 4.0. Se crea una copia en 4.0 (o reparada, si ya lo era) con la "
+                       "estructura, los anillos, los decimales y las superficies como los pide la Sede; el original no "
+                       "se toca. Se dice qué ha cambiado y qué queda por revisar.", grupo)
+        ayuda.setWordWrap(True)
+        caja.addWidget(ayuda)
+        formulario = QFormLayout()
+        self.origenConv = QgsFileWidget(grupo)
+        self.origenConv.setStorageMode(QgsFileWidget.StorageMode.GetFile)
+        self.origenConv.setFilter("GML (*.gml *.xml)")
+        self.origenConv.setDialogTitle("Elegir el GML de parcela que se va a convertir")
+        formulario.addRow("GML", self.origenConv)
+        self.destinoConv = QgsFileWidget(grupo)
+        self.destinoConv.setStorageMode(QgsFileWidget.StorageMode.SaveFile)
+        self.destinoConv.setFilter("GML (*.gml)")
+        self.destinoConv.setDialogTitle("Guardar el GML convertido")
+        formulario.addRow("Salida", self.destinoConv)
+        caja.addLayout(formulario)
+        self.estadoConv = QLabel(grupo)
+        self.estadoConv.setWordWrap(True)
+        caja.addWidget(self.estadoConv)
+        botones = QHBoxLayout()
+        botones.addStretch(1)
+        self.convertirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionFileSaveAs.svg'), "Convertir", grupo)
+        self.convertirBoton.setEnabled(False)
+        botones.addWidget(self.convertirBoton)
+        caja.addLayout(botones)
+        self.destino_conv_auto = ''
+        return grupo
 
     # ------------------------------------------------------------------ Lista de ficheros
 
@@ -153,6 +192,53 @@ class PestanaUtilidades(QWidget):
         self.dock.success(f"GML unido: {os.path.basename(destino)} · {n} parcelas de {self.lista.count()} ficheros",
                           [("Validar", self.validar), ("Abrir carpeta", self.abrir_carpeta)],
                           detalles=[str(i) for i in incidencias if i.nivel == AVISO])
+        return destino
+
+    # ------------------------------------------------------------------ Convertir a 4.0 o reparar
+
+    def origen_cambiado(self, *args):
+        """Dice qué se hará con el fichero elegido y propone la salida junto a él (sin pisar nada)."""
+        ruta = self.origenConv.filePath().strip()
+        version = gl.leer(ruta).version if ruta and os.path.isfile(ruta) else ''
+        if version == 'CP 3.0':
+            texto, boton = "Esquema 3.0 (obsoleto): se convertirá al 4.0.", "Convertir a 4.0"
+        elif version == 'CP 4.0':
+            texto, boton = "Ya es 4.0: se reescribirá corrigiendo lo que se pueda (estructura, anillos, superficies…).", "Reparar"
+        elif ruta:
+            texto, boton = ("<span style='color:#c92a2a'>No es un GML de parcela catastral que se pueda leer"
+                            + (f" ({version})" if version else '') + ".</span>"), "Convertir"
+        else:
+            texto, boton = '', "Convertir"
+        self.estadoConv.setText(f"<small>{texto}</small>" if texto else '')
+        self.convertirBoton.setText(boton)
+        self.convertirBoton.setEnabled(version in ('CP 3.0', 'CP 4.0'))
+        actual = self.destinoConv.filePath().strip()
+        if version in ('CP 3.0', 'CP 4.0') and (not actual or actual == self.destino_conv_auto):
+            self.destino_conv_auto = cv.destino_propuesto(ruta, version)
+            self.destinoConv.setFilePath(self.destino_conv_auto)
+
+    def convertir(self, *args):
+        self.dock.messageBar.clearWidgets()
+        ruta = self.origenConv.filePath().strip()
+        destino = self.destinoConv.filePath().strip()
+        if not destino:
+            self.dock.warn("Indique el fichero de salida")
+            return None
+        if not destino.lower().endswith('.gml'):
+            destino += '.gml'
+        ok, version, cambios, incidencias = cv.convertir(ruta, destino)
+        if not ok:
+            self.dock.notify("No se ha podido convertir:\n\n" + "\n".join(f"- {i}" for i in incidencias),
+                             Qgis.MessageLevel.Critical, 0)
+            return None
+        self.ultimo = destino
+        self.dock.gml_creado(destino)
+        accion = "convertido a 4.0" if version == 'CP 3.0' else "reparado"
+        self.dock.success(f"GML {accion}: {os.path.basename(destino)} (el original no se ha tocado)",
+                          [("Validar", self.validar), ("Abrir carpeta", self.abrir_carpeta)],
+                          detalles=[str(i) for i in incidencias if i.nivel in (ERROR, AVISO)], notas=cambios)
+        self.destino_conv_auto = destino  #Se propone otro nombre libre: un segundo clic no pisa el que se acaba de crear
+        self.origen_cambiado()
         return destino
 
     def validar(self, *args):

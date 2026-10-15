@@ -87,7 +87,7 @@ Decisiones técnicas:
 | 8c | Auditoría, bloque B: normativa y avisos (sin IVG negativo desde 2025, viario y cesiones, reparcelación, matriz, dos municipios, huso de la provincia, forales por posición, avisos legales, INVESTIGACION corregida) | ✅ |
 | 8d | Auditoría, bloques C y D: robustez, rendimiento, compatibilidad Qt6, documentación y metadatos (versión 0.2.0) | ✅ |
 | 8e | Ajuste por desplazamiento o giro (afín / CX-CY, dos GML con parámetros; Resolución de 29/03/2021) | — |
-| 9 | Conversor 3.0 → 4.0 y reparación | — |
+| 9 | Conversor 3.0 → 4.0 y reparación | ✅ |
 | 10 | División de parcelas (dentro de la pestaña Parcela, junto a «Unir seleccionadas»; USABILIDAD U-09) | ✅ |
 | 11 | Informe de superficies y coordenadas | — |
 | 12 | Manual de usuario detallado con capturas reales (mejora 28) y campaña de pruebas a mano de todo el plugin | — |
@@ -121,7 +121,7 @@ Decisiones técnicas:
 | 18 | Escritor GML de edificio (Building y OtherConstruction; ver INVESTIGACION §7.2: varios PolygonPatch por edificio, piscina con un Polygon, `conditionOfConstruction`, `numberOfFloorsAboveGround` máximo) | GML para el ICUC | ✅ |
 | 19 | Pestaña Edificio: capa de huellas, tipo, plantas, estado, RC de parcela | Generar el GML de edificio | ✅ |
 | 20 | Comprobaciones ICUC: dentro de la parcela, ≤100 m, sin solapes, ids, nº de ficheros | Simular el ICUC | ✅ (el nº de ficheros por solicitud, 60, no aplica: el plugin crea uno) |
-| 21 | Conversor 3.0 → 4.0 y reparaciones (cierre, orientación, `count`, `areaValue`, srsName; lista de cambios del documento «Diferencias GML parcela v3 v4» de la DGC en INVESTIGACION §7.3) | Aprovechar ficheros antiguos | |
+| 21 | Conversor 3.0 → 4.0 y reparaciones (cierre, orientación, `count`, `areaValue`, srsName; lista de cambios del documento «Diferencias GML parcela v3 v4» de la DGC en INVESTIGACION §7.3) | Aprovechar ficheros antiguos | ✅ (`core/conversor.py`; botón en Validar y bloque en Utilidades) |
 | 22 | División: superficie objetivo, partes iguales, porcentaje, cuotas | Segregaciones y divisiones | ✅ |
 | 23 | División: franja de ancho fijo, línea paralela/perpendicular a un lado, pivote | Casos reales de campo | Franjas y paralela/perpendicular ✅; pivote pendiente |
 | 24 | Ajuste de lindero entre dos parcelas colindantes manteniendo el contorno | Subsanaciones | |
