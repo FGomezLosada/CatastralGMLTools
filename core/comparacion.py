@@ -258,14 +258,26 @@ def comparar(lectura):
                                                                  "(haga un GML por municipio)"))
 
     #Parcelas sin cambios: una parcela del GML idéntica (±1 cm) a una catastral no altera nada (AU-03; Check4SEC)
+    iguales = []
     for p in propuestas:
         for e in afectadas:
             if fuera_de(p.geometria, e.geometria) is None and fuera_de(e.geometria, p.geometria) is None:
-                c.incidencias.append(Incidencia(
-                    ERROR, 'CMP-SIN-CAMBIOS', f"La parcela {p.local_id} es igual a la catastral {e.local_id} (±"
-                                              f"{TOLERANCIA * 100:.0f} cm): no cambia nada. Quítela del GML (solo van las "
-                                              "parcelas que se alteran)", p.local_id))
+                iguales.append((p, e))
                 break
+    todo_igual = bool(iguales) and len(iguales) == len(propuestas)
+    if todo_igual:  #Todo el GML es el Catastro vigente: «quítela del GML» no tenía sentido (prueba a mano del 15/10)
+        c.incidencias.append(Incidencia(
+            AVISO, 'CMP-SIN-CAMBIOS', f"El GML es igual al Catastro vigente (±{TOLERANCIA * 100:.0f} cm): no describe "
+                                      "ninguna alteración. Si quiere acreditar la geometría catastral actual (ante el "
+                                      "notario o el Registro), no hace falta un GML: sirve la certificación catastral "
+                                      "descriptiva y gráfica. Si la finca real es distinta, dibuje su geometría real y cree "
+                                      "el GML de nuevo"))
+    else:
+        for p, e in iguales:
+            c.incidencias.append(Incidencia(
+                ERROR, 'CMP-SIN-CAMBIOS', f"La parcela {p.local_id} es igual a la catastral {e.local_id} (±"
+                                          f"{TOLERANCIA * 100:.0f} cm): no cambia nada. Quítela del GML (solo van las "
+                                          "parcelas que se alteran)", p.local_id))
 
     #Referencias catastrales del GML
     ids_origen = [e.local_id for e in afectadas]
@@ -281,6 +293,8 @@ def comparar(lectura):
                                                                    "parcelas catastrales afectadas", e.local_id))
 
     texto, nivel = operacion(c.npo, c.npp, propuestas, ids_origen)
+    if todo_igual:
+        texto, nivel = "ninguna: el GML es igual al Catastro vigente", AVISO
     c.operacion = texto
     c.incidencias.append(Incidencia(nivel, 'CMP-OPERACION', f"NPO {c.npo} (parcelas catastrales afectadas) · NPP {c.npp} "
                                                             f"(parcelas del GML) → {texto}"))

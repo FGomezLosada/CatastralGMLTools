@@ -159,7 +159,12 @@ tolerancia = ('CMP-CONTORNO-OK' in codigos(medio.incidencias) and not [i for i i
               and 'CMP-PARCIAL' in codigos(dos.incidencias) and 'CMP-CONTORNO-OK' not in codigos(dos.incidencias)
               and 'CMP-PARCIAL' in codigos(entra.incidencias) and 'CMP-CONTORNO-OK' not in codigos(entra.incidencias)
               and 'hasta 4.0 cm' in str(entra.incidencias) and 'hasta 2.0 cm' in str(dos.incidencias))
-sin_cambios = ('CMP-SIN-CAMBIOS' in codigos(igual.incidencias) and 'CMP-SIN-CAMBIOS' not in codigos(seg.incidencias)
+#Todo el GML igual al Catastro: un aviso que explica qué hacer (no «quítela del GML», que lo dejaría vacío: 15/10)
+_igual = [i for i in igual.incidencias if i.codigo == 'CMP-SIN-CAMBIOS']
+sin_cambios = (len(_igual) == 1 and _igual[0].nivel == 'aviso' and 'certificación catastral' in _igual[0].mensaje
+               and 'Quítela' not in _igual[0].mensaje and igual.operacion.startswith('ninguna')
+               and not [i for i in igual.incidencias if i.nivel == 'error']
+               and 'CMP-SIN-CAMBIOS' not in codigos(seg.incidencias)
                and 'CMP-SIN-CAMBIOS' not in codigos(medio.incidencias))
 #Edificio: 2 cm fuera de la parcela es fuera; 0,5 cm, dentro
 ruta_bu = os.path.join(carpeta, 'bu.gml')
