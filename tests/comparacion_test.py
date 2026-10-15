@@ -215,6 +215,13 @@ interfaz = (interfaz and grupo is not None
                                                           'Catastro vigente (parcelas afectadas)']
             and 'error' in textos and '1 error' in pv.estado.text()
             and any(i.codigo == 'CMP-PARCIAL' for i in pv.informe.incidencias))
+#Sin errores pero con avisos (GML igual al Catastro): la barra en naranja, no en verde con ✔ (prueba a mano del 15/10)
+pv.fichero.setFilePath(os.path.join(carpeta, 'igual.gml'))
+pv.esquema_comprobado([])
+dw.messageBar.clearWidgets()
+pv.comparar_catastro(segundo_plano=False)
+_barra = dw.messageBar.currentItem()
+interfaz = (interfaz and _barra is not None and _barra.level() == Qgis.MessageLevel.Warning and 'ninguna' in _barra.text())
 
 servicios.pedir = original
 for _n, _f in _originales.items():
@@ -227,7 +234,7 @@ tramite = (cmp._clave_tramite('9872023VH5797S') == 'manzana 98720, hoja VH5797S'
            and cmp._clave_tramite('Nueva_1') == '')
 checks = {
     "tolerancia de 1 cm en distancia (0,5 cm bien; 2 cm y entrante de 4 cm, no)": tolerancia,
-    "parcela igual a la catastral: error «sin cambios»": sin_cambios,
+    "GML igual al Catastro: aviso con qué hacer, operación «ninguna»": sin_cambios,
     "edificio 2 cm fuera de la parcela: fuera; 0,5 cm: dentro": tolerancia_bu,
     "BICE (parcela y edificio) y diseminado de urbana: avisos": especiales,
     "segregación: NPO 1, NPP 2, contorno coincidente y sin errores": segregacion,
