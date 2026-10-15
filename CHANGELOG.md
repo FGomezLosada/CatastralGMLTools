@@ -15,6 +15,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 - Utilidades es una lista numerada (1. Unir GML, 2. Convertir a 4.0 o reparar, 3. Informe de superficies, próximamente) en la que solo se abre la que se usa; sin la línea descriptiva de la pestaña ni párrafos de ayuda (están en la descripción emergente de cada una y en la ayuda). Un GML soltado sobre la pestaña va a la utilidad abierta.
 - Solo la pestaña Parcela, la más larga, se desplaza si no cabe; las demás vuelven a su aspecto normal (con zona desplazable parecían una página web).
 - Los mensajes de resultado muestran como mucho dos notas (el resto, al pasar el ratón): un mensaje alto se comía el panel.
+- El mensaje de la conversión es más corto («Convertido a 4.0: fichero.gml»); que el original no se ha tocado va entre las notas.
 
 ### Corregido (prueba a mano del 14/10/2026)
 - Panel en pantallas bajas (segundo monitor): el contenido de cada pestaña se desplaza con su barra en lugar de cortarse o aplastarse (la tabla de parcelas no baja de unas cuatro filas y el bloque de división se ve entero).

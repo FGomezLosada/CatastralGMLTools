@@ -162,7 +162,7 @@ def textos_barra():
 validar_ui = (boton_30 and creado is not None and creado.endswith('validar_30_v4.gml')
               and os.path.normcase(pv.fichero.filePath()) == os.path.normcase(creado)
               and pv.resultado.version == 'CP 4.0' and pv.convertirBoton.isHidden()
-              and 'convertido a 4.0' in textos_barra() and 'Esquema 3.0 → 4.0' in textos_barra())
+              and 'Convertido a 4.0: validar_30_v4.gml' in textos_barra() and 'Esquema 3.0 → 4.0' in textos_barra())
 pv.fichero.setFilePath(ruta_40)
 validar_ui = validar_ui and not pv.convertirBoton.isHidden() and pv.convertirBoton.text() == "Reparar"
 

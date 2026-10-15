@@ -327,10 +327,10 @@ class PestanaValidar(QWidget):
                              Qgis.MessageLevel.Critical, 0)
             return None
         self.dock.abrir_en_validar(destino)
-        accion = "convertido a 4.0" if version == 'CP 3.0' else "reparado"
-        self.dock.success(f"GML {accion}: {os.path.basename(destino)} (el original no se ha tocado)",
+        accion = "Convertido a 4.0" if version == 'CP 3.0' else "Reparado"  #Corto: el mensaje no se come el panel
+        self.dock.success(f"{accion}: {os.path.basename(destino)}",
                           [("Abrir carpeta", self.abrir_carpeta_gml)],
-                          detalles=[str(i) for i in incidencias if i.nivel in (ERROR, AVISO)], notas=cambios)
+                          detalles=[str(i) for i in incidencias if i.nivel in (ERROR, AVISO)], notas=cambios + ["El original no se ha tocado"])
         return destino
 
     def mostrar_informe(self):
