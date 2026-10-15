@@ -482,14 +482,15 @@ class PestanaValidar(QWidget):
         errores = [i for i in comparacion.incidencias if i.nivel == ERROR]
         texto = comparacion.operacion if comparacion.edificio else \
             f"NPO {comparacion.npo} · NPP {comparacion.npp} → {comparacion.operacion}"
+        #Para la barra, una línea que quepa: la operación sin su explicación (NPO, NPP y el resto ya están en la lista)
+        corto = comparacion.operacion.split(':')[0].split(' (')[0]
         if comparacion.edificio and not errores:
             errores = [i for i in comparacion.incidencias if i.nivel == AVISO]  #En parte fuera: se avisa en naranja
         if errores:
             n = len(errores)
             que = (f"{n} error{'es' if n != 1 else ''}" if errores[0].nivel == ERROR else f"{n} aviso{'s' if n != 1 else ''}")
             #El detalle ya está en la lista de incidencias, justo encima: la barra no lo repite
-            self.dock.notify(f"Comparación con el Catastro: {que} · {texto}. El detalle, en la lista",
-                             Qgis.MessageLevel.Warning, 0)
+            self.dock.notify(f"Comparación con el Catastro: {que} · {corto}. Véalo en la lista", Qgis.MessageLevel.Warning, 0)
         elif comparacion.edificio and not any(i.nivel == ERROR for i in self.informe.incidencias):
             rc = comparacion.origen[0].local_id if comparacion.origen else ''
             xsd = {i.codigo for i in self.informe.incidencias if i.codigo.startswith('XSD')}
@@ -506,8 +507,8 @@ class PestanaValidar(QWidget):
             #Sin errores pero con avisos (operación que no se tramita sola, GML igual al Catastro…): en naranja, no en verde
             #con ✔ (prueba a mano del 15/10); la línea de la operación ya va en el título
             n = sum(1 for i in comparacion.incidencias if i.nivel == AVISO)
-            self.dock.notify(f"Comparación con el Catastro: {n} aviso{'s' if n != 1 else ''} · {texto}. Contorno coincidente. "
-                             "El detalle, en la lista", Qgis.MessageLevel.Warning, 0)
+            self.dock.notify(f"Comparación con el Catastro: {n} aviso{'s' if n != 1 else ''} · {corto}. Véalo en la lista",
+                             Qgis.MessageLevel.Warning, 0)
         else:
             self.dock.success(f"Comparación con el Catastro: {texto}" + ("" if comparacion.edificio else ". Contorno coincidente"))
         return comparacion
@@ -591,12 +592,17 @@ class TareaEsquema(QgsTask):
         self.pestana = pestana
         self.generacion = generacion
         self.incidencias = []
+        self.feedback = QgsFeedback()  #Cancelar corta la descarga de los esquemas en curso (al cerrar QGIS o el plugin)
+
+    def cancel(self):
+        self.feedback.cancel()
+        super().cancel()
 
     def run(self):
         if self.isCanceled():
             return False
         try:
-            self.incidencias = esquemas.validar(self.datos, self.version)
+            self.incidencias = esquemas.validar(self.datos, self.version, self.feedback)
         except Exception as e:  #Nunca debe cerrar QGIS: se informa como incidencia
             self.incidencias = [Incidencia(AVISO, 'XSD-FALLO', f"No se ha podido comprobar el esquema XSD: {e}")]
         return True
