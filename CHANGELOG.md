@@ -14,6 +14,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 ### Añadido (prueba con GML del curso, 15/10/2026)
 - El conversor también pasa al 4.0 un **GML genérico** (no INSPIRE), como el de «Guardar como» GML de QGIS: toma la geometría y los campos localId, namespace, label y nationalCadastralReference. Si la capa se llamaba como la referencia catastral, QGIS escribe etiquetas que empiezan por un número (`<ogr:2082108VF2628S>`), que no son XML válido: Validar lo explica y ofrece «Convertir a 4.0».
 - Al reparar, se quitan y se dicen los **datos ajenos al esquema** dentro de la parcela (p. ej. `Clave_Obra`, `Clave_Exp`, `REFCATASTR`… de los GML de expropiaciones), que la Sede rechaza; un 4.0 que solo tiene eso ya ofrece «Reparar».
+- Comparar un GML que es igual al Catastro vigente (p. ej. la parcela descargada tal cual) ya no da el error «quítela del GML», que lo dejaba vacío: un aviso dice que no describe ninguna alteración, que para acreditar la geometría catastral actual basta la certificación catastral descriptiva y gráfica, y que si la finca real es distinta hay que dibujarla; la operación sale como «ninguna». Si solo algunas parcelas de un GML son iguales, sigue el error para quitar esas.
 - En Utilidades, un GML de edificios dice «Es un GML de edificios (BU 2.0): esta utilidad es para GML de parcela».
 
 ### Cambiado (prueba a mano del 15/10/2026)
