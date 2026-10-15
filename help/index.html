@@ -40,8 +40,8 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
       seleccionada (bloque «Dividir la parcela seleccionada»).</td></tr>
   <tr><td>Edificio</td><td>Crea el GML de edificios y otras construcciones (piscinas) para el ICUC.</td></tr>
   <tr><td>Validar</td><td>Abre un GML, lo comprueba como la Sede, lo compara con el Catastro y guarda un informe.</td></tr>
-  <tr><td>Utilidades</td><td>Une varios GML de parcela en uno (multiparcela). <em>En desarrollo</em>: conversor del
-      esquema 3.0 al 4.0 e informes de superficies y coordenadas.</td></tr>
+  <tr><td>Utilidades</td><td>Une varios GML de parcela en uno (multiparcela) y convierte un GML del esquema 3.0 al 4.0
+      (o repara uno 4.0). <em>En desarrollo</em>: informes de superficies y coordenadas.</td></tr>
 </table>
 
 <p>Si el panel no cabe en la pantalla, cada pestaña se desplaza con su barra (o con la rueda del ratón). La rueda no
@@ -205,6 +205,20 @@ parcela mayor.</p>
 <p>Al pulsar <strong>Dividir</strong> la parcela se sustituye en la capa por las nuevas (la capa queda en edición; guárdela
 para conservarlas) y el asistente propone la operación elegida. <strong>Ctrl+Z</strong> deshace la división y devuelve la
 tabla y la alteración a como estaban. Si la capa está en coordenadas geográficas, la división se calcula en el huso UTM del GML.</p>
+
+<h2>Convertir un GML 3.0 al 4.0 (o repararlo)</h2>
+<p>La Sede solo admite el esquema 4.0. Al abrir en <strong>Validar</strong> un GML de parcela 3.0 aparece el botón
+<strong>Convertir a 4.0</strong>: con un clic se crea a su lado una copia (<code>…_v4.gml</code>) y se abre para revisarla.
+Si es un 4.0 con fallos que se arreglan al reescribirlo (falta <code>xmlns:xlink</code>, anillos abiertos o en el sentido
+contrario, <code>count</code> erróneo, más de 2 decimales, superficie que no coincide con la geometría, geometría que no es
+<code>gml:MultiSurface</code>…), el botón dice <strong>Reparar</strong> y la copia es <code>…_reparado.gml</code>. Lo mismo
+se puede hacer en <strong>Utilidades › Convertir a 4.0 o reparar</strong>, eligiendo el fichero y la salida.</p>
+<p>El fichero se lee y se vuelve a escribir con el mismo escritor que la pestaña Parcela, así que el resultado sigue las
+reglas de la Sede. Se conservan los identificadores, los namespaces, el número de parcela, la referencia y la fecha
+(<code>beginLifespanVersion</code>; si el original no la tiene, se pone la actual y se dice). El mensaje final dice qué ha
+cambiado (esquema, superficies, decimales, fallos corregidos) y qué queda por revisar. Lo que no se puede deducir no se
+inventa: una parcela SDGC sin referencia catastral válida, una parcela con varias partes o un solape hay que corregirlos a
+mano. El original nunca se toca y una copia ya creada no se pisa (la siguiente sería <code>…_v4_2.gml</code>).</p>
 
 <h2>Unir varios GML (multiparcela)</h2>
 <p>En la pestaña <strong>Utilidades</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse

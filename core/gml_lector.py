@@ -412,7 +412,7 @@ def leer_datos(datos):
                                             + (f" · EPSG:{resultado.epsg}" if resultado.epsg else '')))
     if resultado.version == 'CP 3.0':
         resultado.incidencias.append(Incidencia(AVISO, 'CP-30',
-                                                "Esquema 3.0: la Sede ya solo admite el 4.0 (se podrá convertir en Utilidades)"))
+                                                "Esquema 3.0: la Sede ya solo admite el 4.0 (use «Convertir a 4.0» en Validar o en Utilidades)"))
     return resultado
 
 

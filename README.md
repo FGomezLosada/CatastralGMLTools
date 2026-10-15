@@ -14,8 +14,9 @@ Plugin de QGIS para preparar los ficheros GML que pide la Sede Electrónica del 
 - **Validar** un GML antes de subirlo, como la Sede: estructura, esquema XSD, identificadores, anillos, superficies, solapes y huecos, sistema de referencia y huso.
 - **Comparar con el Catastro**: parcelas afectadas (NPO/NPP), operación, contorno exterior con ±1 cm, suelo sin parcela, dominio público, edificios dentro de su parcela.
 - **Unir** parcelas seleccionadas y varios GML en uno (multiparcela), e **informe** HTML de la comprobación.
+- **Dividir** una parcela (partes iguales, porcentajes, superficies, cuotas o franjas) y **convertir** un GML del esquema 3.0 al 4.0 o repararlo.
 
-> Estado: **versión 0.2.0** (en desarrollo). Próximas: conversor 3.0→4.0, informes de superficies y coordenadas, ajuste de cartografía desplazada. Ver [CHANGELOG](CHANGELOG.md) y [docs/DESARROLLO.md](docs/DESARROLLO.md).
+> Estado: **versión 0.2.0** (en desarrollo). Próximas: informes de superficies y coordenadas, ajuste de cartografía desplazada. Ver [CHANGELOG](CHANGELOG.md) y [docs/DESARROLLO.md](docs/DESARROLLO.md).
 
 ### Requisitos
 QGIS 3.34 o posterior, incluido QGIS 4 (Qt6). Sin dependencias externas.
@@ -45,6 +46,7 @@ QGIS plugin to prepare the GML files required by the Spanish Cadastre electronic
 - **Building GML** (INSPIRE BuildingExtended2D) for construction location reports (ICUC).
 - **Download** a single parcel, its neighbours and its buildings by cadastral reference.
 - **Check** a GML before uploading it and **compare** it with the current cadastral parcels (operation, ±1 cm boundary).
+- **Split** a parcel and **convert** a parcel GML from schema 3.0 to 4.0 (or repair a 4.0 one).
 - **Merge** selected parcels and several GML files, and save an HTML check report.
 
 > Status: **version 0.2.0** (under development).

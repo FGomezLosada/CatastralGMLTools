@@ -29,6 +29,7 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from ..core import comparacion as cmp
+from ..core import conversor as cv
 from ..core import esquemas
 from ..core import geometria as geo
 from ..core import gml_lector as gl
@@ -75,6 +76,7 @@ class PestanaValidar(QWidget):
         self.fichero.lineEdit().setAcceptDrops(False)  #Que lo recoja la pestaña entera, también sobre la casilla del fichero
         self.fichero.fileChanged.connect(self.abrir)
         self.cargarBoton.clicked.connect(self.cargar_en_mapa)
+        self.convertirBoton.clicked.connect(self.convertir)
         self.xsdBoton.clicked.connect(self.comprobar_esquema)
         self.cmpBoton.clicked.connect(self.comparar_catastro)
         self.informeBoton.clicked.connect(self.crear_informe)
@@ -135,6 +137,13 @@ class PestanaValidar(QWidget):
         botones.addStretch(1)
         principal.addLayout(botones)
         botones = QHBoxLayout()
+        #Esquema 3.0 o fallos que el conversor arregla: un clic crea al lado el GML 4.0 corregido y lo abre (AU-53)
+        self.convertirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionFileSaveAs.svg'), "Convertir a 4.0", self)
+        self.convertirBoton.setToolTip("Crea junto al fichero una copia en el esquema 4.0 (o reparada), con estructura,\n"
+                                       "anillos, decimales y superficies como los pide la Sede, y la abre aquí.\n"
+                                       "El original no se toca")
+        self.convertirBoton.hide()
+        botones.addWidget(self.convertirBoton)
         botones.addStretch(1)
         self.informeBoton = QPushButton(QgsApplication.getThemeIcon('/mActionNewReport.svg'), "Informe", self)
         self.informeBoton.setToolTip("Guarda junto al GML un informe de validación en HTML (resultado, incidencias, croquis y\n"
@@ -227,6 +236,7 @@ class PestanaValidar(QWidget):
         self.cmpBoton.setEnabled(False)
         self.cmpBoton.setText(TEXTO_COMPARAR)
         self.informeBoton.setEnabled(False)
+        self.convertirBoton.hide()
         self.comparacion = None
         self.resultado = None
         self.informe = None
@@ -289,9 +299,39 @@ class PestanaValidar(QWidget):
         self.cargarBoton.setEnabled(bool(r.elementos))
         self.informeBoton.setEnabled(bool(r.elementos))
         self.cmpBoton.setEnabled(r.version in COMPARABLES and bool(r.elementos) and self.tarea_cmp is None)
+        self.mostrar_convertir()
         if r.elementos and r.version in ('CP 4.0', 'BU 2.0'):
             self.comprobar_esquema(segundo_plano=segundo_plano)
         return self.informe
+
+    def mostrar_convertir(self):
+        """«Convertir a 4.0» con un GML 3.0; «Reparar» con un 4.0 que tiene fallos que el conversor arregla."""
+        r, informe = self.resultado, self.informe
+        reparable = (r is not None and informe is not None and r.version == 'CP 4.0'
+                     and any(i.codigo in cv.REPARABLES for i in informe.incidencias if i.nivel in (ERROR, AVISO)))
+        if r is not None and r.version == 'CP 3.0' and r.elementos:
+            self.convertirBoton.setText("Convertir a 4.0")
+        elif reparable:
+            self.convertirBoton.setText("Reparar")
+        self.convertirBoton.setVisible(r is not None and bool(r.elementos) and (r.version == 'CP 3.0' or reparable))
+
+    def convertir(self, *args):
+        """Crea al lado el GML convertido o reparado (sin tocar el original) y lo abre en esta pestaña."""
+        ruta = self.ruta
+        if not ruta or self.resultado is None:
+            return None
+        destino = cv.destino_propuesto(ruta, self.resultado.version)
+        ok, version, cambios, incidencias = cv.convertir(ruta, destino)
+        if not ok:
+            self.dock.notify("No se ha podido convertir:\n\n" + "\n".join(f"- {i}" for i in incidencias),
+                             Qgis.MessageLevel.Critical, 0)
+            return None
+        self.dock.abrir_en_validar(destino)
+        accion = "convertido a 4.0" if version == 'CP 3.0' else "reparado"
+        self.dock.success(f"GML {accion}: {os.path.basename(destino)} (el original no se ha tocado)",
+                          [("Abrir carpeta", self.abrir_carpeta_gml)],
+                          detalles=[str(i) for i in incidencias if i.nivel in (ERROR, AVISO)], notas=cambios)
+        return destino
 
     def mostrar_informe(self):
         """Estado de cada fila, lista de incidencias y resumen (verde, naranja o rojo)."""
