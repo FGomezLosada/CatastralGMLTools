@@ -487,8 +487,9 @@ class PestanaValidar(QWidget):
         if errores:
             n = len(errores)
             que = (f"{n} error{'es' if n != 1 else ''}" if errores[0].nivel == ERROR else f"{n} aviso{'s' if n != 1 else ''}")
-            self.dock.warn(f"Comparación con el Catastro: {que} · {texto}\n"
-                           + "\n".join(i.mensaje for i in errores))
+            #El detalle ya está en la lista de incidencias, justo encima: la barra no lo repite
+            self.dock.notify(f"Comparación con el Catastro: {que} · {texto}. El detalle, en la lista",
+                             Qgis.MessageLevel.Warning, 0)
         elif comparacion.edificio and not any(i.nivel == ERROR for i in self.informe.incidencias):
             rc = comparacion.origen[0].local_id if comparacion.origen else ''
             xsd = {i.codigo for i in self.informe.incidencias if i.codigo.startswith('XSD')}
@@ -504,9 +505,9 @@ class PestanaValidar(QWidget):
         elif any(i.nivel == AVISO for i in comparacion.incidencias):
             #Sin errores pero con avisos (operación que no se tramita sola, GML igual al Catastro…): en naranja, no en verde
             #con ✔ (prueba a mano del 15/10); la línea de la operación ya va en el título
-            avisos = [i.mensaje for i in comparacion.incidencias if i.nivel == AVISO and i.codigo != 'CMP-OPERACION']
-            self.dock.warn(f"Comparación con el Catastro: {texto}. Contorno coincidente"
-                           + ("\n" + "\n".join(avisos) if avisos else ''))
+            n = sum(1 for i in comparacion.incidencias if i.nivel == AVISO)
+            self.dock.notify(f"Comparación con el Catastro: {n} aviso{'s' if n != 1 else ''} · {texto}. Contorno coincidente. "
+                             "El detalle, en la lista", Qgis.MessageLevel.Warning, 0)
         else:
             self.dock.success(f"Comparación con el Catastro: {texto}" + ("" if comparacion.edificio else ". Contorno coincidente"))
         return comparacion

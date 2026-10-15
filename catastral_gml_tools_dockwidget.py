@@ -196,16 +196,31 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
     def notify(self, message, level=Qgis.MessageLevel.Info, duration=8):
         """
-        Muestra un aviso en la barra del panel, sin ventanas que interrumpan. Si el texto tiene varias líneas, se ve la
-        primera y el resto con el botón «Más». duration en segundos (0: se queda hasta cerrarlo con la ×).
+        Muestra un aviso en la barra del panel, sin ventanas que interrumpan. Si el texto tiene varias líneas, la primera
+        es el título y las siguientes se leen debajo (como mucho MAX_AVISOS_MENSAJE; el resto, al pasar el ratón). Antes
+        iban tras «Mostrar más», que abre una ventana de QGIS (prueba a mano del 15/10). duration en segundos (0: se queda
+        hasta cerrarlo con la ×).
         """
         if sip.isdeleted(self) or not hasattr(self, 'messageBar'):
             return
         primera, _, resto = message.strip().partition('\n')
-        if resto.strip():
-            self.messageBar.pushMessage('', primera, resto.strip(), level, duration)
-        else:
+        lineas = [linea.strip().removeprefix('- ').strip() for linea in resto.splitlines() if linea.strip()]
+        if not lineas:
             self.messageBar.pushMessage('', primera, level, duration)
+            return
+        contenido = QWidget(self.messageBar)  #Con padre: si no, Python lo borraría al salir de aquí
+        fila = QHBoxLayout(contenido)
+        fila.setContentsMargins(0, 0, 0, 0)
+        visibles = [html.escape(linea) for linea in lineas[:MAX_AVISOS_MENSAJE]]
+        if len(lineas) > MAX_AVISOS_MENSAJE:
+            visibles.append(f"… y {len(lineas) - MAX_AVISOS_MENSAJE} más (pase el ratón por el mensaje)")
+        etiqueta = QLabel(contenido)
+        etiqueta.setWordWrap(True)
+        etiqueta.setTextFormat(Qt.TextFormat.RichText)
+        etiqueta.setText(f"{html.escape(primera)}<br><small>" + "<br>".join(f"· {v}" for v in visibles) + "</small>")
+        etiqueta.setToolTip(message.strip())
+        fila.addWidget(etiqueta, 1)
+        self.messageBar.pushWidget(self.messageBar.createMessage(contenido), level, duration)
 
     def warn(self, message):
         """Aviso al usuario en la barra del panel. Los avisos largos (con detalles) se quedan hasta cerrarlos."""
