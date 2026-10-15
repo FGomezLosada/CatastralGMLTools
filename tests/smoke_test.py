@@ -69,7 +69,10 @@ boton_ayuda = not dw.helpButton.icon().isNull() and dw.helpButton.parent() is dw
 dw.warn("Prueba de aviso")
 aviso_corto = _texto(dw.messageBar) == "Prueba de aviso" and dw.messageBar.currentItem().level() == Qgis.MessageLevel.Warning
 dw.warn("Primera línea\n\n- detalle 1\n- detalle 2")
-aviso_largo = _texto(dw.messageBar) == "Primera línea" and dw.messageBar.currentItem().duration() == 0
+#Las líneas siguientes se leen en el propio mensaje (sin «Mostrar más», que abre una ventana de QGIS: prueba del 15/10)
+_textos = ' '.join(e.text() for e in dw.messageBar.currentItem().findChildren(QLabel))
+aviso_largo = ('Primera línea' in _textos and 'detalle 1' in _textos and 'detalle 2' in _textos
+               and dw.messageBar.currentItem().duration() == 0 and not dw.messageBar.currentItem().text())
 
 # 5. Territorios forales
 forales = (info.territorio_foral('31') == 'Navarra' and info.territorio_foral(1) == 'Álava/Araba'
@@ -98,7 +101,7 @@ checks = {
     "fuente de los datos citada": fuente,
     "ayuda local con aviso legal y territorios forales": ayuda and ayuda_aviso and boton_ayuda,
     "aviso corto en la barra del panel": aviso_corto,
-    "aviso largo: primera línea y el resto con «Más»": aviso_largo,
+    "aviso largo: título y detalle en el mensaje, sin ventana «Mostrar más»": aviso_largo,
     "ninguna ventana emergente": not ventanas,
     "territorios forales detectados": forales,
     "el botón oculta el panel": oculto,
