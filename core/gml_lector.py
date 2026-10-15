@@ -349,7 +349,13 @@ def leer_datos(datos):
     try:
         raiz = ET.fromstring(datos)
     except ET.ParseError as e:
-        resultado.incidencias.append(Incidencia(ERROR, 'XML-MAL-FORMADO', f"El fichero no es un XML bien formado: {e}"))
+        motivo = f"El fichero no es un XML bien formado: {e}"
+        numero = re.search(rb'<(/?)([A-Za-z_][\w.-]*:)?\d[\w.-]*', datos)
+        if numero:  #«Guardar como» GML de QGIS con una capa que se llama como la RC: <ogr:2082108VF2628S>
+            motivo += (f". Tiene etiquetas que empiezan por un número ({numero.group(0).decode('utf-8', 'replace')}…>): "
+                       "suele ser un GML guardado con «Guardar como» de QGIS, que no es el de la Sede. Pruebe «Convertir a "
+                       "4.0» (en Validar o en Utilidades)")
+        resultado.incidencias.append(Incidencia(ERROR, 'XML-MAL-FORMADO', motivo))
         return resultado
     resultado.datos = datos
     resultado.raiz = raiz.tag

@@ -220,6 +220,11 @@ reglas de la Sede. Se conservan los identificadores, los namespaces, el número 
 cambiado (esquema, superficies, decimales, fallos corregidos) y qué queda por revisar. Lo que no se puede deducir no se
 inventa: una parcela SDGC sin referencia catastral válida, una parcela con varias partes o un solape hay que corregirlos a
 mano. El original nunca se toca y una copia ya creada no se pisa (la siguiente sería <code>…_v4_2.gml</code>).</p>
+<p>También se convierte un <strong>GML genérico</strong>, como el que escribe «Guardar como» GML de QGIS (no es el formato de
+la Sede): se toman la geometría y los campos <code>localId</code>, <code>namespace</code>, <code>label</code> y
+<code>nationalCadastralReference</code>. Y al reparar se quitan los datos que no son del esquema INSPIRE (por ejemplo,
+<code>Clave_Obra</code> o <code>REFCATASTR</code> en GML de expropiaciones), porque la Sede rechaza el fichero si los lleva.
+Una parcela con varias partes no se convierte: hay que decidir antes cómo se aporta (cada parte, una parcela).</p>
 
 <h2>Unir varios GML (multiparcela)</h2>
 <p>En la pestaña <strong>Utilidades › 1. Unir GML</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse
