@@ -23,9 +23,11 @@ license   : GNU GPL v2 or later
 import datetime
 import os
 import re
+import xml.etree.ElementTree as ET
 
 from . import gml_lector as gl
 from . import gml_parcela as gp
+from . import refcat
 from . import validador as va
 from .ficheros import comprobar_destino, misma_ruta
 from .incidencias import AVISO, ERROR, INFO, Incidencia
@@ -44,10 +46,97 @@ SUFIJO_30 = '_v4'
 SUFIJO_40 = '_reparado'
 
 
+GENERICO = 'GML genérico'
+#Etiqueta cuyo nombre empieza por un número (p. ej. <ogr:2082108VF2628S>): XML no válido. Lo produce «Guardar como» GML de
+#QGIS (OGR) con una capa que se llama como la referencia catastral (fichero del curso, 15/10/2026)
+ETIQUETA_NUMERO = re.compile(rb'<(/?)([A-Za-z_][\w.-]*:)?(\d[\w.-]*)')
+CAMPOS_ID = ('localId', 'localid', 'LOCALID', 'nationalCadastralReference', 'refcat', 'REFCAT', 'referencia', 'rc', 'RC')
+GEOMETRIAS = ('MultiSurface', 'Polygon', 'Surface', 'MultiPolygon')
+#Elementos de una parcela del esquema INSPIRE (3.0 y 4.0); lo demás (fuera del espacio gml) son datos ajenos que la Sede
+#rechaza (p. ej. Clave_Obra, Clave_Exp… dentro de Identifier en GML de expropiaciones)
+CONOCIDOS = {'CadastralParcel', 'areaValue', 'beginLifespanVersion', 'endLifespanVersion', 'geometry', 'inspireId',
+             'Identifier', 'localId', 'namespace', 'versionId', 'label', 'nationalCadastralReference', 'referencePoint',
+             'validFrom', 'validTo', 'zoning', 'administrativeUnit', 'basicPropertyUnit', 'boundary'}
+MAX_AJENOS = 6
+
+
+def leer_generico(datos):
+    """
+    Lee un GML que no es INSPIRE (p. ej. el de «Guardar como» GML de QGIS u ogr2ogr): cada objeto con geometría poligonal
+    y los campos localId, namespace, label, nationalCadastralReference y areaValue que tenga (o refcat, referencia…).
+    Devuelve (ResultadoLectura con version GENERICO, avisos de lo arreglado) o (None, []) si no hay parcelas.
+    """
+    arreglado = ETIQUETA_NUMERO.sub(rb'<\1\2_\3', datos)
+    avisos = []
+    if arreglado != datos:
+        ejemplo = ETIQUETA_NUMERO.search(datos).group(0).decode('utf-8', 'replace')
+        avisos.append(f"El original no es XML válido: tiene etiquetas que empiezan por un número ({ejemplo}…>), algo que "
+                      "hace «Guardar como» GML de QGIS con una capa cuyo nombre empieza por un número")
+    try:
+        raiz = ET.fromstring(arreglado)
+    except ET.ParseError:
+        return None, []
+    resultado = gl.ResultadoLectura(version=GENERICO, datos=arreglado, texto=gl._texto(arreglado), raiz=raiz.tag)
+    srs = set()
+    for miembro in raiz.iter():
+        if gl.nombre_local(miembro.tag) not in ('featureMember', 'member', 'featureMembers'):
+            continue
+        for objeto in list(miembro):
+            propiedad = next((h for h in objeto if any(gl.nombre_local(d.tag) in GEOMETRIAS for d in h.iter())), None)
+            if propiedad is None:
+                continue
+            lista, _, _, decimales, _, curvas, problema = gl._geometria_segura(propiedad)
+            if not lista or curvas or problema:
+                continue
+            srs |= {gl.epsg_de_srsname(d.get('srsName')) for d in objeto.iter() if d.get('srsName')}
+            campos = {gl.nombre_local(h.tag): (h.text or '').strip() for h in objeto if len(h) == 0}
+            local_id = next((campos[c] for c in CAMPOS_ID if campos.get(c)), '')
+            try:
+                area = int(round(float(campos['areaValue']))) if campos.get('areaValue') else None
+            except ValueError:
+                area = None
+            resultado.elementos.append(gl.ElementoGML(gl.PARCELA, local_id, campos.get('namespace', ''),
+                                                      gl.geometria_de(lista), campos.get('label', ''),
+                                                      campos.get('nationalCadastralReference', ''), area,
+                                                      decimales=decimales))
+    srs.discard(None)
+    if not resultado.elementos or len(srs) != 1:
+        return None, []
+    resultado.epsg = srs.pop()
+    return resultado, avisos
+
+
+def generico(ruta):
+    """Número de parcelas que se pueden convertir de un GML genérico (no INSPIRE), o 0."""
+    try:
+        with open(ruta, 'rb') as f:
+            lectura, _ = leer_generico(f.read())
+    except OSError:
+        return 0
+    return len(lectura.elementos) if lectura is not None else 0
+
+
+def ajenos(datos):
+    """Nombres de los elementos de las parcelas que no son del esquema INSPIRE (ni de gml), sin repetir y en orden."""
+    try:
+        raiz = ET.fromstring(datos)
+    except ET.ParseError:
+        return []
+    vistos = []
+    for parcela in raiz.iter():
+        if gl.nombre_local(parcela.tag) != 'CadastralParcel':
+            continue
+        for d in parcela.iter():
+            nombre = gl.nombre_local(d.tag)
+            if 'opengis.net/gml' not in gl.espacio(d.tag) and nombre not in CONOCIDOS and nombre not in vistos:
+                vistos.append(nombre)
+    return vistos
+
+
 def destino_propuesto(ruta, version='CP 3.0'):
     """Fichero de salida junto al original («parcela_v4.gml» o «parcela_reparado.gml»), sin pisar uno que ya exista."""
     base, _ = os.path.splitext(ruta)
-    sufijo = SUFIJO_30 if version == 'CP 3.0' else SUFIJO_40
+    sufijo = SUFIJO_40 if version == 'CP 4.0' else SUFIJO_30
     propuesta = f"{base}{sufijo}.gml"
     n = 2
     while os.path.exists(propuesta):
@@ -76,6 +165,14 @@ def _codigos(informe):
     return resultado
 
 
+def _leer_bytes(ruta):
+    try:
+        with open(ruta, 'rb') as f:
+            return f.read()
+    except OSError:
+        return b''
+
+
 def convertir(ruta, destino, fecha=None):
     """
     Convierte (CP 3.0) o repara (CP 4.0) el GML de parcela ruta y lo escribe en destino.
@@ -90,21 +187,38 @@ def convertir(ruta, destino, fecha=None):
         return False, '', [], [problema]
     lectura = gl.leer(ruta)
     version = lectura.version
+    previos = []
+    if not version.startswith(('CP', 'BU')) and any(i.codigo in ('XML-MAL-FORMADO', 'GML-SIN-ELEMENTOS')
+                                                    for i in lectura.incidencias):
+        generica, previos = leer_generico(lectura.datos or _leer_bytes(ruta))
+        if generica is not None:
+            lectura, version = generica, GENERICO
     bloqueantes = [i for i in lectura.incidencias if i.nivel == ERROR and i.codigo in BLOQUEANTES]
     if bloqueantes:
         return False, version, [], bloqueantes
-    if not version.startswith('CP'):
+    if version != GENERICO and not version.startswith('CP'):
         return False, version, [], [Incidencia(ERROR, 'CONV-NO-PARCELA', "Solo se convierten GML de parcela catastral "
                                                                          f"(este es {version or 'de formato desconocido'})")]
-    if version not in ('CP 3.0', 'CP 4.0'):
+    if version not in ('CP 3.0', 'CP 4.0', GENERICO):
         return False, version, [], [Incidencia(ERROR, 'CONV-VERSION', f"Esquema de parcela desconocido ({version})")]
 
     incidencias, cambios, parcelas = [], [], []
     if version == 'CP 3.0':
         cambios.append(CAMBIOS_30_40)
+    elif version == GENERICO:
+        cambios.append("GML genérico (no INSPIRE; p. ej. «Guardar como» GML de QGIS) → INSPIRE CadastralParcels 4.0: se "
+                       "toman la geometría y los campos localId, namespace, label y nationalCadastralReference")
+        cambios += previos
+    quitados = ajenos(lectura.datos) if version != GENERICO else []
+    if quitados:
+        cambios.append("Se quitan datos que no son del esquema INSPIRE (la Sede rechaza el fichero si los lleva): "
+                       + ", ".join(quitados[:MAX_AJENOS]) + (f"… ({len(quitados)})" if len(quitados) > MAX_AJENOS else ''))
     for e in lectura.elementos:
         namespace = NAMESPACES.get(e.namespace)
-        if namespace is None:
+        if namespace is None and version == GENERICO and not e.namespace and refcat.es_rc_exacta(e.local_id):
+            namespace = gp.SDGC
+            cambios.append(f"{e.local_id}: sin namespace y con referencia catastral: se escribe como ES.SDGC.CP")
+        elif namespace is None:
             namespace = gp.LOCAL
             cambios.append(f"{e.local_id}: namespace «{e.namespace or 'vacío'}» escrito como ES.LOCAL.CP (parcela nueva)")
         parcelas.append(gp.ParcelaGML(e.local_id, namespace, e.geometria, e.label, e.referencia))
@@ -128,7 +242,8 @@ def convertir(ruta, destino, fecha=None):
         cambios.append(f"Coordenadas con {decimales} decimales redondeadas al centímetro (2 decimales)")
     informe_nuevo = va.validar(destino, nueva)
     quedan = _codigos(informe_nuevo)
-    corregidos = {c: m for c, m in _codigos(va.validar(ruta, lectura)).items() if c not in quedan}
+    antes = _codigos(va.validar(ruta, lectura)) if version != GENERICO else {}
+    corregidos = {c: m for c, m in antes.items() if c not in quedan}
     corregidos.pop('CP-30', None)    #Ya dicho en el cambio de esquema
     corregidos.pop('SUP-DISTINTA', None)  #Ya dicho por parcela
     corregidos.pop('DECIMALES', None)

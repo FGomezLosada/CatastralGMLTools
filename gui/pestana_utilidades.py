@@ -212,7 +212,15 @@ class PestanaUtilidades(QWidget):
         """Dice qué se hará con el fichero elegido y propone la salida junto a él (sin pisar nada)."""
         ruta = self.origenConv.filePath().strip()
         version = gl.leer(ruta).version if ruta and os.path.isfile(ruta) else ''
-        if version == 'CP 3.0':
+        if ruta and not version.startswith(('CP', 'BU')) and os.path.isfile(ruta) and cv.generico(ruta):
+            version = cv.GENERICO
+        if version == cv.GENERICO:
+            texto, boton = ("GML genérico, no INSPIRE (p. ej. «Guardar como» de QGIS): se convertirá al 4.0 con su "
+                            "geometría y sus campos."), "Convertir a 4.0"
+        elif version.startswith('BU'):
+            texto, boton = (f"<span style='color:#c92a2a'>Es un GML de edificios ({version}): esta utilidad es para GML "
+                            "de parcela.</span>"), "Convertir"
+        elif version == 'CP 3.0':
             texto, boton = "Esquema 3.0 (obsoleto): se convertirá al 4.0.", "Convertir a 4.0"
         elif version == 'CP 4.0':
             texto, boton = "Ya es 4.0: se reescribirá corrigiendo lo que se pueda (estructura, anillos, superficies…).", "Reparar"
@@ -223,9 +231,9 @@ class PestanaUtilidades(QWidget):
             texto, boton = '', "Convertir"
         self.estadoConv.setText(f"<small>{texto}</small>" if texto else '')
         self.convertirBoton.setText(boton)
-        self.convertirBoton.setEnabled(version in ('CP 3.0', 'CP 4.0'))
+        self.convertirBoton.setEnabled(version in ('CP 3.0', 'CP 4.0', cv.GENERICO))
         actual = self.destinoConv.filePath().strip()
-        if version in ('CP 3.0', 'CP 4.0') and (not actual or actual == self.destino_conv_auto):
+        if version in ('CP 3.0', 'CP 4.0', cv.GENERICO) and (not actual or actual == self.destino_conv_auto):
             self.destino_conv_auto = cv.destino_propuesto(ruta, version)
             self.destinoConv.setFilePath(self.destino_conv_auto)
 
@@ -245,7 +253,7 @@ class PestanaUtilidades(QWidget):
             return None
         self.ultimo = destino
         self.dock.gml_creado(destino)
-        accion = "Convertido a 4.0" if version == 'CP 3.0' else "Reparado"  #Corto: el mensaje no se come el panel
+        accion = "Reparado" if version == 'CP 4.0' else "Convertido a 4.0"  #Corto: el mensaje no se come el panel
         self.dock.success(f"{accion}: {os.path.basename(destino)}",
                           [("Validar", self.validar), ("Abrir carpeta", self.abrir_carpeta)],
                           detalles=[str(i) for i in incidencias if i.nivel in (ERROR, AVISO)], notas=cambios + ["El original no se ha tocado"])

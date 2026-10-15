@@ -307,8 +307,13 @@ class PestanaValidar(QWidget):
     def mostrar_convertir(self):
         """«Convertir a 4.0» con un GML 3.0; «Reparar» con un 4.0 que tiene fallos que el conversor arregla."""
         r, informe = self.resultado, self.informe
+        if r is not None and not r.elementos and self.ruta and cv.generico(self.ruta):
+            self.convertirBoton.setText("Convertir a 4.0")  #GML genérico (p. ej. «Guardar como» de QGIS)
+            self.convertirBoton.show()
+            return
         reparable = (r is not None and informe is not None and r.version == 'CP 4.0'
-                     and any(i.codigo in cv.REPARABLES for i in informe.incidencias if i.nivel in (ERROR, AVISO)))
+                     and (any(i.codigo in cv.REPARABLES for i in informe.incidencias if i.nivel in (ERROR, AVISO))
+                          or bool(cv.ajenos(r.datos))))  #Datos que no son del esquema (p. ej. Clave_Obra): la Sede los rechaza
         if r is not None and r.version == 'CP 3.0' and r.elementos:
             self.convertirBoton.setText("Convertir a 4.0")
         elif reparable:
@@ -320,14 +325,14 @@ class PestanaValidar(QWidget):
         ruta = self.ruta
         if not ruta or self.resultado is None:
             return None
-        destino = cv.destino_propuesto(ruta, self.resultado.version)
+        destino = cv.destino_propuesto(ruta, self.resultado.version or cv.GENERICO)
         ok, version, cambios, incidencias = cv.convertir(ruta, destino)
         if not ok:
             self.dock.notify("No se ha podido convertir:\n\n" + "\n".join(f"- {i}" for i in incidencias),
                              Qgis.MessageLevel.Critical, 0)
             return None
         self.dock.abrir_en_validar(destino)
-        accion = "Convertido a 4.0" if version == 'CP 3.0' else "Reparado"  #Corto: el mensaje no se come el panel
+        accion = "Reparado" if version == 'CP 4.0' else "Convertido a 4.0"  #Corto: el mensaje no se come el panel
         self.dock.success(f"{accion}: {os.path.basename(destino)}",
                           [("Abrir carpeta", self.abrir_carpeta_gml)],
                           detalles=[str(i) for i in incidencias if i.nivel in (ERROR, AVISO)], notas=cambios + ["El original no se ha tocado"])

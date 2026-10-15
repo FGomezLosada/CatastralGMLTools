@@ -11,6 +11,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 ### Cambiado
 - Pestañas en el orden del trabajo: Descargar · Parcela · Edificio · Validar · Utilidades. La pestaña «Dividir» (vacía) desaparece: la división está en Parcela.
 
+### Añadido (prueba con GML del curso, 15/10/2026)
+- El conversor también pasa al 4.0 un **GML genérico** (no INSPIRE), como el de «Guardar como» GML de QGIS: toma la geometría y los campos localId, namespace, label y nationalCadastralReference. Si la capa se llamaba como la referencia catastral, QGIS escribe etiquetas que empiezan por un número (`<ogr:2082108VF2628S>`), que no son XML válido: Validar lo explica y ofrece «Convertir a 4.0».
+- Al reparar, se quitan y se dicen los **datos ajenos al esquema** dentro de la parcela (p. ej. `Clave_Obra`, `Clave_Exp`, `REFCATASTR`… de los GML de expropiaciones), que la Sede rechaza; un 4.0 que solo tiene eso ya ofrece «Reparar».
+- En Utilidades, un GML de edificios dice «Es un GML de edificios (BU 2.0): esta utilidad es para GML de parcela».
+
 ### Cambiado (prueba a mano del 15/10/2026)
 - Utilidades es una lista numerada (1. Unir GML, 2. Convertir a 4.0 o reparar, 3. Informe de superficies, próximamente) en la que solo se abre la que se usa; sin la línea descriptiva de la pestaña ni párrafos de ayuda (están en la descripción emergente de cada una y en la ayuda). Un GML soltado sobre la pestaña va a la utilidad abierta.
 - Solo la pestaña Parcela, la más larga, se desplaza si no cabe; las demás vuelven a su aspecto normal (con zona desplazable parecían una página web).

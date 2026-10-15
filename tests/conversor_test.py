@@ -145,6 +145,38 @@ rechazos = (codigos(inc_bu) == ['CONV-NO-PARCELA'] and codigos(inc_mal) == ['XML
             and not ok_rc and not os.path.exists(os.path.join(carpeta, 'rc_mal_v4.gml'))
             and any(i.codigo.startswith(('NS-', 'RC')) for i in inc_rc))
 
+# 5b. Ficheros reales del curso (15/10/2026), reproducidos con datos inventados:
+#  - GML de «Guardar como» de QGIS (OGR, no INSPIRE) con la etiqueta <ogr:RC>, que no es XML válido: se convierte
+#  - GML 4.0 con datos ajenos al esquema en Identifier (Clave_Obra…; GML de expropiaciones): se quitan y se dice
+OGR = ('<?xml version="1.0" encoding="utf-8" ?>\n<ogr:FeatureCollection gml:id="aFeatureCollection" '
+       'xmlns:ogr="http://ogr.maptools.org/" xmlns:gml="http://www.opengis.net/gml/3.2">\n'
+       f'<ogr:featureMember><ogr:{RC} gml:id="ES.SDGC.CP.{RC}"><ogr:geometryProperty><gml:MultiSurface '
+       'srsName="urn:ogc:def:crs:EPSG::25830" gml:id="g0"><gml:surfaceMember><gml:Polygon gml:id="g00"><gml:exterior>'
+       '<gml:LinearRing><gml:posList>421500.12345 4070500.0 421500.0 4070510.0 421520.0 4070510.0 421520.0 4070500.0 '
+       '421500.12345 4070500.0</gml:posList></gml:LinearRing></gml:exterior></gml:Polygon></gml:surfaceMember>'
+       '</gml:MultiSurface></ogr:geometryProperty><ogr:areaValue>199</ogr:areaValue>'
+       '<ogr:beginLifespanVersion>2022-05-13T00:00:00</ogr:beginLifespanVersion>'
+       f'<ogr:localId>{RC}</ogr:localId><ogr:namespace>ES.SDGC.CP</ogr:namespace><ogr:label>01</ogr:label>'
+       f'<ogr:nationalCadastralReference>{RC}</ogr:nationalCadastralReference></ogr:{RC}></ogr:featureMember>\n'
+       '</ogr:FeatureCollection>\n')
+ruta_ogr = guardar('guardado_con_qgis.gml', OGR)
+lectura_ogr = gl.leer(ruta_ogr)
+ok_ogr, version_ogr, cambios_ogr, _ = cv.convertir(ruta_ogr, cv.destino_propuesto(ruta_ogr, cv.GENERICO))
+nueva_ogr = gl.leer(os.path.join(carpeta, 'guardado_con_qgis_v4.gml'))
+generico = (codigos(lectura_ogr.incidencias) == ['XML-MAL-FORMADO'] and 'Convertir a 4.0' in lectura_ogr.incidencias[0].mensaje
+            and cv.generico(ruta_ogr) == 1 and ok_ogr and version_ogr == cv.GENERICO
+            and [(e.local_id, e.namespace, e.label) for e in nueva_ogr.elementos] == [(RC, 'ES.SDGC.CP', '01')]
+            and not va.validar(os.path.join(carpeta, 'guardado_con_qgis_v4.gml')).errores
+            and any('GML genérico' in c for c in cambios_ogr) and any('empiezan por un número' in c for c in cambios_ogr)
+            and '2022-05-13T00:00:00' in leer_texto(os.path.join(carpeta, 'guardado_con_qgis_v4.gml')))
+INECO = texto.replace('</localId>', '</localId><base_extra:Clave_Obra xmlns:base_extra="http://inspire.ec.europa.eu/schemas/'
+                      'base/3.3">48-XX-0000</base_extra:Clave_Obra>', 1)
+ruta_ineco = guardar('expropiacion.gml', INECO)
+ok_in, _, cambios_in, _ = cv.convertir(ruta_ineco, cv.destino_propuesto(ruta_ineco, 'CP 4.0'))
+ajenos_ok = (cv.ajenos(INECO.encode()) == ['Clave_Obra'] and ok_in
+             and any('no son del esquema INSPIRE' in c and 'Clave_Obra' in c for c in cambios_in)
+             and 'Clave_Obra' not in leer_texto(os.path.join(carpeta, 'expropiacion_reparado.gml')))
+
 # 6. Validar: botón «Convertir a 4.0» con un 3.0; un clic crea la copia y la abre; con un 4.0 correcto no se ve
 dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
 pv = dw.pestanaValidar
@@ -165,6 +197,10 @@ validar_ui = (boton_30 and creado is not None and creado.endswith('validar_30_v4
               and 'Convertido a 4.0: validar_30_v4.gml' in textos_barra() and 'Esquema 3.0 → 4.0' in textos_barra())
 pv.fichero.setFilePath(ruta_40)
 validar_ui = validar_ui and not pv.convertirBoton.isHidden() and pv.convertirBoton.text() == "Reparar"
+pv.fichero.setFilePath(ruta_ogr)  #GML de QGIS (no es XML válido): también se ofrece convertir
+validar_ui = validar_ui and not pv.convertirBoton.isHidden() and pv.convertirBoton.text() == "Convertir a 4.0"
+pv.fichero.setFilePath(ruta_ineco)  #Solo datos ajenos al esquema: «Reparar»
+validar_ui = validar_ui and not pv.convertirBoton.isHidden() and pv.convertirBoton.text() == "Reparar"
 
 # 7. Utilidades: dice qué hará, propone la salida, convierte y un segundo clic no pisa lo creado
 pu = dw.pestanaUtilidades
@@ -177,7 +213,9 @@ utilidades = ('Esquema 3.0' in estado and pu.convertirBoton.text() == "Convertir
               and hecho == propuesta and os.path.isfile(hecho) and pu.destinoConv.filePath().endswith('utilidades_30_v4_2.gml')
               and dw.gml_pendiente == hecho)
 pu.origenConv.setFilePath(os.path.join(DATOS, 'edificio_sintetico.gml'))
-utilidades = utilidades and not pu.convertirBoton.isEnabled() and 'No es un GML de parcela' in pu.estadoConv.text()
+utilidades = utilidades and not pu.convertirBoton.isEnabled() and 'Es un GML de edificios' in pu.estadoConv.text()
+pu.origenConv.setFilePath(ruta_ogr)
+utilidades = utilidades and pu.convertirBoton.isEnabled() and 'GML genérico' in pu.estadoConv.text()
 
 for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
@@ -191,6 +229,8 @@ checks = {
     "reparar un 4.0 (xmlns:xlink y superficie): «_reparado» sin errores": reparado,
     "nunca sobrescribe el original ni lo ya creado": no_pisa,
     "no convierte edificios, XML mal formado ni SDGC sin referencia catastral (no inventa)": rechazos,
+    "GML de «Guardar como» de QGIS (no INSPIRE, XML no válido): se explica y se convierte": generico,
+    "datos ajenos al esquema (Clave_Obra…): se quitan y se dice": ajenos_ok,
     "Validar: «Convertir a 4.0» con un clic y abre la copia; «Reparar» en un 4.0 con fallos": validar_ui,
     "Utilidades: estado, salida propuesta y sin pisar lo creado": utilidades,
     "ninguna ventana emergente": not ventanas,
