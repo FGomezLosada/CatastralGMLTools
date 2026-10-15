@@ -17,11 +17,11 @@ from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
     QFileDialog,
     QFormLayout,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QPushButton,
+    QToolBox,
     QVBoxLayout,
     QWidget,
 )
@@ -49,78 +49,87 @@ class PestanaUtilidades(QWidget):
         self.actualizar()
 
     def construir(self):
+        """
+        Cada utilidad es un apartado numerado de una lista desplegable (QToolBox): se ve la lista entera y solo se abre
+        la que se usa (prueba a mano del 15/10: con todo a la vista y sus textos, la pestaña parecía una página web).
+        Lo que explica cada utilidad está en su descripción emergente y en la ayuda.
+        """
         principal = QVBoxLayout(self)
         principal.setContentsMargins(0, 0, 0, 0)
-        grupo = QGroupBox("Unir GML (multiparcela)", self)
-        caja = QVBoxLayout(grupo)
-        ayuda = QLabel("Junta varios GML de parcela en uno solo para presentarlos a la vez en la Sede. Las parcelas "
-                       "repetidas se incluyen una vez; si vienen en husos distintos, se pasan al del primer fichero.", grupo)
-        ayuda.setWordWrap(True)
-        caja.addWidget(ayuda)
-        self.lista = QListWidget(grupo)
+        self.utilidades = QToolBox(self)
+        for numero, (widget, titulo, icono, ayuda) in enumerate((
+                (self.pagina_unir(), "Unir GML (multiparcela)", '/mActionMergeFeatures.svg',
+                 "Junta varios GML de parcela en uno solo para presentarlos a la vez en la Sede. Las parcelas repetidas "
+                 "se incluyen una vez; si vienen en husos distintos, se pasan al del primer fichero."),
+                (self.pagina_convertir(), "Convertir a 4.0 o reparar", '/mActionFileSaveAs.svg',
+                 "La Sede solo admite el esquema 4.0. Crea una copia en 4.0 (o reparada, si ya lo era) con la estructura, "
+                 "los anillos, los decimales y las superficies como los pide la Sede; el original no se toca. Dice qué ha "
+                 "cambiado y qué queda por revisar."),
+                (QWidget(self), "Informe de superficies (próximamente)", '/mActionNewReport.svg',
+                 "En una próxima versión"),
+        ), start=1):
+            indice = self.utilidades.addItem(widget, QgsApplication.getThemeIcon(icono), f"{numero}. {titulo}")
+            self.utilidades.setItemToolTip(indice, ayuda)
+        self.utilidades.setItemEnabled(2, False)
+        principal.addWidget(self.utilidades, 1)
+        self.setAcceptDrops(True)
+
+    def pagina_unir(self):
+        pagina = QWidget(self)
+        caja = QVBoxLayout(pagina)
+        self.lista = QListWidget(pagina)
         self.lista.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.lista.setToolTip("Ficheros GML que se van a unir (puede arrastrarlos aquí desde el Explorador)")
+        self.lista.setToolTip("Ficheros GML que se van a unir (puede arrastrarlos aquí desde el Explorador o el panel de Capas)")
         self.lista.setAcceptDrops(False)
         caja.addWidget(self.lista, 1)
         fila = QHBoxLayout()
-        self.anadirBoton = QPushButton(QgsApplication.getThemeIcon('/symbologyAdd.svg'), "Añadir…", grupo)
-        self.quitarBoton = QPushButton(QgsApplication.getThemeIcon('/symbologyRemove.svg'), "Quitar", grupo)
+        self.anadirBoton = QPushButton(QgsApplication.getThemeIcon('/symbologyAdd.svg'), "Añadir…", pagina)
+        self.quitarBoton = QPushButton(QgsApplication.getThemeIcon('/symbologyRemove.svg'), "Quitar", pagina)
         fila.addWidget(self.anadirBoton)
         fila.addWidget(self.quitarBoton)
         fila.addStretch(1)
         caja.addLayout(fila)
-        salida = QHBoxLayout()
-        salida.addWidget(QLabel("Fichero de salida", grupo))
-        self.destino = QgsFileWidget(grupo)
+        formulario = QFormLayout()
+        self.destino = QgsFileWidget(pagina)
         self.destino.setStorageMode(QgsFileWidget.StorageMode.SaveFile)
         self.destino.setFilter("GML (*.gml)")
         self.destino.setDialogTitle("Guardar el GML unido")
-        salida.addWidget(self.destino, 1)
-        caja.addLayout(salida)
+        formulario.addRow("Salida", self.destino)
+        caja.addLayout(formulario)
         botones = QHBoxLayout()
         botones.addStretch(1)
-        self.unirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionMergeFeatures.svg'), "Unir GML", grupo)
+        self.unirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionMergeFeatures.svg'), "Unir GML", pagina)
         botones.addWidget(self.unirBoton)
         caja.addLayout(botones)
-        principal.addWidget(grupo, 1)
-        principal.addWidget(self.grupo_convertir())
-        pendiente = QLabel("<i>Informes de superficies y coordenadas: en próximas versiones.</i>", self)
-        pendiente.setWordWrap(True)
-        pendiente.setEnabled(False)
-        principal.addWidget(pendiente)
-        self.setAcceptDrops(True)
+        return pagina
 
-    def grupo_convertir(self):
-        grupo = QGroupBox("Convertir a 4.0 o reparar un GML de parcela", self)
-        caja = QVBoxLayout(grupo)
-        ayuda = QLabel("La Sede solo admite el esquema 4.0. Se crea una copia en 4.0 (o reparada, si ya lo era) con la "
-                       "estructura, los anillos, los decimales y las superficies como los pide la Sede; el original no "
-                       "se toca. Se dice qué ha cambiado y qué queda por revisar.", grupo)
-        ayuda.setWordWrap(True)
-        caja.addWidget(ayuda)
+    def pagina_convertir(self):
+        pagina = QWidget(self)
+        caja = QVBoxLayout(pagina)
         formulario = QFormLayout()
-        self.origenConv = QgsFileWidget(grupo)
+        self.origenConv = QgsFileWidget(pagina)
         self.origenConv.setStorageMode(QgsFileWidget.StorageMode.GetFile)
         self.origenConv.setFilter("GML (*.gml *.xml)")
         self.origenConv.setDialogTitle("Elegir el GML de parcela que se va a convertir")
         formulario.addRow("GML", self.origenConv)
-        self.destinoConv = QgsFileWidget(grupo)
+        self.destinoConv = QgsFileWidget(pagina)
         self.destinoConv.setStorageMode(QgsFileWidget.StorageMode.SaveFile)
         self.destinoConv.setFilter("GML (*.gml)")
         self.destinoConv.setDialogTitle("Guardar el GML convertido")
         formulario.addRow("Salida", self.destinoConv)
         caja.addLayout(formulario)
-        self.estadoConv = QLabel(grupo)
+        self.estadoConv = QLabel(pagina)
         self.estadoConv.setWordWrap(True)
         caja.addWidget(self.estadoConv)
         botones = QHBoxLayout()
         botones.addStretch(1)
-        self.convertirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionFileSaveAs.svg'), "Convertir", grupo)
+        self.convertirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionFileSaveAs.svg'), "Convertir", pagina)
         self.convertirBoton.setEnabled(False)
         botones.addWidget(self.convertirBoton)
         caja.addLayout(botones)
+        caja.addStretch(1)
         self.destino_conv_auto = ''
-        return grupo
+        return pagina
 
     # ------------------------------------------------------------------ Lista de ficheros
 
@@ -166,7 +175,10 @@ class PestanaUtilidades(QWidget):
         if not rutas:
             event.ignore()
             return
-        self.agregar(rutas)
+        if self.utilidades.currentIndex() == 1:  #«Convertir a 4.0 o reparar» abierta: el fichero que se suelta es el GML
+            self.origenConv.setFilePath(rutas[0])
+        else:
+            self.agregar(rutas)
         event.setDropAction(Qt.DropAction.CopyAction)
         event.accept()
 

@@ -15,7 +15,7 @@ import qgis.utils
 from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsProject, QgsVectorLayer
 from qgis.PyQt.QtCore import QPoint, QPointF, Qt
 from qgis.PyQt.QtGui import QWheelEvent
-from qgis.PyQt.QtWidgets import QApplication, QMessageBox, QScrollArea
+from qgis.PyQt.QtWidgets import QApplication, QLabel, QMessageBox, QScrollArea
 
 import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa: E402
 from catastral_gml_tools.core import alteraciones as alt  # noqa: E402
@@ -57,8 +57,17 @@ pt = dw.pestanaParcela
 proyecto = QgsProject.instance()
 
 # 1. Contenido desplazable en todas las pestañas; tabla con alto mínimo
-pestanas = (dw.pestanaDescargar, pt, dw.pestanaEdificio, dw.pestanaValidar, dw.pestanaUtilidades)
-desplazables = all(isinstance(p.parentWidget().parentWidget(), QScrollArea) for p in pestanas)
+#Solo Parcela (la larga) se desplaza si no cabe; las demás, sin zona desplazable (con ella parecían una página web: 15/10)
+otras = (dw.pestanaDescargar, dw.pestanaEdificio, dw.pestanaValidar, dw.pestanaUtilidades)
+desplazables = (isinstance(pt.parentWidget().parentWidget(), QScrollArea)
+                and not any(isinstance(p.parentWidget().parentWidget(), QScrollArea) for p in otras))
+#Utilidades: lista numerada, una abierta cada vez, sin la línea descriptiva; mensajes con las notas recortadas
+caja = dw.pestanaUtilidades.utilidades
+utilidades = ([caja.itemText(i) for i in range(caja.count())][:2] == ["1. Unir GML (multiparcela)", "2. Convertir a 4.0 o reparar"]
+              and caja.count() == 3 and not caja.isItemEnabled(2) and dw.tabUtilidadesInfo.isHidden())
+_mensaje = dw.success("Prueba", notas=['a', 'b', 'c', 'd'])
+utilidades = utilidades and '… y 2 más' in ' '.join(e.text() for e in _mensaje.findChildren(QLabel))
+dw.messageBar.clearWidgets()
 alto_tabla = pt.tabla.minimumHeight() >= desplazable.ALTO_MINIMO_TABLA
 
 # 2. La rueda sin foco no cambia el identificador ni el modo de división
@@ -102,7 +111,8 @@ for _n, _f in _originales.items():
 dw.deleteLater()
 
 checks = {
-    "contenido desplazable en las cinco pestañas; la tabla no se aplasta": desplazables and alto_tabla,
+    "Parcela se desplaza si no cabe (las demás no); la tabla no se aplasta": desplazables and alto_tabla,
+    "Utilidades numeradas, una abierta cada vez; notas del mensaje recortadas": utilidades,
     "la rueda sin foco no cambia listas (identificador, modo, namespace)": rueda_ok,
     "identificador sin RC y otro campo con ellas: aviso y enlace para usarlo": aviso_campo,
     "al quitar la capa elegida, los campos se proponen para la siguiente": quitada,

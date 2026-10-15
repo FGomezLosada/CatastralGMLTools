@@ -42,6 +42,7 @@ AYUDA = ruta('help', 'index.html')
 
 
 MAX_AVISOS_MENSAJE = 3  #Avisos que se leen en el mensaje de resultado; el resto, al pasar el ratón
+MAX_NOTAS_MENSAJE = 2   #Notas (p. ej. cambios del conversor): un mensaje alto se comía el panel (prueba del 15/10)
 
 class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
     def __init__(self, iface, parent=None):
@@ -104,13 +105,13 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         """Pestaña Edificio: GML de edificios y piscinas (ICUC) a partir de una capa con sus huellas."""
         self.tabEdificioPendiente.hide()
         self.pestanaEdificio = PestanaEdificio(self, self.tabEdificio)
-        self.tabEdificioLayout.insertWidget(1, desplazable.envolver(self.pestanaEdificio, self.tabEdificio), 1)
+        self.tabEdificioLayout.insertWidget(1, self.pestanaEdificio, 1)
 
     def setup_validar(self):
         """Pestaña Validar: abrir un GML, ver su contenido y cargarlo en el mapa."""
         self.tabValidarPendiente.hide()
         self.pestanaValidar = PestanaValidar(self, self.tabValidar)
-        self.tabValidarLayout.insertWidget(1, desplazable.envolver(self.pestanaValidar, self.tabValidar), 1)
+        self.tabValidarLayout.insertWidget(1, self.pestanaValidar, 1)
 
     def gml_creado(self, ruta):
         """Un GML recién creado (Parcela, Edificio o Unir) es el que se abrirá al pasar a la pestaña Validar."""
@@ -140,13 +141,14 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         """Pestaña Descargar: una parcela por referencia catastral o con un clic en el mapa."""
         self.tabDescargarPendiente.hide()
         self.pestanaDescargar = PestanaDescargar(self, self.tabDescargar)
-        self.tabDescargarLayout.insertWidget(1, desplazable.envolver(self.pestanaDescargar, self.tabDescargar), 1)
+        self.tabDescargarLayout.insertWidget(1, self.pestanaDescargar, 1)
 
     def setup_utilidades(self):
-        """Pestaña Utilidades: unir varios GML (multiparcela); el resto de utilidades, en próximas versiones."""
+        """Pestaña Utilidades: lista numerada (unir GML, convertir a 4.0…); se abre la que se usa."""
         self.tabUtilidadesPendiente.hide()
         self.pestanaUtilidades = PestanaUtilidades(self, self.tabUtilidades)
-        self.tabUtilidadesLayout.insertWidget(1, desplazable.envolver(self.pestanaUtilidades, self.tabUtilidades), 1)
+        self.tabUtilidadesInfo.hide()  #La lista numerada de utilidades ya dice lo que hay
+        self.tabUtilidadesLayout.insertWidget(1, self.pestanaUtilidades, 1)
 
     def parcela_descargada(self, capa):
         """Tras descargar una parcela, la pestaña Parcela pasa a trabajar con ella."""
@@ -226,7 +228,10 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             lineas = [f"⚠ {html.escape(d)}" for d in detalles[:MAX_AVISOS_MENSAJE]]
             if len(detalles) > MAX_AVISOS_MENSAJE:
                 lineas.append(f"⚠ … y {len(detalles) - MAX_AVISOS_MENSAJE} más (pase el ratón por el mensaje)")
-            lineas += [f"<span style='color:#495057'>· {html.escape(n)}</span>" for n in notas]
+            lineas += [f"<span style='color:#495057'>· {html.escape(n)}</span>" for n in notas[:MAX_NOTAS_MENSAJE]]
+            if len(notas) > MAX_NOTAS_MENSAJE:
+                lineas.append(f"<span style='color:#495057'>· … y {len(notas) - MAX_NOTAS_MENSAJE} más (pase el ratón por "
+                              "el mensaje)</span>")
             etiqueta.setTextFormat(Qt.TextFormat.RichText)
             etiqueta.setText(f"{html.escape(message)}<br><small>" + "<br>".join(lineas) + "</small>")
             etiqueta.setToolTip("\n".join(list(detalles) + list(notas)))
