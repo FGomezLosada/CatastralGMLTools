@@ -38,7 +38,7 @@ from .ficheros import escribir_texto
 from .info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, version
 
 TOCA = 0.05            #m: un tramo del contorno linda con otra parcela si está a menos de 5 cm de ella
-MINIMO_LINDERO = 0.10  #m: tramos más cortos no se listan (vértices compartidos, redondeos)
+MINIMO_LINDERO = 0.10  #m: tramos más cortos no son un lindero propio: van con el de al lado (esquinas, redondeos)
 SOLAPE = 1.0           #m²: una catastral que se solapa más con la parcela no es colindante (es la de origen)
 RUMBOS = ('N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO')
 SIN_PARCELA = "Suelo sin parcela catastral (vía pública u otro dominio)"
@@ -97,8 +97,10 @@ def linderos(parcela, otras, catastrales):
     Linderos de una parcela (QgsGeometry), lado a lado del contorno exterior: cada tramo se asigna a la primera que lo
     toque (a menos de TOCA) de las otras parcelas del GML [(id, geometría)] y de las catastrales colindantes
     [(rc, geometría)] (las que se solapan con la parcela son las de origen y no cuentan); lo que no toca a ninguna es
-    suelo sin parcela. Si catastrales es None (sin consultar el Catastro), ese resto no se asigna. El rumbo de cada
-    tramo es la normal exterior de su lado (el lado norte de un rectángulo linda «al N»). Se suman por colindante y rumbo.
+    suelo sin parcela. Si catastrales es None (sin consultar el Catastro), ese resto no se asigna. Los restos de menos
+    de MINIMO_LINDERO (esquinas, redondeos) van con el tramo de al lado, para que los linderos sumen el perímetro (prueba a
+    mano del 16/10/2026: se perdían 8 cm de un lado corto). El rumbo de cada tramo es la normal exterior de su lado (el
+    lado norte de un rectángulo linda «al N»). Se suman por colindante y rumbo.
     """
     anillo = (parcela.asMultiPolygon()[0][0] if parcela.isMultipart() else parcela.asPolygon()[0])
     puntos = [(p.x(), p.y()) for p in anillo]
@@ -109,30 +111,58 @@ def linderos(parcela, otras, catastrales):
         if g.intersection(parcela).area() <= SOLAPE:
             candidatos.append((rc, g.buffer(TOCA, 4), 'catastral'))
     suma = {}
+    ultima = None      #Clave del último tramo asignado (los restos de centímetros van con él)
+    pendiente = 0.0    #Restos antes del primer tramo asignado: van con el último (el anillo es cerrado)
+
+    def sumar(clave, longitud):
+        suma[clave] = suma.get(clave, 0.0) + longitud
+
     for a, b in zip(puntos, puntos[1:]):
         lado = QgsGeometry.fromPolylineXY([QgsPointXY(*a), QgsPointXY(*b)])
-        if lado.length() < 1e-9:
+        largo = lado.length()
+        if largo < 1e-9:
             continue
         hacia = rumbo_normal(a, b, horario)
         libre = lado
+        mayor = None  #(longitud, clave) del tramo más largo de este lado
         #Primero la colindante que más comparte este lado: la esquina de otra (a menos de TOCA) no le quita centímetros
         tocan = sorted(((lado.intersection(zona).length(), ident, zona, tipo) for ident, zona, tipo in candidatos),
                        key=lambda t: -t[0])
         for compartido, ident, zona, tipo in tocan:
-            if compartido < MINIMO_LINDERO or libre.isEmpty() or libre.length() < 1e-6:
-                break  #Tocar solo la esquina (unos centímetros) no es lindar
+            if libre.isEmpty() or libre.length() < 1e-6:
+                break
+            #Tocar solo la esquina (unos centímetros) no es lindar; pero un lado corto entero con una parcela, sí
+            if compartido < MINIMO_LINDERO and (mayor is not None or compartido < largo / 2):
+                break
             tramo = libre.intersection(zona)
             if tramo.isEmpty() or tramo.length() < 1e-6:
                 continue
             clave = (ident, tipo, hacia)
-            suma[clave] = suma.get(clave, 0.0) + tramo.length()
+            sumar(clave, tramo.length())
+            if mayor is None or tramo.length() > mayor[0]:
+                mayor = (tramo.length(), clave)
             libre = libre.difference(zona)
-        if catastrales is not None and not libre.isEmpty() and libre.length() > 1e-6:
-            clave = (SIN_PARCELA, 'sin parcela', hacia)
-            suma[clave] = suma.get(clave, 0.0) + libre.length()
+        resto = 0.0 if libre.isEmpty() else libre.length()
+        if resto >= MINIMO_LINDERO:
+            if catastrales is not None:
+                mayor = (resto, (SIN_PARCELA, 'sin parcela', hacia))
+                sumar(mayor[1], resto)
+            else:
+                ultima = None  #Sin consultar el Catastro, el resto no se asigna (ni sus centímetros)
+                continue
+        elif resto > 1e-6 and catastrales is not None:
+            #Centímetros sueltos (esquinas, redondeos): con el tramo de al lado, para que los linderos sumen el perímetro
+            destino = mayor[1] if mayor is not None else ultima
+            if destino is None:
+                pendiente += resto
+            else:
+                sumar(destino, resto)
+        if mayor is not None:
+            ultima = mayor[1]
+    if pendiente and ultima is not None:
+        sumar(ultima, pendiente)
     orden = {r: n for n, r in enumerate(RUMBOS)}
-    resultado = [Lindero(ident, tipo, longitud, hacia) for (ident, tipo, hacia), longitud in suma.items()
-                 if longitud >= MINIMO_LINDERO]
+    resultado = [Lindero(ident, tipo, longitud, hacia) for (ident, tipo, hacia), longitud in suma.items()]
     return sorted(resultado, key=lambda li: (orden[li.rumbo], -li.longitud))
 
 
@@ -173,8 +203,12 @@ def _linderos(ficha, consultado):
     filas = [f'<tr><td>{li.rumbo}</td><td class="id">{escape(li.con)}</td>'
              f'<td>{"del GML" if li.tipo == "gml" else "catastral" if li.tipo == "catastral" else ""}</td>'
              f'<td class="num">{_num(li.longitud)}</td></tr>' for li in ficha.linderos]
+    pie = ''
+    if consultado:  #Con el Catastro, todo el contorno está asignado: la suma es el perímetro (comprobación a la vista)
+        pie = (f'<tfoot><tr><td colspan="3">Total (perímetro)</td>'
+               f'<td class="num">{_num(sum(li.longitud for li in ficha.linderos))}</td></tr></tfoot>')
     return ('<table><thead><tr><th>Hacia</th><th>Linda con</th><th></th><th>Longitud (m)</th></tr></thead><tbody>'
-            + ''.join(filas) + '</tbody></table>')
+            + ''.join(filas) + '</tbody>' + pie + '</table>')
 
 
 def comparar_cabida(total, inscrita):
@@ -260,11 +294,12 @@ def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta
 m²). La del elipsoide GRS80 es la del terreno sin relieve; en terreno inclinado la superficie real es mayor que ambas.</p>
 {bloque_cabida}
 <h2>Croquis</h2>
-{croquis_svg(lectura.elementos)}
+{croquis_svg(lectura.elementos, vertices=True)}
 
 <h2>Parcelas</h2>
 <p class="meta">{f'Linderos con las parcelas catastrales según los datos públicos de la {escape(FUENTE_DGC)} consultados el {consulta:%d/%m/%Y a las %H:%M}; ' if consulta else 'Sin consultar el Catastro: solo los linderos entre parcelas del GML; '}«hacia»: el
-rumbo al que da cada lado (el lado norte de una parcela linda «al N»). Coordenadas UTM en metros (EPSG:{lectura.epsg}).</p>
+rumbo al que da cada lado (el lado norte de una parcela linda «al N»). Coordenadas UTM en metros (EPSG:{lectura.epsg});
+los números de los vértices son los del croquis (en él se omiten los de vértices muy juntos).</p>
 {detalle}
 
 <footer>Generado con {escape(NOMBRE)} {escape(version())} (herramienta no oficial, GPL-2.0-or-later) a partir del fichero

@@ -69,6 +69,21 @@ rumbos = ([li.rumbo for li in su.linderos(antihorario, [], [])] == ['N', 'E', 'S
           and [li.rumbo for li in su.linderos(horario, [], [])] == ['N', 'E', 'S', 'O']
           and all(li.con == SIN for li in su.linderos(horario, [], [])))
 
+#Un lado corto (8 cm) en la esquina que linda con la catastral del oeste (prueba a mano del 16/10/2026): va con ella y
+#los linderos suman el perímetro; sin consultar el Catastro, los centímetros sueltos no se asignan
+esquina = QgsGeometry.fromWkt(f"POLYGON(({X0} {Y0 + 0.08}, {X0} {Y0 + 10}, {X0 + 10} {Y0 + 10}, {X0 + 10} {Y0}, "
+                              f"{X0 + 0.03} {Y0}, {X0} {Y0 + 0.08}))")
+oeste = QgsGeometry.fromWkt(f"POLYGON(({X0 - 5} {Y0}, {X0 - 5} {Y0 + 10}, {X0} {Y0 + 10}, {X0} {Y0}, {X0 - 5} {Y0}))")
+_esq = su.linderos(esquina, [], [('OESTE', oeste)])
+_esq_gml = su.linderos(esquina, [('OESTE', oeste)], None)
+esquinas = (abs(sum(li.longitud for li in _esq) - esquina.constGet().perimeter()) < 1e-6
+            and [li.con for li in _esq if li.rumbo == 'O'] == ['OESTE']
+            and abs(next(li.longitud for li in _esq if li.con == 'OESTE') - (9.92 + 0.0854)) < 1e-3
+            and abs(sum(li.longitud for li in _esq_gml) - (9.92 + 0.0854)) < 1e-3)
+#Croquis del informe: vértices numerados, norte y barra de escala
+_svg = su.html(lectura, ruta, lista, consulta=datetime.datetime(2026, 10, 16, 12, 0))
+croquis = _svg.count('<circle') == 8 and '>N</text>' in _svg and ' m</text>' in _svg and 'Total (perímetro)' in _svg
+
 # 2. Superficies: UTM (la del GML), sobre el elipsoide algo mayor (factor de escala de la UTM), perímetro y vértices
 superficies = (abs(lista[0].area_utm - 360) < 1e-6 and abs(lista[1].area_utm - 240) < 1e-6
                and 360 < lista[0].area_elipsoide < 360.5 and abs(lista[0].perimetro - 76) < 1e-6
@@ -143,6 +158,8 @@ checks = {
     "linderos lado a lado: GML, catastrales colindantes (no la de origen) y suelo sin parcela": linderos_ok,
     "sin consultar el Catastro: solo los linderos entre parcelas del GML": sin_catastro,
     "rumbos N, E, S, O con el anillo en cualquier sentido": rumbos,
+    "lado corto de esquina: con la colindante, y los linderos suman el perímetro": esquinas,
+    "croquis con vértices numerados, norte y escala; total de linderos": croquis,
     "superficie UTM, sobre el elipsoide, perímetro y vértices": superficies,
     "cabida inscrita: diferencia y umbrales del 5 % y el 10 % de la Ley Hipotecaria": cabida,
     "HTML: no oficial, fuente y fecha de la consulta, autor, cabida, coordenadas y lados": documento,
@@ -157,7 +174,7 @@ print("QGIS", Qgis.version(), "· informe de superficies y coordenadas")
 for nombre, ok in checks.items():
     print(("  OK   " if ok else "  FALLO") + "  " + nombre)
 if not all(checks.values()):
-    print("Detalles:", {'l0': resumen(lista[0]), 'l1': resumen(lista[1]), 'g0': resumen(solo_gml[0]), 'g1': resumen(solo_gml[1]),
+    print("Detalles:", {'l0': resumen(lista[0]), 'l1': resumen(lista[1]), 'g0': resumen(solo_gml[0]), 'g1': resumen(solo_gml[1]), 'esq': _esq, 'esq_gml': _esq_gml,
                         'sup': [(f.area_utm, f.area_elipsoide, f.perimetro) for f in lista], 'c3': _3, 'c7': _7,
                         'barra': textos_barra(), 'hecho': hecho, 'estado': pu.estadoSup.text(), 'errores': errores})
 print("RESULTADO:", "TODO CORRECTO" if all(checks.values()) else "HAY FALLOS")

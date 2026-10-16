@@ -74,7 +74,8 @@ contenido = ('segregacion.gml' in texto and 'CP 4.0' in texto and 'EPSG:25830' i
 #Tras comparar con el Catastro: la fuente y la fecha de la consulta (AU-49)
 _con_consulta = informe.html(inf, consulta=datetime.datetime(2026, 10, 14, 13, 30))
 contenido = contenido and 'Dirección General del Catastro consultados el 14/10/2026 a las 13:30' in _con_consulta
-croquis = '<svg' in texto and texto.count('<path') == 2 and 'fill-rule="evenodd"' in texto
+croquis = ('<svg' in texto and texto.count('fill-rule="evenodd"') == 2 and '>N</text>' in texto  #Recintos, norte y escala
+           and ' m</text>' in texto)
 coordenadas = ('Hueco 1 · 4 vértices' in texto and 'Exterior · 4 vértices' in texto and '421500.00' in texto
                and texto.count('<details>') == 2)
 autocontenido = not analisis.externos and 'table' in analisis.etiquetas and texto.strip().endswith('</html>')

@@ -179,6 +179,7 @@ Decisiones técnicas:
 | E-25 | `QgsGeometry.vertices()` de una geometría temporal (p. ej. `g.densifyByDistance(x).vertices()`) da un iterador que no guarda la geometría: al recorrerlo, QGIS se cierra (código -11). Guardar siempre la geometría en una variable antes de pedir sus vértices | Resuelto |
 | E-26 | Crear una capa WMS (`QgsRasterLayer(..., 'wms')`) pide sus capacidades en el hilo principal: con un servicio caído, QGIS se queda «No responde» hasta un minuto por capa. Comprobar antes los servicios en una `QgsTask` y recordar en la sesión cuáles no responden | Resuelto |
 | E-27 | `QgsBlockingNetworkRequest.get()` sin `QgsFeedback` no se puede cancelar: cancelar la `QgsTask` no corta la petición. Pasar el feedback de la tarea (y cancelarlo en `cancel()`) y comprobarlo entre peticiones | Resuelto |
+| E-28 | Informe de superficies (prueba a mano del 16/10/2026): un lado de 8 cm en la esquina de una parcela real no llegaba al mínimo de 10 cm de lindero y se perdía, de modo que los linderos no sumaban el perímetro. Ahora un lado corto que linda entero con una parcela es suyo, y los centímetros sueltos van con el tramo de al lado; el informe muestra el total para comprobarlo. Lección: un umbral de ruido no debe quitar longitud, solo evitar linderos de centímetros | Resuelto |
 | E-08 | El icono `mActionCheckGeometry.svg` no existe en QGIS 3.34: la pestaña Validar usa `algorithms/mAlgorithmCheckGeometry.svg` | Resuelto (0.1.0) |
 
 ---
