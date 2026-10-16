@@ -64,7 +64,8 @@ desplazables = (isinstance(pt.parentWidget().parentWidget(), QScrollArea)
 #Utilidades: lista numerada, una abierta cada vez, sin la línea descriptiva; mensajes con las notas recortadas
 caja = dw.pestanaUtilidades.utilidades
 utilidades = ([caja.itemText(i) for i in range(caja.count())][:2] == ["1. Unir GML (multiparcela)", "2. Convertir a 4.0 o reparar"]
-              and caja.count() == 3 and not caja.isItemEnabled(2) and dw.tabUtilidadesInfo.isHidden())
+              and caja.count() == 3 and caja.itemText(2) == "3. Informe de superficies y coordenadas"
+              and dw.tabUtilidadesInfo.isHidden())
 _mensaje = dw.success("Prueba", notas=['a', 'b', 'c', 'd'])
 utilidades = utilidades and '… y 2 más' in ' '.join(e.text() for e in _mensaje.findChildren(QLabel))
 dw.messageBar.clearWidgets()
