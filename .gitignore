@@ -27,3 +27,4 @@ tests/resultados_*.txt
 tests/salida_*.txt
 cgt_res_*.txt
 .ruff_cache/
+salida_probar.txt
