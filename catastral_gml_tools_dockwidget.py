@@ -138,6 +138,8 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             if self.tabWidget.widget(indice) is getattr(self, 'tabParcela', None):
                 self.pestanaParcela.activar_capa()  #Seleccionar en el mapa y Ctrl+Z, sobre la capa de trabajo
             self.pestanaParcela.division.marcar_lado()  #La marca del lado solo con la pestaña Parcela a la vista
+        if hasattr(self, 'pestanaUtilidades'):
+            self.pestanaUtilidades.ajuste.mostrar_en_mapa()  #Los pares de puntos, solo con el ajuste a la vista
 
     def setup_descargar(self):
         """Pestaña Descargar: una parcela por referencia catastral o con un clic en el mapa."""
@@ -187,6 +189,10 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             self.pestanaDescargar.soltar_herramienta()
         if hasattr(self, 'pestanaParcela') and not sip.isdeleted(self.pestanaParcela):
             self.pestanaParcela.division.marcar_lado()  #Sin panel no queda la marca roja en el mapa
+        if hasattr(self, 'pestanaUtilidades') and not sip.isdeleted(self.pestanaUtilidades):
+            if not visible:
+                self.pestanaUtilidades.ajuste.soltar_herramienta()
+            self.pestanaUtilidades.ajuste.mostrar_en_mapa()
 
     # ------------------------------------------------------------------ Avisos dentro del panel
 
