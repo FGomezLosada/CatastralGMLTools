@@ -40,8 +40,9 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
       seleccionada (bloque «Dividir la parcela seleccionada»).</td></tr>
   <tr><td>Edificio</td><td>Crea el GML de edificios y otras construcciones (piscinas) para el ICUC.</td></tr>
   <tr><td>Validar</td><td>Abre un GML, lo comprueba como la Sede, lo compara con el Catastro y guarda un informe.</td></tr>
-  <tr><td>Utilidades</td><td>Une varios GML de parcela en uno (multiparcela) y convierte un GML del esquema 3.0 al 4.0
-      (o repara uno 4.0) e informe de superficies y coordenadas.</td></tr>
+  <tr><td>Utilidades</td><td>Une varios GML de parcela en uno (multiparcela), convierte un GML del esquema 3.0 al 4.0
+      (o repara uno 4.0), hace el informe de superficies y coordenadas y ajusta un levantamiento a la cartografía
+      catastral desplazada o girada.</td></tr>
 </table>
 
 <p>La pestaña <strong>Utilidades</strong> es una lista numerada: pulse el nombre de una para abrirla (al pasar el ratón se
@@ -177,7 +178,8 @@ guardada desde QGIS). El informe que emite la Sede va firmado: use solo construc
   <li>Si la parcela y todas las construcciones están desplazadas igual (toda la cartografía de la zona), se marca «Sí» en
   «¿Existe desplazamiento de la cartografía?», se indican los parámetros (CX y CY, o los seis de una transformación afín)
   y el ICUC se pide con el GML desplazado como la cartografía catastral; el GML en posición real se aporta como
-  documentación. (El cálculo de esos parámetros y de los dos GML está previsto en el plugin.)</li>
+  documentación. Los parámetros y el GML desplazado se obtienen en <strong>Utilidades › 4. Ajustar a la cartografía
+  catastral</strong> (ver más abajo).</li>
 </ul>
 <p>Las parcelas con bienes de características especiales (BICE) no tienen ICUC. Si hay construcciones solapadas o
 alguna está a más de 100 m de la parcela, la Sede no emite el informe.</p>
@@ -252,6 +254,33 @@ no exceden del 10 % de la inscrita (art. 9.b), constancia sin expediente hasta e
 descriptiva y gráfica de plena coincidencia (art. 201.3.a) y rectificación hasta el 5 % (art. 201.3.b). Es una
 referencia: la valoración corresponde al registrador. El campo <strong>Autor</strong> (opcional) va en la cabecera y se
 recuerda. El informe no es un documento oficial.</p>
+
+<h2>Ajustar a la cartografía catastral desplazada o girada</h2>
+<p>Si la cartografía catastral de la zona está desplazada o girada respecto de la realidad, el levantamiento (en su
+posición real) no casa con las parcelas del Catastro. La Resolución conjunta de 29/03/2021 (apartado octavo) pide entonces
+<strong>dos GML</strong> —el del levantamiento y otro ajustado a la cartografía catastral— y los
+<strong>parámetros de transformación</strong>; primero se ajusta el desplazamiento y después se aplica el criterio de
+identidad. En <strong>Utilidades › 4. Ajustar a la cartografía catastral</strong>:</p>
+<ol>
+  <li>Elija el GML del levantamiento (de parcela 4.0 o de edificio; también puede arrastrarlo).</li>
+  <li>Añada <strong>pares de puntos homólogos</strong>: el mismo punto del terreno (una esquina de edificio, un mojón) en
+      el levantamiento y en la cartografía catastral. Con <strong>Capturar en el mapa</strong>, haga clic primero en el
+      punto del levantamiento y después en el del Catastro (el clic se ajusta a los vértices de las capas visibles; Esc o
+      clic derecho anulan el par a medias). También se pueden importar de un TXT o CSV (una línea por punto:
+      <code>[nombre] X Y X′ Y′</code>) o escribir en la tabla. Las líneas rojas del mapa unen cada par.</li>
+  <li>Elija el ajuste: <strong>traslación</strong> (1 punto o más), <strong>giro, escala y traslación</strong> (2 o más) o
+      <strong>afín</strong> (3 o más, no alineados). Con puntos de más, la tabla da el <strong>residuo</strong> de cada
+      punto y el resumen el error medio: un punto mal tomado destaca. Si ya tiene los parámetros (por ejemplo, del
+      servicio de cálculo de la Sede), elija <strong>Parámetros conocidos</strong> y escríbalos.</li>
+  <li>Pulse <strong>Crear GML ajustado</strong>: se escribe <code>…_ajustado.gml</code> y, junto a él,
+      <code>…_ajustado_parametros.txt</code> con los seis parámetros, los puntos y sus residuos. El GML del levantamiento
+      no se toca. Con <strong>Validar</strong> se compara el ajustado con el Catastro.</li>
+</ol>
+<p>Los parámetros son los de la Sede, de coordenadas reales (X, Y) a catastrales (X′, Y′):
+<code>X′ = AX·X + BX·Y + CX</code>, <code>Y′ = AY·X + BY·Y + CY</code>; CX y CY son positivos si la cartografía
+catastral está más al este o al norte que la realidad. En el ICUC con la cartografía desplazada, se marca que existe
+desplazamiento, se escriben los parámetros, se sube el GML ajustado y el del levantamiento se adjunta en
+«+ Documentación».</p>
 
 <h2>Unir varios GML (multiparcela)</h2>
 <p>En la pestaña <strong>Utilidades › 1. Unir GML</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse

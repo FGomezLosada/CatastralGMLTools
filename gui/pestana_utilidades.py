@@ -1,8 +1,8 @@
 """
-Pestaña «Utilidades»: «Unir GML» (multiparcela, core/unir.py): varios GML de parcela en uno solo; y «Convertir a 4.0 o
+Pestaña «Utilidades»: «Unir GML» (multiparcela, core/unir.py): varios GML de parcela en uno solo; «Convertir a 4.0 o
 reparar» (core/conversor.py): un GML de parcela del esquema 3.0 al 4.0, o un 4.0 con fallos que se arreglan al
-reescribirlo; e «Informe de superficies y coordenadas» (core/superficies.py): superficies, linderos y coordenadas de cada
-parcela de un GML, en HTML.
+reescribirlo; «Informe de superficies y coordenadas» (core/superficies.py): superficies, linderos y coordenadas de cada
+parcela de un GML, en HTML; y «Ajustar a la cartografía catastral» (core/ajuste.py, gui/bloque_ajuste.py).
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
@@ -39,6 +39,7 @@ from ..core import superficies as su
 from ..core import unir as un
 from ..core.incidencias import AVISO, ERROR, Incidencia
 from . import desplazable
+from .bloque_ajuste import BloqueAjuste
 from .pestana_validar import PestanaValidar
 
 
@@ -80,11 +81,22 @@ class PestanaUtilidades(QWidget):
                  "Superficie (UTM y sobre el elipsoide), perímetro, linderos (con qué parcela linda cada lado y hacia "
                  "dónde) y coordenadas de cada parcela de un GML, en un informe HTML que se puede imprimir. Si se indica "
                  "la cabida inscrita, la compara con la del GML."),
+                (self.pagina_ajuste(), "Ajustar a la cartografía catastral (desplazada o girada)",
+                 '/mActionMoveFeature.svg',
+                 "Si la cartografía catastral está desplazada o girada, calcula los parámetros de transformación con pares "
+                 "de puntos (el mismo punto en el levantamiento y en el Catastro) y crea el GML ajustado a la cartografía "
+                 "catastral y un fichero con los parámetros: la Sede pide los dos GML y los parámetros (Resolución de "
+                 "29/03/2021); para el ICUC, los parámetros y el GML ajustado."),
         ), start=1):
             indice = self.utilidades.addItem(widget, QgsApplication.getThemeIcon(icono), f"{numero}. {titulo}")
             self.utilidades.setItemToolTip(indice, ayuda)
         principal.addWidget(self.utilidades, 1)
+        self.utilidades.currentChanged.connect(self.ajuste.mostrar_en_mapa)
         desplazable.soltar_en(self)  #Un GML soltado en cualquier punto (también sobre una casilla) va a la utilidad abierta
+
+    def pagina_ajuste(self):
+        self.ajuste = BloqueAjuste(self, self)
+        return self.ajuste
 
     def pagina_unir(self):
         pagina = QWidget(self)
@@ -233,7 +245,7 @@ class PestanaUtilidades(QWidget):
 
     def soltar(self, rutas):
         """El GML soltado va a la utilidad abierta: a la lista de «Unir», o como fichero de «Convertir» o del informe."""
-        casilla = {1: self.origenConv, 2: self.origenSup}.get(self.utilidades.currentIndex())
+        casilla = {1: self.origenConv, 2: self.origenSup, 3: self.ajuste.origenAj}.get(self.utilidades.currentIndex())
         if casilla is None:
             self.agregar(rutas)
             return
@@ -409,7 +421,8 @@ class PestanaUtilidades(QWidget):
             self.dock.open_path(os.path.dirname(self.ultimo_informe))
 
     def cancelar_tareas(self):
-        """Al cerrar o recargar el plugin: la consulta en curso se corta."""
+        """Al cerrar o recargar el plugin: la consulta en curso se corta y el ajuste suelta el mapa."""
+        self.ajuste.soltar()
         if self.tarea_sup is not None and not sip.isdeleted(self.tarea_sup):
             with contextlib.suppress(RuntimeError):
                 self.tarea_sup.cancel()

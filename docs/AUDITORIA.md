@@ -120,7 +120,7 @@ CHANGELOG, DESARROLLO y la ayuda.
 
 | ID | Fase | Requisitos añadidos por la auditoría |
 |---|---|---|
-| AU-52 | Ajuste por desplazamiento o giro (nuevo) | Transformación afín (6 parámetros, 3 puntos) o traslación CX/CY; comprobación con puntos de control; dos GML (levantamiento y ajustado al Catastro) con los parámetros en el informe (Resolución de 29/03/2021); también para el ICUC |
+| AU-52 | Ajuste por desplazamiento o giro (nuevo) | Transformación afín (6 parámetros, 3 puntos) o traslación CX/CY; comprobación con puntos de control; dos GML (levantamiento y ajustado al Catastro) con los parámetros en el informe (Resolución de 29/03/2021); también para el ICUC — ✅ 16/10/2026 (`core/ajuste.py`, Utilidades «4.»: traslación, semejanza y afín por mínimos cuadrados, residuos, GML ajustado y fichero de parámetros; convenio de signos de la ayuda del ICUC de la Sede) |
 | AU-53 | 9 · Conversor 3.0 → 4.0 | Lista de cambios de normativa §8 (raíz, namespaces, srsName, nilReason, quitar `boundedBy`, `zoning`, `validFrom/To`) — ✅ 14/10/2026 (`core/conversor.py`: se reescribe con el escritor del plugin; informe de cambios y de lo que queda) |
 | AU-54 | 10 · División | Por superficie, partes iguales, porcentaje, franjas paralelas **y cuotas**, con la regla del resto del editor de la Sede; puntos de apoyo .txt (mejora 33) — ✅ 14/10/2026 (`core/division.py`, bloque en Parcela); pivote y puntos de apoyo, pendientes |
 | AU-55 | 11 · Informe de superficies y coordenadas | Linderos por parcela resultante (colindantes catastrales), superficie UTM y nota sobre la del terreno, tolerancias de cabida (10 %/5 %), datos del técnico, pie «no oficial» — ✅ 15/10/2026 (`core/superficies.py`; umbrales de los arts. 9.b y 201.3 LH comprobados en el BOE) |
