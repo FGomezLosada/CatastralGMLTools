@@ -7,8 +7,11 @@ copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
 import datetime
+import math
 import os
 from html import escape
+
+from qgis.core import QgsPointXY
 
 from . import geometria as geo
 from .ficheros import escribir_texto
@@ -28,8 +31,20 @@ def ruta_por_defecto(ruta_gml):
     return f"{base}_informe.html"
 
 
-def croquis_svg(elementos, ancho=640, alto=420, margen=24):
-    """Croquis de los recintos (SVG en línea), con el identificador en el punto interior de cada uno."""
+def _escala_redonda(maximo):
+    """Longitud «redonda» (1, 2 o 5 × 10^n m) no mayor que maximo, para la barra de escala."""
+    if maximo <= 0:
+        return 0
+    potencia = 10 ** math.floor(math.log10(maximo))
+    return max(f * potencia for f in (1, 2, 5) if f * potencia <= maximo)
+
+
+def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False):
+    """
+    Croquis de los recintos (SVG en línea), con el identificador en el punto interior de cada uno, la flecha del norte y
+    una barra de escala. vertices: además, los vértices del contorno exterior numerados como en la tabla de coordenadas
+    (por dentro del recinto; se omiten los números que se montarían sobre otro).
+    """
     geometrias = [e for e in elementos if not e.geometria.isNull() and not e.geometria.isEmpty()]
     if not geometrias:
         return ''
@@ -41,11 +56,16 @@ def croquis_svg(elementos, ancho=640, alto=420, margen=24):
     dx = (ancho - w * escala) / 2
     dy = (alto - h * escala) / 2
 
+    def pantalla(x, y):
+        return dx + (x - caja.xMinimum()) * escala, dy + (caja.yMaximum() - y) * escala
+
     def punto(x, y):
-        return f"{dx + (x - caja.xMinimum()) * escala:.1f},{dy + (caja.yMaximum() - y) * escala:.1f}"
+        px, py = pantalla(x, y)
+        return f"{px:.1f},{py:.1f}"
 
     partes = [f'<svg viewBox="0 0 {ancho} {alto}" xmlns="http://www.w3.org/2000/svg" role="img" '
               f'aria-label="Croquis de los recintos" class="croquis">']
+    numeros, ocupados = [], []  #Números ya puestos (de todos los recintos), para no montar uno sobre otro
     for i, e in enumerate(geometrias):
         color = PALETA_CROQUIS[i % len(PALETA_CROQUIS)]
         poligonos = e.geometria.asMultiPolygon() if e.geometria.isMultipart() else [e.geometria.asPolygon()]
@@ -53,14 +73,56 @@ def croquis_svg(elementos, ancho=640, alto=420, margen=24):
             d = ' '.join('M ' + ' L '.join(punto(p.x(), p.y()) for p in anillo) + ' Z' for anillo in poligono)
             partes.append(f'<path d="{d}" fill="{color}" fill-opacity="0.15" stroke="{color}" stroke-width="2" '
                           'fill-rule="evenodd"/>')
+        if vertices and poligonos and poligonos[0]:
+            numeros += _numeros_vertices(e.geometria, poligonos[0][0], color, escala, pantalla, ocupados)
         interior = e.geometria.pointOnSurface()
         if interior.isNull():  #Anillo degenerado (2 vértices, todos alineados…): sin etiqueta, pero sin fallar (AU-08)
             continue
         centro = interior.asPoint()
         x, y = punto(centro.x(), centro.y()).split(',')
         partes.append(f'<text x="{x}" y="{y}" text-anchor="middle" class="etiqueta">{escape(e.local_id)}</text>')
+    partes += numeros
+    #Norte (arriba: las coordenadas UTM tienen el norte de la cuadrícula hacia arriba) y barra de escala
+    partes.append(f'<g style="fill:var(--texto);stroke:none"><path d="M {ancho - 16},6 L {ancho - 21},20 L {ancho - 16},17 '
+                  f'L {ancho - 11},20 Z"/><text x="{ancho - 16}" y="32" text-anchor="middle" font-size="11">N</text></g>')
+    metros = _escala_redonda((ancho - 2 * margen) / 4 / escala)
+    if metros:
+        largo = metros * escala
+        texto = f'{metros:g} m'.replace('.', ',')
+        partes.append(f'<g style="fill:var(--texto);stroke:var(--texto)"><path d="M 8,{alto - 12} V {alto - 7} '
+                      f'H {8 + largo:.1f} V {alto - 12}" fill="none" stroke-width="1.5"/>'
+                      f'<text x="{12 + largo:.1f}" y="{alto - 6}" font-size="11" stroke="none">{texto}</text></g>')
     partes.append('</svg>')
     return ''.join(partes)
+
+
+def _numeros_vertices(geometria, anillo, color, escala, pantalla, hecho, separacion=11):
+    """Puntos y números de los vértices de un anillo exterior, desplazados hacia dentro por la bisectriz del ángulo."""
+    puntos = list(anillo[:-1]) if len(anillo) > 1 and anillo[0] == anillo[-1] else list(anillo)
+    n = len(puntos)
+    partes = []
+    desplazamiento = 9 / escala  #9 px en metros
+    for k, p in enumerate(puntos):
+        x, y = pantalla(p.x(), p.y())
+        partes.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2" fill="{color}"/>')
+        anterior, siguiente = puntos[k - 1], puntos[(k + 1) % n]
+        u = [anterior.x() - p.x(), anterior.y() - p.y()]
+        v = [siguiente.x() - p.x(), siguiente.y() - p.y()]
+        lu, lv = math.hypot(*u) or 1, math.hypot(*v) or 1
+        bx, by = u[0] / lu + v[0] / lv, u[1] / lu + v[1] / lv
+        if math.hypot(bx, by) < 1e-6:  #Vértice en línea recta: perpendicular al lado
+            bx, by = -v[1] / lv, v[0] / lv
+        lb = math.hypot(bx, by)
+        bx, by = bx / lb, by / lb
+        if not geometria.contains(QgsPointXY(p.x() + bx * desplazamiento / 3, p.y() + by * desplazamiento / 3)):
+            bx, by = -bx, -by
+        tx, ty = pantalla(p.x() + bx * desplazamiento, p.y() + by * desplazamiento)
+        if any(math.hypot(tx - hx, ty - hy) < separacion for hx, hy in hecho):
+            continue
+        hecho.append((tx, ty))
+        partes.append(f'<text x="{tx:.1f}" y="{ty + 4:.1f}" text-anchor="middle" font-size="10" '
+                      f'class="etiqueta" style="fill:{color}">{k + 1}</text>')
+    return partes
 
 
 def coordenadas_html(elemento):
