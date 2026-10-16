@@ -13,7 +13,15 @@ license   : GNU GPL v2 or later
 """
 from qgis.PyQt import sip
 from qgis.PyQt.QtCore import QEvent, QObject, Qt
-from qgis.PyQt.QtWidgets import QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox, QFrame, QScrollArea
+from qgis.PyQt.QtWidgets import (
+    QAbstractScrollArea,
+    QAbstractSpinBox,
+    QApplication,
+    QComboBox,
+    QFrame,
+    QLineEdit,
+    QScrollArea,
+)
 
 ALTO_MINIMO_TABLA = 150  #px: unas cuatro filas de la tabla siempre a la vista
 
@@ -57,3 +65,16 @@ def envolver(widget, padre):
     zona.setFrameShape(QFrame.Shape.NoFrame)
     zona.setWidget(widget)
     return zona
+
+
+def soltar_en(pestana):
+    """
+    Que un GML arrastrado (desde el Explorador o desde el panel de Capas) lo recoja la pestaña aunque se suelte encima de
+    una casilla: las casillas de texto y de fichero aceptan por su cuenta lo que se les suelta, se quedaban el fichero
+    (solo su texto) o rechazaban la capa, y la pestaña no se enteraba (prueba a mano del 16/10/2026 en el informe de
+    superficies; ya había pasado en Validar). Se llama al final de construir la pestaña, con todas sus casillas creadas.
+    """
+    pestana.setAcceptDrops(True)
+    for casilla in pestana.findChildren(QLineEdit):
+        casilla.setAcceptDrops(False)
+    return pestana

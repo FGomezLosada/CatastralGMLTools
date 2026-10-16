@@ -129,13 +129,83 @@ with open(hecho or os.devnull, encoding='utf-8') as f:
 interfaz = (mal and hecho == su.ruta_por_defecto(ruta) and 'Informe de superficies' in textos_barra()
             and '1907402VK4810H' in contenido and '620,50 m²' in contenido and 'F. G. L.' in contenido
             and QgsSettings().value(pu_module.CLAVE_AUTOR, '') == 'F. G. L.')
+#Croquis general sobre la ortofoto (con su atribución) y uno por parcela, sin ortofoto, con las catastrales en gris
+croquis_ui = (contenido.count('<svg') == 3 and contenido.count('<image') == 1 and 'data:image/jpeg;base64,' in contenido
+              and 'PNOA cedido por © Instituto Geográfico Nacional' in contenido and 'stroke="#868e96"' in contenido
+              and any('ign.es/wms-inspire/pnoa-ma' in u and 'CRS=EPSG:25830' in u for u in sim.peticiones))
+#La ortofoto no responde: el informe sale igual, sin ella, y se dice
+sim.ORTOFOTO_CAIDA = True
+dw.messageBar.clearWidgets()
+with open(pu.crear_informe(segundo_plano=False) or os.devnull, encoding='utf-8') as f:
+    sin_orto = f.read()
+croquis_ui = croquis_ui and '<image' not in sin_orto and 'Sin ortofoto' in textos_barra() and '1907402VK4810H' in sin_orto
+sim.ORTOFOTO_CAIDA = False
+#Sin las casillas de internet: ni consulta ni ortofoto
+pu.colindantes.setChecked(False)
+pu.ortofoto.setChecked(False)
+antes = len(sim.peticiones)
+with open(pu.crear_informe(segundo_plano=False) or os.devnull, encoding='utf-8') as f:
+    sin_casillas = f.read()
+croquis_ui = croquis_ui and len(sim.peticiones) == antes and '<image' not in sin_casillas
+pu.colindantes.setChecked(True)
+pu.ortofoto.setChecked(True)
+
+# 6. Arrastrar y soltar de verdad: el evento llega a la casilla sobre la que se suelta (como en QGIS) y debe acabar en la
+#utilidad abierta, desde el Explorador (fichero) o desde el panel de Capas (capa cargada por el plugin)
+from qgis.core import QgsMimeDataUtils, QgsProject  # noqa: E402
+from qgis.PyQt.QtCore import QMimeData, QPointF, Qt, QUrl  # noqa: E402
+from qgis.PyQt.QtGui import QDragEnterEvent, QDropEvent  # noqa: E402
+from qgis.PyQt.QtWidgets import QApplication, QLineEdit  # noqa: E402
+
+from catastral_gml_tools.gui import pestana_validar as pv_mod  # noqa: E402
+
+capa = pv_mod.cargar(lectura, ruta)
+otro = os.path.join(carpeta, 'otro.gml')
+gp.escribir(otro, [gp.ParcelaGML('Otra', gp.LOCAL, sim.rect(X0, Y0, 10, 10))], 25830)
+
+
+def soltar_en(casilla, mime):
+    """Arrastra hasta la casilla y suelta; True si alguien aceptó (Qt pasa el evento al padre que acepta soltar)."""
+    acciones = Qt.DropAction.MoveAction | Qt.DropAction.CopyAction
+    entrar = QDragEnterEvent(casilla.rect().center(), acciones, mime, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+    QApplication.sendEvent(casilla, entrar)
+    soltar = QDropEvent(QPointF(casilla.rect().center()), acciones, mime, Qt.MouseButton.LeftButton,
+                        Qt.KeyboardModifier.NoModifier)
+    QApplication.sendEvent(casilla, soltar)
+    return entrar.isAccepted() and soltar.isAccepted() and soltar.dropAction() == Qt.DropAction.CopyAction
+
+
+def fichero(r):
+    m = QMimeData()
+    m.setUrls([QUrl.fromLocalFile(r)])
+    return m
+
+
+pu.utilidades.setCurrentIndex(2)
+pu.origenSup.setFilePath('')
+arrastre = (soltar_en(pu.origenSup.lineEdit(), fichero(otro)) and os.path.normpath(pu.origenSup.filePath()) == otro
+            and soltar_en(pu.cabida, QgsMimeDataUtils.encodeUriList([QgsMimeDataUtils.Uri(capa)]))
+            and os.path.normpath(pu.origenSup.filePath()) == os.path.normpath(ruta) and pu.cabida.text() == '620,5'
+            and QgsProject.instance().mapLayer(capa.id()) is not None)
+pu.utilidades.setCurrentIndex(1)
+arrastre = arrastre and soltar_en(pu.destinoConv.lineEdit(), fichero(otro)) and os.path.normpath(pu.origenConv.filePath()) == otro
+pu.utilidades.setCurrentIndex(0)
+arrastre = arrastre and soltar_en(pu.destino.lineEdit(), fichero(otro)) and os.path.normpath(otro) in pu.rutas()
+pv = dw.pestanaValidar
+arrastre = arrastre and soltar_en(pv.fichero.lineEdit(), fichero(otro)) and os.path.normpath(pv.fichero.filePath()) == otro
+#Ninguna casilla de las pestañas que admiten soltar se queda con lo soltado
+arrastre = arrastre and all(not c.acceptDrops() for t in (pu, pv) for c in t.findChildren(QLineEdit))
+QgsProject.instance().removeMapLayer(capa.id())
+pu.utilidades.setCurrentIndex(2)
+pu.origenSup.setFilePath(ruta)
 #Sin internet: el informe se hace igual, sin las colindantes, y se dice
 servicios.pedir = lambda url: (b'', 'Host ovc.catastro.meh.es not found (simulado)')
 dw.messageBar.clearWidgets()
 hecho_sin = pu.crear_informe(segundo_plano=False)
 with open(hecho_sin or os.devnull, encoding='utf-8') as f:
     contenido_sin = f.read()
-sin_red = (hecho_sin is not None and 'Sin linderos con el Catastro' in textos_barra() and 'Sin consultar el Catastro' in contenido_sin)
+sin_red = (hecho_sin is not None and 'Sin linderos con el Catastro' in textos_barra() and 'Sin ortofoto' in textos_barra()
+           and 'Sin consultar el Catastro' in contenido_sin)
 servicios.pedir = sim.pedir
 #Cancelar la consulta: el botón vuelve a estar disponible
 tarea = pu_module.TareaSuperficies(ruta, lectura, pu)
@@ -164,7 +234,9 @@ checks = {
     "cabida inscrita: diferencia y umbrales del 5 % y el 10 % de la Ley Hipotecaria": cabida,
     "HTML: no oficial, fuente y fecha de la consulta, autor, cabida, coordenadas y lados": documento,
     "Utilidades: GML propuesto, informe con colindantes, cabida errónea y autor recordado": propuesto and interfaz,
-    "sin internet: informe igual, sin colindantes y avisando": sin_red,
+    "croquis general sobre la ortofoto PNOA y uno por parcela; sin ortofoto o sin casillas, igual": croquis_ui,
+    "arrastrar a cualquier casilla (fichero o capa) va a la utilidad abierta, también en Validar": arrastre,
+    "sin internet: informe igual, sin colindantes ni ortofoto y avisando": sin_red,
     "cancelar la consulta deja el botón disponible; un GML de edificios no vale": cancelar and no_parcela,
     "ninguna ventana emergente": not ventanas,
 }

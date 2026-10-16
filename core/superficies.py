@@ -36,6 +36,7 @@ from qgis.core import (
 from . import geometria as geo
 from .ficheros import escribir_texto
 from .info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, version
+from .servicios import ATRIBUCION_PNOA
 
 TOCA = 0.05            #m: un tramo del contorno linda con otra parcela si está a menos de 5 cm de ella
 MINIMO_LINDERO = 0.10  #m: tramos más cortos no son un lindero propio: van con el de al lado (esquinas, redondeos)
@@ -220,10 +221,17 @@ def comparar_cabida(total, inscrita):
     return diferencia, porcentaje, [texto for limite, texto in UMBRALES if porcentaje <= limite]
 
 
-def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta=None):
-    """Texto HTML del informe. consulta: fecha de la consulta de las colindantes al Catastro (None si no se consultó)."""
+def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta=None, vecinas=(), ortofoto=b''):
+    """
+    Texto HTML del informe. consulta: fecha de la consulta de las colindantes al Catastro (None si no se consultó);
+    vecinas: esas parcelas catastrales (ElementoGML), que se dibujan en gris en el croquis de cada parcela; ortofoto:
+    imagen del encuadre del croquis general (vista_croquis), que va debajo de las parcelas.
+    """
     ahora = ahora or datetime.datetime.now()
     from .informe import croquis_svg  #Mismo croquis que el informe de comprobación
+    parcelas = [e for e in lectura.elementos if not e.geometria.isNull() and not e.geometria.isEmpty()]
+    #Las catastrales de origen (las que ocupa el GML) no se dibujan: taparían el contorno nuevo
+    vecinas = [v for v in vecinas if all(v.geometria.intersection(p.geometria).area() <= SOLAPE for p in parcelas)]
     nombre = os.path.basename(ruta_gml)
     total_utm = sum(f.area_utm for f in lista)
     total_elipsoide = sum(f.area_elipsoide for f in lista)
@@ -246,8 +254,10 @@ def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta
     detalle = ''.join(
         f'<section><h3>{escape(f.local_id)} <span class="meta">· {escape(f.namespace)} · nº {escape(f.label or "—")}</span></h3>'
         f'<p>Superficie UTM <b>{_num(f.area_utm)} m²</b> · elipsoide {_num(f.area_elipsoide)} m² · perímetro '
-        f'{_num(f.perimetro)} m</p><h4>Linderos</h4>{_linderos(f, consulta is not None)}'
-        f'<h4>Coordenadas</h4>{_coordenadas(f)}</section>' for f in lista)
+        f'{_num(f.perimetro)} m</p>'
+        f'{croquis_svg(parcelas, alto=360, vertices=True, foco=p, vecinas=vecinas)}'
+        f'<h4>Linderos</h4>{_linderos(f, consulta is not None)}'
+        f'<h4>Coordenadas</h4>{_coordenadas(f)}</section>' for f, p in zip(lista, parcelas))
     return f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -271,7 +281,7 @@ def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta
   td.id {{ font-family:Consolas,monospace; }}
   table.coord {{ width:auto; min-width:420px; }} tr.anillo th {{ background:none; font-style:italic; }}
   tfoot td {{ font-weight:bold; }}
-  .croquis {{ width:100%; max-height:440px; background:var(--suave); border-radius:6px; }}
+  .croquis {{ display:block; width:100%; max-width:760px; margin:8px auto; background:var(--suave); border-radius:6px; }}
   .etiqueta {{ font-size:12px; fill:var(--texto); paint-order:stroke; stroke:var(--fondo); stroke-width:3px; }}
   section {{ page-break-inside:avoid; }}
   footer {{ margin-top:32px; font-size:.85em; opacity:.75; border-top:1px solid var(--linea); padding-top:8px; }}
@@ -294,12 +304,13 @@ def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta
 m²). La del elipsoide GRS80 es la del terreno sin relieve; en terreno inclinado la superficie real es mayor que ambas.</p>
 {bloque_cabida}
 <h2>Croquis</h2>
-{croquis_svg(lectura.elementos, vertices=True)}
+{croquis_svg(parcelas, fondo=ortofoto, atribucion=ATRIBUCION_PNOA)}
+<p class="meta">{'Sobre la ortofoto PNOA del Instituto Geográfico Nacional (CC BY 4.0, scne.es), que puede no coincidir al centímetro con la cartografía catastral. ' if ortofoto else ''}Cada parcela tiene abajo su croquis con los vértices numerados y, en gris, las parcelas catastrales de alrededor.</p>
 
 <h2>Parcelas</h2>
 <p class="meta">{f'Linderos con las parcelas catastrales según los datos públicos de la {escape(FUENTE_DGC)} consultados el {consulta:%d/%m/%Y a las %H:%M}; ' if consulta else 'Sin consultar el Catastro: solo los linderos entre parcelas del GML; '}«hacia»: el
 rumbo al que da cada lado (el lado norte de una parcela linda «al N»). Coordenadas UTM en metros (EPSG:{lectura.epsg});
-los números de los vértices son los del croquis (en él se omiten los de vértices muy juntos).</p>
+los números de los vértices son los del croquis de cada parcela (en él se omiten los de vértices muy juntos).</p>
 {detalle}
 
 <footer>Generado con {escape(NOMBRE)} {escape(version())} (herramienta no oficial, GPL-2.0-or-later) a partir del fichero
@@ -309,10 +320,11 @@ los números de los vértices son los del croquis (en él se omiten los de vért
 """
 
 
-def escribir(lectura, ruta_gml, lista, ruta=None, inscrita=None, autor='', consulta=None):
+def escribir(lectura, ruta_gml, lista, ruta=None, inscrita=None, autor='', consulta=None, vecinas=(), ortofoto=b''):
     """Escribe el informe (por defecto junto al GML) y devuelve su ruta; lanza OSError si no se puede escribir."""
     ruta = ruta or ruta_por_defecto(ruta_gml)
-    problema = escribir_texto(ruta, html(lectura, ruta_gml, lista, inscrita, autor, consulta=consulta), 'utf-8')
+    problema = escribir_texto(ruta, html(lectura, ruta_gml, lista, inscrita, autor, consulta=consulta, vecinas=vecinas,
+                                       ortofoto=ortofoto), 'utf-8')
     if problema is not None:
         raise OSError(problema.mensaje)
     return ruta

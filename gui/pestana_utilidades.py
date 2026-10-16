@@ -38,6 +38,7 @@ from ..core import servicios
 from ..core import superficies as su
 from ..core import unir as un
 from ..core.incidencias import AVISO, ERROR, Incidencia
+from . import desplazable
 from .pestana_validar import PestanaValidar
 
 
@@ -83,7 +84,7 @@ class PestanaUtilidades(QWidget):
             indice = self.utilidades.addItem(widget, QgsApplication.getThemeIcon(icono), f"{numero}. {titulo}")
             self.utilidades.setItemToolTip(indice, ayuda)
         principal.addWidget(self.utilidades, 1)
-        self.setAcceptDrops(True)
+        desplazable.soltar_en(self)  #Un GML soltado en cualquier punto (también sobre una casilla) va a la utilidad abierta
 
     def pagina_unir(self):
         pagina = QWidget(self)
@@ -163,6 +164,11 @@ class PestanaUtilidades(QWidget):
         self.colindantes = QCheckBox("Linderos con las parcelas catastrales (necesita internet)", pagina)
         self.colindantes.setChecked(True)
         caja.addWidget(self.colindantes)
+        self.ortofoto = QCheckBox("Ortofoto PNOA en el croquis general (necesita internet)", pagina)
+        self.ortofoto.setToolTip("El croquis general va sobre la ortofoto del Instituto Geográfico Nacional; los croquis de "
+                                 "cada parcela, con los vértices numerados, van sin ella para que se lean bien impresos")
+        self.ortofoto.setChecked(True)
+        caja.addWidget(self.ortofoto)
         self.estadoSup = QLabel(pagina)
         self.estadoSup.setWordWrap(True)
         caja.addWidget(self.estadoSup)
@@ -221,12 +227,20 @@ class PestanaUtilidades(QWidget):
         if not rutas:
             event.ignore()
             return
-        if self.utilidades.currentIndex() == 1:  #«Convertir a 4.0 o reparar» abierta: el fichero que se suelta es el GML
-            self.origenConv.setFilePath(rutas[0])
-        else:
-            self.agregar(rutas)
         event.setDropAction(Qt.DropAction.CopyAction)
         event.accept()
+        self.soltar(rutas)
+
+    def soltar(self, rutas):
+        """El GML soltado va a la utilidad abierta: a la lista de «Unir», o como fichero de «Convertir» o del informe."""
+        casilla = {1: self.origenConv, 2: self.origenSup}.get(self.utilidades.currentIndex())
+        if casilla is None:
+            self.agregar(rutas)
+            return
+        casilla.setFilePath(rutas[0])
+        if len(rutas) > 1:
+            self.dock.notify(f"Se ha tomado {os.path.basename(rutas[0])}: esta utilidad trabaja con un GML cada vez",
+                             Qgis.MessageLevel.Info)
 
     # ------------------------------------------------------------------ Unir
 
@@ -353,32 +367,35 @@ class PestanaUtilidades(QWidget):
             return None
         QgsSettings().setValue(CLAVE_AUTOR, self.autor.text().strip())
         lectura = gl.leer(ruta)
-        if not self.colindantes.isChecked():
-            return self.informe_listo(ruta, lectura, None, [])
+        colindantes, ortofoto = self.colindantes.isChecked(), self.ortofoto.isChecked()
+        if not (colindantes or ortofoto):
+            return self.informe_listo(ruta, lectura, None, [], b'')
         if not segundo_plano:
-            catastrales, errores = consultar_colindantes(lectura)
-            return self.informe_listo(ruta, lectura, catastrales, errores)
-        self.tarea_sup = TareaSuperficies(ruta, lectura, self)
+            return self.informe_listo(ruta, lectura, *consultar_red(lectura, colindantes, ortofoto))
+        self.tarea_sup = TareaSuperficies(ruta, lectura, self, colindantes, ortofoto)
         self.informeBoton.setEnabled(False)
-        self.informeBoton.setText("Consultando el Catastro…")
+        self.informeBoton.setText("Consultando el Catastro…" if colindantes else "Descargando la ortofoto…")
         QgsApplication.taskManager().addTask(self.tarea_sup)
         return None
 
-    def informe_listo(self, ruta, lectura, catastrales, errores):
+    def informe_listo(self, ruta, lectura, catastrales, errores, ortofoto=b''):
         """Escribe el informe junto al GML y lo ofrece para abrirlo."""
         self.tarea_sup = None
         self.informeBoton.setText("Crear informe")
         self.origen_sup_cambiado()
-        consulta = datetime.datetime.now() if catastrales is not None and not errores else None
-        lista = su.fichas(lectura, None if consulta is None else [(e.local_id, e.geometria) for e in catastrales])
+        fallo_catastro = [e for e in errores if e.codigo != 'SUP-ORTOFOTO']
+        consulta = datetime.datetime.now() if catastrales is not None and not fallo_catastro else None
+        vecinas = catastrales if consulta is not None else []
+        lista = su.fichas(lectura, None if consulta is None else [(e.local_id, e.geometria) for e in vecinas])
         try:
             destino = su.escribir(lectura, ruta, lista, inscrita=self.cabida_inscrita(), autor=self.autor.text().strip(),
-                                  consulta=consulta)
+                                  consulta=consulta, vecinas=vecinas, ortofoto=ortofoto)
         except (OSError, ValueError) as e:
             self.dock.warn(f"No se ha podido escribir el informe: {e}")
             return None
         self.ultimo_informe = destino
-        avisos = [f"Sin linderos con el Catastro: {errores[0].mensaje}"] if errores else []
+        avisos = ([f"Sin linderos con el Catastro: {fallo_catastro[0].mensaje}"] if fallo_catastro else []) + [
+            f"Sin ortofoto: {e.mensaje}" for e in errores if e.codigo == 'SUP-ORTOFOTO']
         self.dock.success(f"Informe de superficies: {os.path.basename(destino)}",
                           [("Abrir", self.abrir_informe), ("Abrir carpeta", self.abrir_carpeta_informe)], detalles=avisos)
         return destino
@@ -425,13 +442,35 @@ def consultar_colindantes(lectura):
     return cmp.parcelas_catastrales([caja], lectura.epsg)
 
 
-class TareaSuperficies(QgsTask):
-    """Consulta de las parcelas catastrales colindantes en segundo plano (para los linderos del informe)."""
+ORTOFOTO_PX = 2  #La ortofoto se pide al doble de resolución que el croquis, para que se vea bien impresa
 
-    def __init__(self, ruta, lectura, pestana):
-        super().__init__("Catastral GML Tools: linderos con el Catastro", QgsTask.Flag.CanCancel)
+
+def consultar_red(lectura, colindantes=True, ortofoto=True):
+    """
+    Lo que el informe necesita de internet: (catastrales o None, errores, imagen de la ortofoto o b''). Un fallo de un
+    servicio no impide lo demás; el de la ortofoto va como incidencia SUP-ORTOFOTO.
+    """
+    catastrales, errores, imagen = None, [], b''
+    if colindantes:
+        catastrales, errores = consultar_colindantes(lectura)
+    if ortofoto:
+        from ..core.informe import vista_croquis
+        vista = vista_croquis([e for e in lectura.elementos if not e.geometria.isEmpty()])
+        if vista is not None:
+            imagen, error = servicios.ortofoto(vista, lectura.epsg, 640 * ORTOFOTO_PX, 420 * ORTOFOTO_PX)
+            if error and error != servicios.CANCELADO:
+                errores = list(errores) + [Incidencia(AVISO, 'SUP-ORTOFOTO', error)]
+    return catastrales, errores, imagen
+
+
+class TareaSuperficies(QgsTask):
+    """Consulta de las parcelas catastrales colindantes y de la ortofoto en segundo plano (para el informe)."""
+
+    def __init__(self, ruta, lectura, pestana, colindantes=True, ortofoto=True):
+        super().__init__("Catastral GML Tools: informe de superficies", QgsTask.Flag.CanCancel)
         self.ruta, self.lectura, self.pestana = ruta, lectura, pestana
-        self.catastrales, self.errores = None, []
+        self.colindantes, self.pedir_ortofoto = colindantes, ortofoto
+        self.catastrales, self.errores, self.imagen = None, [], b''
         self.feedback = QgsFeedback()
 
     def cancel(self):
@@ -441,16 +480,17 @@ class TareaSuperficies(QgsTask):
     def run(self):
         try:
             with servicios.en_tarea(self.feedback):
-                self.catastrales, self.errores = consultar_colindantes(self.lectura)
-        except Exception as e:  #Nunca debe cerrar QGIS: el informe se hace igual, sin las colindantes
-            self.catastrales, self.errores = None, [Incidencia(AVISO, 'SUP-FALLO', str(e))]
+                self.catastrales, self.errores, self.imagen = consultar_red(self.lectura, self.colindantes,
+                                                                           self.pedir_ortofoto)
+        except Exception as e:  #Nunca debe cerrar QGIS: el informe se hace igual, sin lo que falte
+            self.catastrales, self.errores, self.imagen = None, [Incidencia(AVISO, 'SUP-FALLO', str(e))], b''
         return not self.isCanceled()
 
     def finished(self, correcto):
         if self.pestana is None or sip.isdeleted(self.pestana):
             return
         if correcto:
-            self.pestana.informe_listo(self.ruta, self.lectura, self.catastrales, self.errores)
+            self.pestana.informe_listo(self.ruta, self.lectura, self.catastrales, self.errores, self.imagen)
         else:  #Cancelada: el botón vuelve a estar disponible
             self.pestana.tarea_sup = None
             self.pestana.informeBoton.setText("Crear informe")

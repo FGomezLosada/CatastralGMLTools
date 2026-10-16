@@ -140,6 +140,34 @@ def url_navarra_edificios(rectangulo):
     return _wfs_navarra(WFS_NAVARRA_BU, 'BU:Building', bbox=_caja(rectangulo))
 
 
+WMS_PNOA = 'https://www.ign.es/wms-inspire/pnoa-ma'  #Ortofoto PNOA del IGN (CC BY 4.0, scne.es)
+ATRIBUCION_PNOA = "PNOA cedido por © Instituto Geográfico Nacional (CC BY 4.0)"
+EPSG_PNOA = {23029, 23030, 23031, 25828, 25829, 25830, 25831, 32628, 32629, 32630, 32631}  #UTM que admite (GetCapabilities)
+
+
+def url_ortofoto(rectangulo, epsg, ancho, alto):
+    """GetMap de la ortofoto PNOA de un rectángulo (QgsRectangle en UTM, x-y), o '' si el SRC no lo admite el servicio."""
+    if int(epsg) not in EPSG_PNOA:
+        return ''
+    caja = ','.join(f'{v:.3f}' for v in (rectangulo.xMinimum(), rectangulo.yMinimum(), rectangulo.xMaximum(),
+                                          rectangulo.yMaximum()))
+    return (f'{WMS_PNOA}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=OI.OrthoimageCoverage&STYLES=&CRS=EPSG:{epsg}'
+            f'&BBOX={caja}&WIDTH={int(ancho)}&HEIGHT={int(alto)}&FORMAT=image/jpeg')
+
+
+def ortofoto(rectangulo, epsg, ancho, alto):
+    """Imagen JPEG de la ortofoto (bytes) y texto de error ('' si ha ido bien). Comprueba que de verdad es una imagen."""
+    url = url_ortofoto(rectangulo, epsg, ancho, alto)
+    if not url:
+        return b'', f"la ortofoto PNOA no se sirve en EPSG:{epsg}"
+    datos, error = pedir(url)
+    if error:
+        return b'', error
+    if not datos.startswith((b'\xff\xd8', b'\x89PNG')):  #Error del WMS (XML) o página de mantenimiento
+        return b'', "el servicio de ortofoto no ha devuelto una imagen"
+    return datos, ''
+
+
 def url_rc_en_punto(x, y, epsg=EPSG_PUNTO):
     return RCCOOR + '?' + urlencode({'SRS': f'EPSG:{epsg}', 'CoorX': f'{x:.6f}' if epsg == 4258 else f'{x:.2f}',
                                      'CoorY': f'{y:.6f}' if epsg == 4258 else f'{y:.2f}'})
