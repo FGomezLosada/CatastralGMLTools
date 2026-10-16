@@ -1,24 +1,28 @@
 """
 Pestaña «Utilidades»: «Unir GML» (multiparcela, core/unir.py): varios GML de parcela en uno solo; y «Convertir a 4.0 o
 reparar» (core/conversor.py): un GML de parcela del esquema 3.0 al 4.0, o un 4.0 con fallos que se arreglan al
-reescribirlo.
-Las demás utilidades (conversor 3.0 → 4.0, informes de superficies y coordenadas) irán apareciendo aquí.
+reescribirlo; e «Informe de superficies y coordenadas» (core/superficies.py): superficies, linderos y coordenadas de cada
+parcela de un GML, en HTML.
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
+import contextlib
 import datetime
 import os
 
-from qgis.core import Qgis, QgsApplication
+from qgis.core import Qgis, QgsApplication, QgsFeedback, QgsSettings, QgsTask
 from qgis.gui import QgsFileWidget
+from qgis.PyQt import sip
 from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QPushButton,
     QToolBox,
@@ -26,10 +30,14 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
+from ..core import comparacion as cmp
 from ..core import conversor as cv
+from ..core import geometria as geo
 from ..core import gml_lector as gl
+from ..core import servicios
+from ..core import superficies as su
 from ..core import unir as un
-from ..core.incidencias import AVISO, ERROR
+from ..core.incidencias import AVISO, ERROR, Incidencia
 from .pestana_validar import PestanaValidar
 
 
@@ -44,6 +52,8 @@ class PestanaUtilidades(QWidget):
         self.unirBoton.clicked.connect(self.unir)
         self.origenConv.fileChanged.connect(self.origen_cambiado)
         self.convertirBoton.clicked.connect(self.convertir)
+        self.origenSup.fileChanged.connect(self.origen_sup_cambiado)
+        self.informeBoton.clicked.connect(self.crear_informe)
         self.lista.model().rowsInserted.connect(self.actualizar)
         self.lista.model().rowsRemoved.connect(self.actualizar)
         self.actualizar()
@@ -65,12 +75,13 @@ class PestanaUtilidades(QWidget):
                  "La Sede solo admite el esquema 4.0. Crea una copia en 4.0 (o reparada, si ya lo era) con la estructura, "
                  "los anillos, los decimales y las superficies como los pide la Sede; el original no se toca. Dice qué ha "
                  "cambiado y qué queda por revisar."),
-                (QWidget(self), "Informe de superficies (próximamente)", '/mActionNewReport.svg',
-                 "En una próxima versión"),
+                (self.pagina_superficies(), "Informe de superficies y coordenadas", '/mActionNewReport.svg',
+                 "Superficie (UTM y sobre el elipsoide), perímetro, linderos (con qué parcela linda cada lado y hacia "
+                 "dónde) y coordenadas de cada parcela de un GML, en un informe HTML que se puede imprimir. Si se indica "
+                 "la cabida inscrita, la compara con la del GML."),
         ), start=1):
             indice = self.utilidades.addItem(widget, QgsApplication.getThemeIcon(icono), f"{numero}. {titulo}")
             self.utilidades.setItemToolTip(indice, ayuda)
-        self.utilidades.setItemEnabled(2, False)
         principal.addWidget(self.utilidades, 1)
         self.setAcceptDrops(True)
 
@@ -129,6 +140,41 @@ class PestanaUtilidades(QWidget):
         caja.addLayout(botones)
         caja.addStretch(1)
         self.destino_conv_auto = ''
+        return pagina
+
+    def pagina_superficies(self):
+        pagina = QWidget(self)
+        caja = QVBoxLayout(pagina)
+        formulario = QFormLayout()
+        self.origenSup = QgsFileWidget(pagina)
+        self.origenSup.setStorageMode(QgsFileWidget.StorageMode.GetFile)
+        self.origenSup.setFilter("GML (*.gml)")
+        self.origenSup.setDialogTitle("Elegir el GML de parcela")
+        formulario.addRow("GML", self.origenSup)
+        self.cabida = QLineEdit(pagina)
+        self.cabida.setPlaceholderText("opcional, en m²")
+        self.cabida.setToolTip("Cabida inscrita en el Registro (o la del título): se compara con la superficie total del GML")
+        formulario.addRow("Cabida inscrita", self.cabida)
+        self.autor = QLineEdit(QgsSettings().value(CLAVE_AUTOR, '', type=str), pagina)
+        self.autor.setPlaceholderText("opcional: nombre, titulación, nº de colegiado")
+        self.autor.setToolTip("Se escribe en la cabecera del informe y se recuerda para la próxima vez")
+        formulario.addRow("Autor", self.autor)
+        caja.addLayout(formulario)
+        self.colindantes = QCheckBox("Linderos con las parcelas catastrales (necesita internet)", pagina)
+        self.colindantes.setChecked(True)
+        caja.addWidget(self.colindantes)
+        self.estadoSup = QLabel(pagina)
+        self.estadoSup.setWordWrap(True)
+        caja.addWidget(self.estadoSup)
+        botones = QHBoxLayout()
+        botones.addStretch(1)
+        self.informeBoton = QPushButton(QgsApplication.getThemeIcon('/mActionNewReport.svg'), "Crear informe", pagina)
+        self.informeBoton.setEnabled(False)
+        botones.addWidget(self.informeBoton)
+        caja.addLayout(botones)
+        caja.addStretch(1)
+        self.tarea_sup = None
+        self.ultimo_informe = ''
         return pagina
 
     # ------------------------------------------------------------------ Lista de ficheros
@@ -261,6 +307,97 @@ class PestanaUtilidades(QWidget):
         self.origen_cambiado()
         return destino
 
+    # ------------------------------------------------------------------ Informe de superficies y coordenadas
+
+    def proponer_gml(self, ruta):
+        """Un GML recién creado en el plugin se propone para el informe si aún no hay ninguno elegido."""
+        if ruta and not self.origenSup.filePath().strip():
+            self.origenSup.setFilePath(ruta)
+
+    def origen_sup_cambiado(self, *args):
+        ruta = self.origenSup.filePath().strip()
+        lectura = gl.leer(ruta) if ruta and os.path.isfile(ruta) else None
+        valido = (lectura is not None and lectura.version.startswith('CP') and bool(lectura.elementos)
+                  and lectura.epsg in geo.SRC_ADMITIDOS and all(not e.geometria.isEmpty() for e in lectura.elementos))
+        if not ruta:
+            texto = ''
+        elif valido:
+            n = len(lectura.elementos)
+            texto = f"{lectura.version} · {n} parcela{'s' if n != 1 else ''} · EPSG:{lectura.epsg}"
+        else:
+            texto = ("<span style='color:#c92a2a'>Elija un GML de parcela catastral legible y en un SRC de la Sede "
+                     "(si es antiguo o de otro programa, conviértalo antes en «2.»).</span>")
+        self.estadoSup.setText(f"<small>{texto}</small>" if texto else '')
+        self.informeBoton.setEnabled(valido and self.tarea_sup is None)
+
+    def cabida_inscrita(self):
+        """La cabida escrita en m² (admite coma decimal y puntos de millar), None si está vacía; ValueError si no vale."""
+        texto = self.cabida.text().strip().replace(' ', '')
+        if not texto:
+            return None
+        if ',' in texto:
+            texto = texto.replace('.', '').replace(',', '.')
+        valor = float(texto)
+        if valor <= 0:
+            raise ValueError
+        return valor
+
+    def crear_informe(self, *args, segundo_plano=True):
+        """Lee el GML y, si se piden los linderos con el Catastro, consulta las colindantes en segundo plano."""
+        self.dock.messageBar.clearWidgets()
+        ruta = self.origenSup.filePath().strip()
+        try:
+            self.cabida_inscrita()
+        except ValueError:
+            self.dock.warn("La cabida inscrita debe ser un número de metros cuadrados (p. ej. 1250,5)")
+            return None
+        QgsSettings().setValue(CLAVE_AUTOR, self.autor.text().strip())
+        lectura = gl.leer(ruta)
+        if not self.colindantes.isChecked():
+            return self.informe_listo(ruta, lectura, None, [])
+        if not segundo_plano:
+            catastrales, errores = consultar_colindantes(lectura)
+            return self.informe_listo(ruta, lectura, catastrales, errores)
+        self.tarea_sup = TareaSuperficies(ruta, lectura, self)
+        self.informeBoton.setEnabled(False)
+        self.informeBoton.setText("Consultando el Catastro…")
+        QgsApplication.taskManager().addTask(self.tarea_sup)
+        return None
+
+    def informe_listo(self, ruta, lectura, catastrales, errores):
+        """Escribe el informe junto al GML y lo ofrece para abrirlo."""
+        self.tarea_sup = None
+        self.informeBoton.setText("Crear informe")
+        self.origen_sup_cambiado()
+        consulta = datetime.datetime.now() if catastrales is not None and not errores else None
+        lista = su.fichas(lectura, None if consulta is None else [(e.local_id, e.geometria) for e in catastrales])
+        try:
+            destino = su.escribir(lectura, ruta, lista, inscrita=self.cabida_inscrita(), autor=self.autor.text().strip(),
+                                  consulta=consulta)
+        except (OSError, ValueError) as e:
+            self.dock.warn(f"No se ha podido escribir el informe: {e}")
+            return None
+        self.ultimo_informe = destino
+        avisos = [f"Sin linderos con el Catastro: {errores[0].mensaje}"] if errores else []
+        self.dock.success(f"Informe de superficies: {os.path.basename(destino)}",
+                          [("Abrir", self.abrir_informe), ("Abrir carpeta", self.abrir_carpeta_informe)], detalles=avisos)
+        return destino
+
+    def abrir_informe(self, *args):
+        if self.ultimo_informe:
+            self.dock.open_path(self.ultimo_informe)
+
+    def abrir_carpeta_informe(self, *args):
+        if self.ultimo_informe:
+            self.dock.open_path(os.path.dirname(self.ultimo_informe))
+
+    def cancelar_tareas(self):
+        """Al cerrar o recargar el plugin: la consulta en curso se corta."""
+        if self.tarea_sup is not None and not sip.isdeleted(self.tarea_sup):
+            with contextlib.suppress(RuntimeError):
+                self.tarea_sup.cancel()
+        self.tarea_sup = None
+
     def validar(self, *args):
         """Abre el GML unido en la pestaña Validar (solapes, huecos y comparación con el Catastro)."""
         if self.ultimo:
@@ -269,3 +406,52 @@ class PestanaUtilidades(QWidget):
     def abrir_carpeta(self, *args):
         if self.ultimo:
             self.dock.open_path(os.path.dirname(self.ultimo))
+
+
+CLAVE_AUTOR = 'catastral_gml_tools/autor_informe'
+
+
+def consultar_colindantes(lectura):
+    """Parcelas catastrales alrededor del GML (2 m de margen): (lista de ElementoGML, errores)."""
+    caja = None
+    for e in lectura.elementos:
+        if caja is None:
+            caja = e.geometria.boundingBox()
+        else:
+            caja.combineExtentWith(e.geometria.boundingBox())
+    if caja is None:
+        return [], []
+    caja.grow(cmp.MARGEN)
+    return cmp.parcelas_catastrales([caja], lectura.epsg)
+
+
+class TareaSuperficies(QgsTask):
+    """Consulta de las parcelas catastrales colindantes en segundo plano (para los linderos del informe)."""
+
+    def __init__(self, ruta, lectura, pestana):
+        super().__init__("Catastral GML Tools: linderos con el Catastro", QgsTask.Flag.CanCancel)
+        self.ruta, self.lectura, self.pestana = ruta, lectura, pestana
+        self.catastrales, self.errores = None, []
+        self.feedback = QgsFeedback()
+
+    def cancel(self):
+        self.feedback.cancel()
+        super().cancel()
+
+    def run(self):
+        try:
+            with servicios.en_tarea(self.feedback):
+                self.catastrales, self.errores = consultar_colindantes(self.lectura)
+        except Exception as e:  #Nunca debe cerrar QGIS: el informe se hace igual, sin las colindantes
+            self.catastrales, self.errores = None, [Incidencia(AVISO, 'SUP-FALLO', str(e))]
+        return not self.isCanceled()
+
+    def finished(self, correcto):
+        if self.pestana is None or sip.isdeleted(self.pestana):
+            return
+        if correcto:
+            self.pestana.informe_listo(self.ruta, self.lectura, self.catastrales, self.errores)
+        else:  #Cancelada: el botón vuelve a estar disponible
+            self.pestana.tarea_sup = None
+            self.pestana.informeBoton.setText("Crear informe")
+            self.pestana.origen_sup_cambiado()

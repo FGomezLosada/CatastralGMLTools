@@ -116,6 +116,8 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
     def gml_creado(self, ruta):
         """Un GML recién creado (Parcela, Edificio o Unir) es el que se abrirá al pasar a la pestaña Validar."""
         self.gml_pendiente = ruta
+        if hasattr(self, 'pestanaUtilidades'):
+            self.pestanaUtilidades.proponer_gml(ruta)  #Para el informe de superficies, si no hay otro elegido
 
     def abrir_en_validar(self, ruta):
         """Pasa a la pestaña Validar con ese GML abierto (si ya lo estaba, se vuelve a comprobar)."""
@@ -171,7 +173,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             self.pestanaDescargar.soltar_herramienta()
         if hasattr(self, 'pestanaParcela'):
             self.pestanaParcela.division.soltar()  #La marca del lado en el mapa
-        for nombre in ('pestanaDescargar', 'pestanaValidar'):
+        for nombre in ('pestanaDescargar', 'pestanaValidar', 'pestanaUtilidades'):
             pestana = getattr(self, nombre, None)
             if pestana is not None and hasattr(pestana, 'cancelar_tareas'):
                 pestana.cancelar_tareas()

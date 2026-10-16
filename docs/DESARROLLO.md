@@ -89,7 +89,7 @@ Decisiones técnicas:
 | 8e | Ajuste por desplazamiento o giro (afín / CX-CY, dos GML con parámetros; Resolución de 29/03/2021) | — |
 | 9 | Conversor 3.0 → 4.0 y reparación | ✅ |
 | 10 | División de parcelas (dentro de la pestaña Parcela, junto a «Unir seleccionadas»; USABILIDAD U-09) | ✅ |
-| 11 | Informe de superficies y coordenadas | — |
+| 11 | Informe de superficies y coordenadas | ✅ |
 | 12 | Manual de usuario detallado con capturas reales (mejora 28) y campaña de pruebas a mano de todo el plugin | — |
 | 13 | Revisión de usabilidad: reorganizar el panel para que sea sencillo y se entienda (docs/USABILIDAD.md), con lo aprendido en las pruebas | — |
 | 14 | Opcionales, según se decida tras la revisión: Processing (26) y traducción (27) | — |
@@ -125,7 +125,7 @@ Decisiones técnicas:
 | 22 | División: superficie objetivo, partes iguales, porcentaje, cuotas | Segregaciones y divisiones | ✅ |
 | 23 | División: franja de ancho fijo, línea paralela/perpendicular a un lado, pivote | Casos reales de campo | Franjas y paralela/perpendicular ✅; pivote pendiente |
 | 24 | Ajuste de lindero entre dos parcelas colindantes manteniendo el contorno | Subsanaciones | |
-| 25 | Informe de superficies y coordenadas (HTML/CSV), con superficie gráfica y diferencia con la catastral | Documentación técnica | |
+| 25 | Informe de superficies y coordenadas (HTML/CSV), con superficie gráfica y diferencia con la catastral | Documentación técnica | ✅ HTML (`core/superficies.py`, Utilidades «3.»); CSV pendiente |
 | 26 | Proveedor de Processing con los algoritmos principales | Modelos y lotes | |
 | 27 | Traducción al inglés (Qt Linguist) | Publicación internacional | |
 | 28 | Manual de usuario detallado en la ayuda local (help/), una sección por pestaña y por operación (segregación, división, agregación, agrupación, subsanación, comparación, descarga, Navarra), con capturas reales hechas en QGIS 3.40 y 4.x con datos públicos; también en PDF para compañeros. Se hace al final, con la interfaz ya cerrada, para que las capturas no queden viejas | Uso sin conexión y formación | |
