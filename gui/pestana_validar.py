@@ -39,7 +39,7 @@ from ..core import servicios
 from ..core.incidencias import AVISO, ERROR, INFO, Incidencia
 from ..core.ficheros import misma_ruta
 from ..core.info import FUENTE_DGC
-from . import estilos
+from . import desplazable, estilos
 
 CABECERAS = ['Tipo', 'Identificador (localId)', 'Namespace', 'Sup. GML m²', 'Sup. calculada m²', 'Estado']
 COL_ESTADO = 5
@@ -72,8 +72,7 @@ class PestanaValidar(QWidget):
         self.ruta = ''
         self.generacion = 0  #Sube al abrir otro fichero: lo que llegue de tareas anteriores se descarta (AU-02)
         self.construir()
-        self.setAcceptDrops(True)  #Se puede arrastrar un GML desde el Explorador de Windows a la pestaña
-        self.fichero.lineEdit().setAcceptDrops(False)  #Que lo recoja la pestaña entera, también sobre la casilla del fichero
+        desplazable.soltar_en(self)  #Un GML del Explorador o del panel de Capas, soltado en cualquier punto de la pestaña
         self.fichero.fileChanged.connect(self.abrir)
         self.cargarBoton.clicked.connect(self.cargar_en_mapa)
         self.convertirBoton.clicked.connect(self.convertir)

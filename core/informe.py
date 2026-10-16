@@ -6,12 +6,13 @@ Sirve para guardarlo junto al GML o adjuntarlo a un expediente.
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
+import base64
 import datetime
 import math
 import os
 from html import escape
 
-from qgis.core import QgsPointXY
+from qgis.core import QgsGeometry, QgsPointXY, QgsRectangle
 
 from . import geometria as geo
 from .ficheros import escribir_texto
@@ -39,72 +40,150 @@ def _escala_redonda(maximo):
     return max(f * potencia for f in (1, 2, 5) if f * potencia <= maximo)
 
 
-def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False):
+def _validas(elementos):
+    return [e for e in elementos if e.geometria is not None and not e.geometria.isNull() and not e.geometria.isEmpty()]
+
+
+def vista_croquis(elementos, ancho=640, alto=420, margen=24, foco=None):
     """
-    Croquis de los recintos (SVG en línea), con el identificador en el punto interior de cada uno, la flecha del norte y
-    una barra de escala. vertices: además, los vértices del contorno exterior numerados como en la tabla de coordenadas
-    (por dentro del recinto; se omiten los números que se montarían sobre otro).
+    Rectángulo del terreno (QgsRectangle, en el SRC de las geometrías) que ocupa el croquis entero: sirve para pedir la
+    ortofoto exactamente de ese encuadre. Con foco, el croquis se centra en ese recinto con un margen alrededor para ver
+    sus colindantes. None si no hay geometrías.
     """
-    geometrias = [e for e in elementos if not e.geometria.isNull() and not e.geometria.isEmpty()]
-    if not geometrias:
-        return ''
-    caja = geometrias[0].geometria.boundingBox()
-    for e in geometrias[1:]:
-        caja.combineExtentWith(e.geometria.boundingBox())
+    if foco is not None:
+        caja = QgsRectangle(foco.geometria.boundingBox())
+        caja.grow(max(caja.width(), caja.height(), 1.0) * 0.12)
+    else:
+        validas = _validas(elementos)
+        if not validas:
+            return None
+        caja = QgsRectangle(validas[0].geometria.boundingBox())
+        for e in validas[1:]:
+            caja.combineExtentWith(e.geometria.boundingBox())
     w, h = max(caja.width(), 1e-6), max(caja.height(), 1e-6)
     escala = min((ancho - 2 * margen) / w, (alto - 2 * margen) / h)
-    dx = (ancho - w * escala) / 2
-    dy = (alto - h * escala) / 2
+    cx, cy = caja.center().x(), caja.center().y()
+    return QgsRectangle(cx - ancho / 2 / escala, cy - alto / 2 / escala, cx + ancho / 2 / escala, cy + alto / 2 / escala)
+
+
+def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=None, vecinas=(), fondo=None,
+                atribucion=''):
+    """
+    Croquis de los recintos (SVG en línea), con el identificador de cada uno, la flecha del norte y una barra de escala.
+      - vertices: numera los vértices del contorno exterior (de foco, o de todos) como la tabla de coordenadas, por fuera
+        del recinto; se omiten los números que se montarían sobre otro.
+      - foco: el recinto en el que se centra el croquis (los demás del GML salen más tenues).
+      - vecinas: parcelas de alrededor (las catastrales colindantes), en gris con su referencia.
+      - fondo: imagen JPEG o PNG (bytes) del encuadre exacto de vista_croquis(), debajo de todo (la ortofoto), con
+        atribucion al pie.
+    """
+    validas = _validas(elementos)
+    vista = vista_croquis(validas, ancho, alto, margen, foco)
+    if vista is None:
+        return ''
+    escala = ancho / vista.width()
 
     def pantalla(x, y):
-        return dx + (x - caja.xMinimum()) * escala, dy + (caja.yMaximum() - y) * escala
+        return (x - vista.xMinimum()) * escala, (vista.yMaximum() - y) * escala
 
     def punto(x, y):
         px, py = pantalla(x, y)
         return f"{px:.1f},{py:.1f}"
 
+    def trazado(geometria):
+        poligonos = geometria.asMultiPolygon() if geometria.isMultipart() else [geometria.asPolygon()]
+        return ' '.join('M ' + ' L '.join(punto(p.x(), p.y()) for p in anillo) + ' Z'
+                        for poligono in poligonos for anillo in poligono if anillo), poligonos
+
+    def etiqueta(geometria, texto, clase='etiqueta', estilo=''):
+        dentro = geometria.intersection(QgsGeometry.fromRect(vista)) if foco is not None else geometria
+        interior = dentro.pointOnSurface() if not dentro.isEmpty() else QgsGeometry()
+        if interior.isNull() or interior.isEmpty():  #Anillo degenerado o fuera del encuadre: sin etiqueta, sin fallar (AU-08)
+            return ''
+        x, y = punto(interior.asPoint().x(), interior.asPoint().y()).split(',')
+        giro = _giro_etiqueta(dentro, texto, escala)
+        rotar = f' transform="rotate({giro:.1f} {x} {y})"' if giro else ''
+        return f'<text x="{x}" y="{y}" text-anchor="middle" class="{clase}"{estilo}{rotar}>{escape(texto)}</text>'
+
     partes = [f'<svg viewBox="0 0 {ancho} {alto}" xmlns="http://www.w3.org/2000/svg" role="img" '
               f'aria-label="Croquis de los recintos" class="croquis">']
-    numeros, ocupados = [], []  #Números ya puestos (de todos los recintos), para no montar uno sobre otro
-    for i, e in enumerate(geometrias):
-        color = PALETA_CROQUIS[i % len(PALETA_CROQUIS)]
-        poligonos = e.geometria.asMultiPolygon() if e.geometria.isMultipart() else [e.geometria.asPolygon()]
-        for poligono in poligonos:
-            d = ' '.join('M ' + ' L '.join(punto(p.x(), p.y()) for p in anillo) + ' Z' for anillo in poligono)
-            partes.append(f'<path d="{d}" fill="{color}" fill-opacity="0.15" stroke="{color}" stroke-width="2" '
-                          'fill-rule="evenodd"/>')
-        if vertices and poligonos and poligonos[0]:
-            numeros += _numeros_vertices(e.geometria, poligonos[0][0], color, escala, pantalla, ocupados)
-        interior = e.geometria.pointOnSurface()
-        if interior.isNull():  #Anillo degenerado (2 vértices, todos alineados…): sin etiqueta, pero sin fallar (AU-08)
+    con_fondo = bool(fondo)
+    if con_fondo:
+        tipo = 'png' if fondo[:4] == b'\x89PNG' else 'jpeg'
+        partes.append(f'<image x="0" y="0" width="{ancho}" height="{alto}" preserveAspectRatio="none" '
+                      f'href="data:image/{tipo};base64,{base64.b64encode(fondo).decode("ascii")}"/>')
+    textos = []
+    for v in _validas(vecinas):
+        if not v.geometria.boundingBox().intersects(vista):
             continue
-        centro = interior.asPoint()
-        x, y = punto(centro.x(), centro.y()).split(',')
-        partes.append(f'<text x="{x}" y="{y}" text-anchor="middle" class="etiqueta">{escape(e.local_id)}</text>')
-    partes += numeros
+        d, _ = trazado(v.geometria)
+        partes.append(f'<path d="{d}" fill="none" stroke="#868e96" stroke-width="1" fill-rule="evenodd"/>')
+        textos.append(etiqueta(v.geometria, v.local_id, 'etiqueta', ' style="fill:#868e96;font-size:10px"'))
+    numeros, ocupados = [], []  #Números ya puestos, para no montar uno sobre otro
+    for i, e in enumerate(validas):
+        color = PALETA_CROQUIS[i % len(PALETA_CROQUIS)]
+        tenue = foco is not None and e is not foco
+        d, poligonos = trazado(e.geometria)
+        relleno = 0 if con_fondo else 0.06 if tenue else 0.15
+        if con_fondo:  #Sobre la ortofoto: un halo blanco bajo el borde para que se vea en cualquier fondo
+            partes.append(f'<path d="{d}" fill="none" stroke="#ffffff" stroke-width="{2 if tenue else 4.5}" '
+                          'stroke-opacity="0.85" fill-rule="evenodd"/>')
+        partes.append(f'<path d="{d}" fill="{color}" fill-opacity="{relleno}" stroke="{color}" '
+                      f'stroke-width="{1.2 if tenue else 2.5 if con_fondo else 2}" fill-rule="evenodd"/>')
+        if vertices and (foco is None or e is foco) and poligonos and poligonos[0]:
+            numeros += _numeros_vertices(e.geometria, poligonos[0][0], color, escala, pantalla, ocupados)
+        textos.append(etiqueta(e.geometria, e.local_id))
+    partes += textos + numeros
     #Norte (arriba: las coordenadas UTM tienen el norte de la cuadrícula hacia arriba) y barra de escala
-    partes.append(f'<g style="fill:var(--texto);stroke:none"><path d="M {ancho - 16},6 L {ancho - 21},20 L {ancho - 16},17 '
-                  f'L {ancho - 11},20 Z"/><text x="{ancho - 16}" y="32" text-anchor="middle" font-size="11">N</text></g>')
+    partes.append(f'<path d="M {ancho - 16},6 L {ancho - 21},20 L {ancho - 16},17 L {ancho - 11},20 Z" '
+                  'style="fill:var(--texto);stroke:var(--fondo);stroke-width:1"/>'
+                  f'<text x="{ancho - 16}" y="32" text-anchor="middle" class="etiqueta" style="font-size:11px">N</text>')
     metros = _escala_redonda((ancho - 2 * margen) / 4 / escala)
     if metros:
         largo = metros * escala
         texto = f'{metros:g} m'.replace('.', ',')
-        partes.append(f'<g style="fill:var(--texto);stroke:var(--texto)"><path d="M 8,{alto - 12} V {alto - 7} '
-                      f'H {8 + largo:.1f} V {alto - 12}" fill="none" stroke-width="1.5"/>'
-                      f'<text x="{12 + largo:.1f}" y="{alto - 6}" font-size="11" stroke="none">{texto}</text></g>')
+        partes.append(f'<path d="M 8,{alto - 12} V {alto - 7} H {8 + largo:.1f} V {alto - 12}" '
+                      'style="fill:none;stroke:var(--texto);stroke-width:1.5"/>'
+                      f'<text x="{12 + largo:.1f}" y="{alto - 6}" class="etiqueta" style="font-size:11px">{texto}</text>')
+    if con_fondo and atribucion:
+        partes.append(f'<text x="{ancho - 6}" y="{alto - 6}" text-anchor="end" class="etiqueta" style="font-size:10px">'
+                      f'{escape(atribucion)}</text>')
     partes.append('</svg>')
     return ''.join(partes)
 
 
+def _giro_etiqueta(geometria, texto, escala, ancho_letra=7.0):
+    """
+    Grados (SVG, horario) para escribir el identificador a lo largo de un recinto estrecho en el que no cabe en
+    horizontal (una franja segregada, por ejemplo); 0 si cabe o si tampoco cabe a lo largo.
+    """
+    caja = geometria.orientedMinimumBoundingBox()[0]
+    anillo = caja.asPolygon()[0] if not caja.isNull() and caja.asPolygon() else []
+    if len(anillo) < 3:
+        return 0
+    lados = [(anillo[1].x() - anillo[0].x(), anillo[1].y() - anillo[0].y()),
+             (anillo[2].x() - anillo[1].x(), anillo[2].y() - anillo[1].y())]
+    largo, corto = sorted(lados, key=lambda v: -math.hypot(*v))
+    necesario = len(texto) * ancho_letra
+    if math.hypot(*corto) * escala >= necesario or math.hypot(*largo) * escala < necesario:
+        return 0
+    grados = -math.degrees(math.atan2(largo[1], largo[0]))  #En pantalla la y crece hacia abajo
+    if grados > 90:
+        grados -= 180
+    elif grados <= -90:
+        grados += 180
+    return 0 if abs(grados) < 3 else grados
+
+
 def _numeros_vertices(geometria, anillo, color, escala, pantalla, hecho, separacion=11):
-    """Puntos y números de los vértices de un anillo exterior, desplazados hacia dentro por la bisectriz del ángulo."""
+    """Puntos y números de los vértices de un anillo exterior, por fuera del recinto (bisectriz del ángulo)."""
     puntos = list(anillo[:-1]) if len(anillo) > 1 and anillo[0] == anillo[-1] else list(anillo)
     n = len(puntos)
     partes = []
-    desplazamiento = 9 / escala  #9 px en metros
+    desplazamiento = 10 / escala  #10 px en metros
     for k, p in enumerate(puntos):
         x, y = pantalla(p.x(), p.y())
-        partes.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2" fill="{color}"/>')
+        partes.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2.2" fill="{color}" stroke="#ffffff" stroke-width="0.8"/>')
         anterior, siguiente = puntos[k - 1], puntos[(k + 1) % n]
         u = [anterior.x() - p.x(), anterior.y() - p.y()]
         v = [siguiente.x() - p.x(), siguiente.y() - p.y()]
@@ -114,14 +193,15 @@ def _numeros_vertices(geometria, anillo, color, escala, pantalla, hecho, separac
             bx, by = -v[1] / lv, v[0] / lv
         lb = math.hypot(bx, by)
         bx, by = bx / lb, by / lb
-        if not geometria.contains(QgsPointXY(p.x() + bx * desplazamiento / 3, p.y() + by * desplazamiento / 3)):
+        #La bisectriz apunta hacia dentro en un ángulo convexo: el número va al otro lado (por fuera)
+        if geometria.contains(QgsPointXY(p.x() + bx * desplazamiento / 3, p.y() + by * desplazamiento / 3)):
             bx, by = -bx, -by
         tx, ty = pantalla(p.x() + bx * desplazamiento, p.y() + by * desplazamiento)
         if any(math.hypot(tx - hx, ty - hy) < separacion for hx, hy in hecho):
             continue
         hecho.append((tx, ty))
-        partes.append(f'<text x="{tx:.1f}" y="{ty + 4:.1f}" text-anchor="middle" font-size="10" '
-                      f'class="etiqueta" style="fill:{color}">{k + 1}</text>')
+        partes.append(f'<text x="{tx:.1f}" y="{ty + 4:.1f}" text-anchor="middle" class="etiqueta" '
+                      f'style="fill:{color};font-size:10.5px;font-weight:600">{k + 1}</text>')
     return partes
 
 
@@ -200,7 +280,7 @@ def html(informe, ahora=None, consulta=None):
   .nivel {{ font-weight:bold; margin-right:4px; }} li.error .nivel {{ color:{COLORES[ERROR]}; }}
   li.aviso .nivel {{ color:{COLORES[AVISO]}; }}
   code {{ font-size:.82em; opacity:.7; }}
-  .croquis {{ width:100%; max-height:440px; background:var(--suave); border-radius:6px; }}
+  .croquis {{ display:block; width:100%; max-width:760px; margin:0 auto; background:var(--suave); border-radius:6px; }}
   .etiqueta {{ font-size:12px; fill:var(--texto); paint-order:stroke; stroke:var(--fondo); stroke-width:3px; }}
   details {{ margin:6px 0; }} summary {{ cursor:pointer; font-weight:bold; }}
   table.coord {{ width:auto; min-width:320px; margin:6px 0 12px; }} tr.anillo th {{ background:none; font-style:italic; }}

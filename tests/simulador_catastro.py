@@ -85,9 +85,31 @@ def _en(geom, epsg):
     return geo.transformar(geom, QgsCoordinateReferenceSystem('EPSG:25830'), epsg)
 
 
+ORTOFOTO_CAIDA = False  #La ortofoto del IGN no responde (las pruebas lo cambian)
+
+
+def _jpeg(ancho, alto):
+    """Una ortofoto de mentira: imagen JPEG lisa del tamaño pedido."""
+    from qgis.PyQt.QtCore import QBuffer, QByteArray, QIODevice
+    from qgis.PyQt.QtGui import QColor, QImage
+    imagen = QImage(ancho, alto, QImage.Format.Format_RGB32)
+    imagen.fill(QColor(110, 140, 90))
+    datos = QByteArray()
+    memoria = QBuffer(datos)
+    memoria.open(QIODevice.OpenModeFlag.WriteOnly)
+    imagen.save(memoria, 'JPG')
+    memoria.close()
+    return bytes(datos)
+
+
 def pedir(url):
     peticiones.append(url)
     partes = urlparse(url)
+    if 'ign.es' in partes.netloc:
+        if ORTOFOTO_CAIDA:
+            return b'<?xml version="1.0"?><ServiceExceptionReport>simulado</ServiceExceptionReport>', ''
+        q = {k.lower(): v[0] for k, v in parse_qs(partes.query).items()}
+        return _jpeg(int(q['width']), int(q['height'])), ''
     q = {k.lower(): v[0] for k, v in parse_qs(partes.query).items()}
     if 'consulta_dnprc' in partes.path.lower():
         if DNPRC_CAIDO:
