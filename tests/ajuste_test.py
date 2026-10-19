@@ -16,7 +16,7 @@ import shutil
 import tempfile
 
 import qgis.utils
-from qgis.core import Qgis, QgsGeometry, QgsPointXY, QgsProject
+from qgis.core import Qgis, QgsGeometry, QgsPointXY, QgsProject, QgsRectangle
 from qgis.gui import QgsMapToolPan
 from qgis.PyQt.QtCore import QEvent, QMimeData, QPoint, QPointF, Qt, QUrl
 from qgis.PyQt.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent
@@ -187,7 +187,7 @@ for par in pares_de(desplazada, PUNTOS[:3], [(0.01, 0), (-0.01, 0), (0, 0)]):
     ba.anadir_par(par)
 ba.recalcular()
 tabla = (ba.parametros[2].text() == '1.5000' and ba.parametros[5].text() == '-0.7500' and ba.crearAjBoton.isEnabled()
-         and ba.tabla.item(0, 4).text() == '0,010' and 'error medio' in ba.resumenAj.text()
+         and ba.tabla.item(0, 4).text() == '0,010' and not ba.tabla.item(0, 4).font().bold() and 'error medio' in ba.resumenAj.text()
          and 'Catastro está 1,50 m al E y 0,75 m al S' in ba.resumenAj.text())
 #Un número mal escrito se señala; corregirlo en la tabla recalcula
 ba.tabla.item(1, 0).setText('abc')
@@ -263,6 +263,17 @@ pu.utilidades.setCurrentIndex(2)
 oculto = ba.banda.numberOfVertices() == 0
 pu.utilidades.setCurrentIndex(3)
 captura = captura and lineas == 2 * ba.tabla.rowCount() and oculto and ba.banda.numberOfVertices() == lineas
+#Un par que no encaja se marca en la tabla; al seleccionarlo se resalta en el mapa y, si no se ve, el mapa va a él
+ba.metodo.setCurrentIndex(ba.metodo.findData(aj.TRASLACION))
+ba.anadir_par(aj.Par(X0, Y0, X0 + 5, Y0 - 4))
+ba.recalcular()
+fila_mala = ba.tabla.rowCount() - 1
+marcada = ba.tabla.item(fila_mala, 4).font().bold() and 'No encaja' in ba.tabla.item(fila_mala, 4).toolTip()
+lienzo.setExtent(QgsRectangle(10, 10, 11, 11))
+ba.tabla.selectRow(fila_mala)
+resaltada = ba.resaltado.numberOfVertices() == 2 and lienzo.extent().contains(ba.resaltado.asGeometry().boundingBox().center())
+ba.quitar()
+captura = captura and marcada and resaltada and ba.resaltado.numberOfVertices() == 0
 #Por la herramienta de verdad: clic izquierdo (con o sin vértice cerca) y clic derecho que anula
 from qgis.gui import QgsMapMouseEvent  # noqa: E402
 
@@ -303,7 +314,7 @@ arrastre = arrastre and ba.epsg is None and not ba.crearAjBoton.isEnabled()
 ba.origenAj.setFilePath(ruta)
 ba.capturarBoton.setChecked(True)
 dw.cleanup()
-limpieza = lienzo.mapTool() is pan and ba.banda is None and ba.marca is None
+limpieza = lienzo.mapTool() is pan and ba.banda is None and ba.marca is None and ba.resaltado is None
 
 proyecto.removeAllMapLayers()
 for _n, _f in _originales.items():
@@ -323,7 +334,7 @@ checks = {
     "tabla: parámetros, residuos, filas mal escritas, quitar y métodos": propuesto and tabla,
     "parámetros escritos a mano e importar puntos": conocidos,
     "crear el GML ajustado y los parámetros; Validar y Ver parámetros": crear,
-    "capturar en el mapa (otro SRC) con el paso a la vista, Esc, clic derecho y líneas": captura,
+    "capturar en el mapa (otro SRC), paso a la vista, Esc, clic derecho, líneas y par malo resaltado": captura,
     "otra herramienta o cerrar el panel sueltan la captura": cambio and cerrar,
     "arrastrar un GML a una casilla del ajuste": arrastre,
     "al cerrar el plugin no queda nada en el mapa": limpieza,

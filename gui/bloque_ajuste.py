@@ -54,7 +54,7 @@ COL_RESIDUO = 4
 NOMBRES_PARAMETROS = ('AX', 'BX', 'CX', 'AY', 'BY', 'CY')
 EMC_ALTO = 0.5  #m: con más error medio, se avisa de que algún punto puede estar mal
 TOLERANCIA_PX = 12  #Atracción a los vértices, en píxeles
-COLOR = QColor(201, 42, 42)
+COLOR = QColor(174, 62, 201)  #Violeta: el rojo se confundía con el contorno de las parcelas del Catastro (prueba del 19/10)
 DECIMAL = re.compile(r'(\d)\.(\d)')
 
 
@@ -118,6 +118,7 @@ class BloqueAjuste(QWidget):
         self.pendiente = None    #Punto del levantamiento capturado, a la espera de su homólogo catastral
         self.banda = None        #Líneas de cada par en el mapa
         self.marca = None        #Punto pendiente en el mapa
+        self.resaltado = None    #El par o los pares seleccionados en la tabla, más gruesos y en naranja
         self.epsg = None
         self.version = ''
         self.tamano = 0.0        #Diagonal del rectángulo que ocupa el GML (m): para avisar de puntos muy juntos
@@ -130,6 +131,7 @@ class BloqueAjuste(QWidget):
         self.origenAj.fileChanged.connect(self.origen_cambiado)
         self.metodo.currentIndexChanged.connect(self.metodo_cambiado)
         self.tabla.itemChanged.connect(self.recalcular)
+        self.tabla.itemSelectionChanged.connect(self.seleccion_cambiada)
         self.capturarBoton.toggled.connect(self.capturar)
         self.importarBoton.clicked.connect(self.importar)
         self.quitarParBoton.clicked.connect(self.quitar)
@@ -300,6 +302,14 @@ class BloqueAjuste(QWidget):
         for fila in range(self.tabla.rowCount()):
             item = QTableWidgetItem(f"{residuos[fila]:.3f}".replace('.', ',') if fila in residuos else '')
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            if fila in residuos and self.ajuste.redundancia > 0 and residuos[fila] > EMC_ALTO:
+                #El par que no encaja, a la vista: al seleccionarlo se resalta en el mapa
+                item.setForeground(QColor('#e67700'))
+                fuente = item.font()
+                fuente.setBold(True)
+                item.setFont(fuente)
+                item.setToolTip("No encaja con los demás: compruebe que los dos clics son el mismo punto (seleccione la "
+                                "fila para verlo en el mapa) o quítelo")
             self.tabla.setItem(fila, COL_RESIDUO, item)
         self.resumenAj.setText(self.resumen(pares, malas, error))
         self.crearAjBoton.setEnabled(self.ajuste is not None and self.epsg is not None)
@@ -543,7 +553,7 @@ class BloqueAjuste(QWidget):
 
     def mostrar_en_mapa(self, *args):
         """
-        Cada par como una línea roja del punto del levantamiento al catastral, y el punto a medias marcado: solo con
+        Cada par como una línea violeta discontinua del punto del levantamiento al catastral, y el punto a medias marcado: solo con
         esta utilidad abierta y el panel a la vista (el dock vuelve a llamar aquí al cambiar de pestaña o cerrarlo).
         """
         lienzo = self.lienzo()
@@ -553,16 +563,26 @@ class BloqueAjuste(QWidget):
             self.banda = QgsRubberBand(lienzo, Qgis.GeometryType.Line)
             self.banda.setColor(COLOR)
             self.banda.setWidth(2)
+            self.banda.setLineStyle(Qt.PenStyle.DashLine)
         self.banda.reset(Qgis.GeometryType.Line)
+        if self.resaltado is None:
+            self.resaltado = QgsRubberBand(lienzo, Qgis.GeometryType.Line)
+            self.resaltado.setColor(QColor(240, 140, 0))
+            self.resaltado.setWidth(5)
+        self.resaltado.reset(Qgis.GeometryType.Line)
         if self.marca is not None and not sip.isdeleted(self.marca):
             lienzo.scene().removeItem(self.marca)
         self.marca = None
         if not self.visible() or self.epsg is None:
             return
+        elegidas = self.filas_elegidas()
         for par in self.pares()[0]:
             linea = QgsGeometry.fromPolylineXY([self.a_mapa(par.x, par.y), self.a_mapa(par.xc, par.yc)])
             self.banda.addGeometry(linea, None, False)
+            if int(par.nombre) - 1 in elegidas:
+                self.resaltado.addGeometry(linea, None, False)
         self.banda.updatePosition()
+        self.resaltado.updatePosition()
         if self.pendiente is not None:
             self.marca = QgsVertexMarker(lienzo)
             self.marca.setCenter(self.a_mapa(self.pendiente.x(), self.pendiente.y()))
@@ -575,7 +595,21 @@ class BloqueAjuste(QWidget):
         """Al cerrar el plugin: devuelve la herramienta anterior y quita las marcas del mapa."""
         self.soltar_herramienta()
         lienzo = self.lienzo()
-        for marca in (self.banda, self.marca):
+        for marca in (self.banda, self.marca, self.resaltado):
             if marca is not None and lienzo is not None and not sip.isdeleted(marca):
                 lienzo.scene().removeItem(marca)
-        self.banda = self.marca = None
+        self.banda = self.marca = self.resaltado = None
+
+    def filas_elegidas(self):
+        return {i.row() for i in self.tabla.selectedIndexes()}
+
+    def seleccion_cambiada(self, *args):
+        """El par elegido en la tabla, resaltado en el mapa; si queda fuera de la vista, el mapa se centra en él."""
+        self.mostrar_en_mapa()
+        lienzo = self.lienzo()
+        if lienzo is None or self.resaltado is None or self.resaltado.numberOfVertices() == 0:
+            return
+        caja = self.resaltado.asGeometry().boundingBox()
+        if not lienzo.extent().contains(caja):
+            lienzo.setCenter(caja.center())
+            lienzo.refresh()

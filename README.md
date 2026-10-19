@@ -14,7 +14,7 @@ Plugin de QGIS para preparar los ficheros GML que pide la Sede Electrónica del 
 - **Validar** un GML antes de subirlo, como la Sede: estructura, esquema XSD, identificadores, anillos, superficies, solapes y huecos, sistema de referencia y huso.
 - **Comparar con el Catastro**: parcelas afectadas (NPO/NPP), operación, contorno exterior con ±1 cm, suelo sin parcela, dominio público, edificios dentro de su parcela.
 - **Unir** parcelas seleccionadas y varios GML en uno (multiparcela), e **informe** HTML de la comprobación.
-- **Dividir** una parcela (partes iguales, porcentajes, superficies, cuotas o franjas), **convertir** un GML del esquema 3.0 al 4.0 o repararlo, **informe de superficies y coordenadas** (linderos, superficies, vértices y lados) y **ajuste a la cartografía catastral desplazada o girada** (parámetros de transformación de la Sede y GML ajustado).
+- **Dividir** una parcela (partes iguales, porcentajes, superficies, cuotas o franjas), **convertir** un GML del esquema 3.0 al 4.0 o repararlo, **informe de superficies y coordenadas** (linderos, superficies, vértices y lados) y **ajuste a la cartografía catastral desplazada o girada** (parámetros de transformación de la Sede y GML ajustado) y **comparar dos GML** (desplazamiento de vértices, superficies, redondeo; iguales a efectos de la Sede).
 
 > Estado: **versión 0.2.0** (en desarrollo). Próximas: ajuste de cartografía desplazada. Ver [CHANGELOG](CHANGELOG.md) y [docs/DESARROLLO.md](docs/DESARROLLO.md).
 

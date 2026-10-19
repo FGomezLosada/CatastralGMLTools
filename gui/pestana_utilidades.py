@@ -2,7 +2,8 @@
 Pestaña «Utilidades»: «Unir GML» (multiparcela, core/unir.py): varios GML de parcela en uno solo; «Convertir a 4.0 o
 reparar» (core/conversor.py): un GML de parcela del esquema 3.0 al 4.0, o un 4.0 con fallos que se arreglan al
 reescribirlo; «Informe de superficies y coordenadas» (core/superficies.py): superficies, linderos y coordenadas de cada
-parcela de un GML, en HTML; y «Ajustar a la cartografía catastral» (core/ajuste.py, gui/bloque_ajuste.py).
+parcela de un GML, en HTML; «Ajustar a la cartografía catastral» (core/ajuste.py, gui/bloque_ajuste.py); y «Comparar
+dos GML» (core/comparar_gml.py, gui/bloque_comparar.py).
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
@@ -40,6 +41,8 @@ from ..core import unir as un
 from ..core.incidencias import AVISO, ERROR, Incidencia
 from . import desplazable
 from .bloque_ajuste import BloqueAjuste
+from .bloque_comparar import ICONO as ICONO_COMPARAR
+from .bloque_comparar import BloqueComparar
 from .pestana_validar import PestanaValidar
 
 
@@ -87,12 +90,20 @@ class PestanaUtilidades(QWidget):
                  "de puntos (el mismo punto en el levantamiento y en el Catastro) y crea el GML ajustado a la cartografía "
                  "catastral y un fichero con los parámetros: la Sede pide los dos GML y los parámetros (Resolución de "
                  "29/03/2021); para el ICUC, los parámetros y el GML ajustado."),
+                (self.pagina_comparar(), "Comparar dos GML", ICONO_COMPARAR,
+                 "Dos GML de la misma finca o construcción, vengan de donde vengan (el presentado y el que devuelve otro "
+                 "organismo, dos versiones, dos programas): diferencias de fichero, identificadores, superficies, "
+                 "desplazamiento de cada vértice, vértices añadidos o quitados y si son iguales a efectos de la Sede (±1 cm)."),
         ), start=1):
             indice = self.utilidades.addItem(widget, QgsApplication.getThemeIcon(icono), f"{numero}. {titulo}")
             self.utilidades.setItemToolTip(indice, ayuda)
         principal.addWidget(self.utilidades, 1)
         self.utilidades.currentChanged.connect(self.ajuste.mostrar_en_mapa)
         desplazable.soltar_en(self)  #Un GML soltado en cualquier punto (también sobre una casilla) va a la utilidad abierta
+
+    def pagina_comparar(self):
+        self.comparador = BloqueComparar(self, self)
+        return self.comparador
 
     def pagina_ajuste(self):
         self.ajuste = BloqueAjuste(self, self)
@@ -245,6 +256,9 @@ class PestanaUtilidades(QWidget):
 
     def soltar(self, rutas):
         """El GML soltado va a la utilidad abierta: a la lista de «Unir», o como fichero de «Convertir» o del informe."""
+        if self.utilidades.currentIndex() == 4:
+            self.comparador.soltar(rutas)
+            return
         casilla = {1: self.origenConv, 2: self.origenSup, 3: self.ajuste.origenAj}.get(self.utilidades.currentIndex())
         if casilla is None:
             self.agregar(rutas)
