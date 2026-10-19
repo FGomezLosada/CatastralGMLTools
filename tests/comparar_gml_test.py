@@ -71,6 +71,26 @@ uniforme = (not c.iguales() and p.traslacion is not None and p.veredicto() == "D
             and 'ΔX +3,0 cm, ΔY +0,0 cm' in cg.html(c)
             and abs(p.hausdorff - 0.03) < 1e-6 and abs(p.maximo - 0.03) < 1e-6)
 
+#Desplazado 44 cm (más que la distancia para emparejar vértices): sigue siendo un desplazamiento, sin vértices
+#añadidos ni quitados (prueba a mano del 19/10/2026)
+lejos = os.path.join(carpeta, 'lejos.gml')
+aj.escribir_ajustado(A, lejos, aj.Transformacion(cx=0.30, cy=-0.32))
+c = cg.comparar(A, lejos)
+p = c.parejas[0]
+uniforme = (uniforme and p.veredicto() == "Desplazado 43,9 cm hacia SE" and p.anadidos == 0 and p.quitados == 0
+            and abs(p.traslacion[0] - 0.30) < 1e-6 and abs(p.traslacion[1] + 0.32) < 1e-6)
+
+#Girado y escalado (un GML ajustado por semejanza): misma forma
+import math  # noqa: E402
+
+girado = os.path.join(carpeta, 'girado.gml')
+_g, _e = math.radians(0.05), 1.0002
+aj.escribir_ajustado(A, girado, aj.Transformacion(_e * math.cos(_g), -_e * math.sin(_g), 0, _e * math.sin(_g),
+                                                  _e * math.cos(_g), 0))
+p = cg.comparar(A, girado).parejas[0]
+uniforme = (uniforme and p.giro is not None and abs(p.giro[0] - 0.05) < 0.02 and abs(p.giro[1] - 1.0002) < 3e-4  #2 decimales: estimación
+            and p.veredicto().startswith("Girado ≈0,0") and 'misma forma' in p.veredicto() and 'm)' in p.veredicto())
+
 # 3. Un vértice movido 5 cm; 4. un vértice de más en un lado (misma geometría)
 movido = gml('movido.gml', [gp.ParcelaGML(RC, gp.SDGC, QgsGeometry.fromWkt(
     f"POLYGON(({X0} {Y0}, {X0} {Y0 + 30}, {X0 + 19.95} {Y0 + 30}, {X0 + 20} {Y0}, {X0} {Y0}))"), '01'),
@@ -205,7 +225,7 @@ dw.deleteLater()
 
 checks = {
     "dos copias: iguales (±1 cm)": iguales,
-    "desplazamiento uniforme de 3 cm hacia el E": uniforme,
+    "desplazamiento uniforme de 3 cm y de 44 cm (sin vértices añadidos ni quitados)": uniforme,
     "un vértice movido 5 cm; el resto iguales": un_vertice,
     "un vértice de más en un lado: misma geometría, cambian los vértices": vertice_mas,
     "identificador cambiado (emparejado por la geometría) y recintos de más o de menos": renombre,
