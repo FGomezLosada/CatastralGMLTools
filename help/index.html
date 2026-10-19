@@ -266,7 +266,9 @@ identidad. En <strong>Utilidades › 4. Ajustar a la cartografía catastral</str
   <li>Añada <strong>pares de puntos homólogos</strong>: el mismo punto del terreno (una esquina de edificio, un mojón) en
       el levantamiento y en la cartografía catastral. Con <strong>Capturar en el mapa</strong>, haga clic primero en el
       punto del levantamiento y después en el del Catastro (el clic se ajusta a los vértices de las capas visibles; Esc o
-      clic derecho anulan el par a medias). También se pueden importar de un TXT o CSV (una línea por punto:
+      clic derecho anulan el par a medias; mientras captura, la utilidad dice qué clic toca). Tome los puntos en
+      <strong>extremos opuestos</strong> del levantamiento: con puntos muy juntos, el giro y la escala no son fiables y
+      el resumen lo avisa (también si la escala o el giro salen impropios de un desplazamiento). También se pueden importar de un TXT o CSV (una línea por punto:
       <code>[nombre] X Y X′ Y′</code>) o escribir en la tabla. Las líneas rojas del mapa unen cada par.</li>
   <li>Elija el ajuste: <strong>traslación</strong> (1 punto o más), <strong>giro, escala y traslación</strong> (2 o más) o
       <strong>afín</strong> (3 o más, no alineados). Con puntos de más, la tabla da el <strong>residuo</strong> de cada
@@ -274,7 +276,8 @@ identidad. En <strong>Utilidades › 4. Ajustar a la cartografía catastral</str
       servicio de cálculo de la Sede), elija <strong>Parámetros conocidos</strong> y escríbalos.</li>
   <li>Pulse <strong>Crear GML ajustado</strong>: se escribe <code>…_ajustado.gml</code> y, junto a él,
       <code>…_ajustado_parametros.txt</code> con los seis parámetros, los puntos y sus residuos. El GML del levantamiento
-      no se toca. Con <strong>Validar</strong> se compara el ajustado con el Catastro.</li>
+      no se toca. En el mensaje, <strong>Ver parámetros</strong> abre ese fichero y <strong>Validar</strong> compara el
+      ajustado con el Catastro.</li>
 </ol>
 <p>Los parámetros son los de la Sede, de coordenadas reales (X, Y) a catastrales (X′, Y′):
 <code>X′ = AX·X + BX·Y + CX</code>, <code>Y′ = AY·X + BY·Y + CY</code>; CX y CY son positivos si la cartografía

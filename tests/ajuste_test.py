@@ -79,6 +79,13 @@ recupera = recupera and signo.cx == 2 and signo.cy == 3
 malo = aj.calcular(pares_de(afin_conocida, PUNTOS + [(X0 + 20, Y0 + 30)], [(0, 0)] * 4 + [(0.5, 0)]), aj.AFIN)
 residuos = malo.residuos.index(max(malo.residuos)) == 4 and malo.emc > 0.1
 
+#Avisos: dos puntos a 33 cm (prueba a mano del 19/10/2026) no sirven para giro y escala; escala impropia de un desplazamiento
+juntos = aj.calcular([aj.Par(421834.85, 4067953.39, 421834.852, 4067953.387),
+                      aj.Par(421834.87, 4067953.72, 421834.871, 4067953.718)], aj.SEMEJANZA)
+dudas = aj.avisos(juntos, [aj.Par(421834.85, 4067953.39, 0, 0), aj.Par(421834.87, 4067953.72, 0, 0)], 30.0)
+residuos = (residuos and len(dudas) == 2 and 'muy juntos (0.33 m' in dudas[0] and 'al menos 8 m' in dudas[0]
+            and 'Escala anómala' in dudas[1] and aj.avisos(semejanza, pares_de(conocida, PUNTOS[:3]), 60.0) == [])
+
 # 3. Errores: pocos puntos, puntos alineados; inversa
 errores = []
 for pares, metodo in (([aj.Par(X0, Y0, X0, Y0)], aj.SEMEJANZA),
@@ -222,8 +229,12 @@ for _ in range(4):
 #Crear: GML ajustado y parámetros; «Validar» lo abre en Validar
 dw.messageBar.clearWidgets()
 creado = ba.crear()
+from qgis.PyQt.QtWidgets import QPushButton  # noqa: E402
+
+botones_barra = [b.text() for item in dw.messageBar.items() for b in item.findChildren(QPushButton)]
 crear = (creado is not None and os.path.isfile(destino) and os.path.isfile(aj.ruta_parametros(destino))
-         and 'GML ajustado: levantamiento_ajustado.gml' in textos_barra() and 'apartado octavo' in textos_barra())
+         and 'GML ajustado: levantamiento_ajustado.gml' in textos_barra() and 'apartado octavo' in textos_barra()
+         and 'Ver parámetros' in botones_barra and ba.parametros_ruta == aj.ruta_parametros(destino))
 ba.validar()
 crear = crear and os.path.normpath(dw.pestanaValidar.fichero.filePath()) == os.path.normpath(destino)
 dw.tabWidget.setCurrentWidget(dw.tabUtilidades)
@@ -233,9 +244,10 @@ ba.metodo.setCurrentIndex(ba.metodo.findData(aj.TRASLACION))
 filas = ba.tabla.rowCount()
 lienzo.setMapTool(pan)
 ba.capturarBoton.setChecked(True)
-activa = lienzo.mapTool() is ba.herramienta and ba.herramienta is not None
+activa = (lienzo.mapTool() is ba.herramienta and ba.herramienta is not None and ba.pasoCaptura.isVisible()
+          and '1/2' in ba.pasoCaptura.text())
 ba.punto_capturado(QgsPointXY(-3.9, 36.75))
-pendiente = ba.pendiente is not None and ba.marca is not None
+pendiente = ba.pendiente is not None and ba.marca is not None and '2/2' in ba.pasoCaptura.text()
 #Esc anula el punto a medias
 ba.herramienta.keyPressEvent(QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier))
 anulado = ba.pendiente is None and ba.marca is None
@@ -264,7 +276,7 @@ captura = captura and por_clic and ba.pendiente is None
 #Otra herramienta sustituye a la nuestra: el botón se desmarca y se olvida el punto a medias
 ba.punto_capturado(QgsPointXY(-3.9, 36.75))
 lienzo.setMapTool(pan)
-cambio = not ba.capturarBoton.isChecked() and ba.pendiente is None and ba.marca is None
+cambio = not ba.capturarBoton.isChecked() and ba.pendiente is None and ba.marca is None and not ba.pasoCaptura.isVisible()
 #Cerrar el panel: suelta la herramienta y quita las líneas
 ba.capturarBoton.setChecked(True)
 dw.visibilidad_cambiada(False)
@@ -301,7 +313,7 @@ dw.deleteLater()
 
 checks = {
     "se recuperan los parámetros de semejanza, afín y traslación (signo de la Sede)": recupera,
-    "un punto mal tomado destaca en los residuos": residuos,
+    "un punto mal tomado destaca en los residuos; avisos de puntos juntos y escala anómala": residuos,
     "pocos puntos, puntos alineados o repetidos: error; inversa": errores,
     "pares de puntos desde TXT o CSV (cabeceras saltadas)": lectura_txt,
     "GML de parcela ajustado: mismos ids, superficie recalculada, original intacto": gml_parcela,
@@ -310,8 +322,8 @@ checks = {
     "sin GML no se captura en el mapa": sin_gml,
     "tabla: parámetros, residuos, filas mal escritas, quitar y métodos": propuesto and tabla,
     "parámetros escritos a mano e importar puntos": conocidos,
-    "crear el GML ajustado y los parámetros; Validar lo abre": crear,
-    "capturar en el mapa (otro SRC), Esc, clic derecho y líneas en el mapa": captura,
+    "crear el GML ajustado y los parámetros; Validar y Ver parámetros": crear,
+    "capturar en el mapa (otro SRC) con el paso a la vista, Esc, clic derecho y líneas": captura,
     "otra herramienta o cerrar el panel sueltan la captura": cambio and cerrar,
     "arrastrar un GML a una casilla del ajuste": arrastre,
     "al cerrar el plugin no queda nada en el mapa": limpieza,
