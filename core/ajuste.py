@@ -198,6 +198,35 @@ def evaluar(t, pares, metodo=CONOCIDOS):
     return Ajuste(t, metodo, residuos, emc, max(redundancia, 0))
 
 
+ESCALA_ANOMALA = 500e-6  #Más de 0,5 m por km de diferencia de escala: no es un desplazamiento de la cartografía
+GIRO_ANOMALO = 0.5       #Grados
+REPARTO_MINIMO = 0.25    #Los puntos deben abarcar al menos esta fracción del tamaño del GML (y 5 m)
+
+
+def avisos(ajuste, pares, tamano=0.0):
+    """
+    Lo que hace dudar del ajuste (prueba a mano del 19/10/2026: dos puntos a 33 cm daban un giro de 0,18° y una escala
+    de +2841 ppm, y CX de 11 829 m): puntos muy juntos para calcular giro y escala, y giro o escala impropios de un
+    desplazamiento de la cartografía. tamano: diagonal (m) del rectángulo que ocupa el GML.
+    """
+    textos = []
+    t = ajuste.transformacion
+    if ajuste.metodo in (SEMEJANZA, AFIN) and len(pares) >= 2:
+        reparto = max(math.hypot(a.x - b.x, a.y - b.y) for i, a in enumerate(pares) for b in pares[i + 1:])
+        necesario = max(5.0, REPARTO_MINIMO * tamano)
+        if reparto < necesario:
+            textos.append(f"Los puntos están muy juntos ({reparto:.2f} m entre los más alejados): el giro y la escala no "
+                          f"son fiables. Tome puntos en extremos opuestos del levantamiento (al menos {necesario:.0f} m)")
+    if not t.es_traslacion():
+        giro, escala, _, _ = t.descripcion()
+        if abs(escala - 1) > ESCALA_ANOMALA:
+            textos.append(f"Escala anómala ({(escala - 1) * 1e6:+.0f} ppm, {abs(escala - 1) * 1000:.1f} m por km): "
+                          "revise los puntos")
+        if abs(giro) > GIRO_ANOMALO:
+            textos.append(f"Giro anómalo ({giro:.2f}°): revise los puntos")
+    return textos
+
+
 # ------------------------------------------------------------------ Puntos desde un fichero
 
 NUMERO = r'[-+]?\d+(?:[.,]\d+)?'
@@ -301,7 +330,7 @@ def escribir_ajustado(ruta, destino, t):
                                                    f"{lectura.version or 'de formato desconocido'}); conviértalo antes")]
 
 
-def texto_parametros(ajuste, pares, ruta, destino, epsg, ahora=None):
+def texto_parametros(ajuste, pares, ruta, destino, epsg, ahora=None, tamano=0.0):
     """Fichero de texto con los parámetros (para la Sede, el notario o el registro) y la comprobación con los puntos."""
     ahora = ahora or datetime.datetime.now()
     t = ajuste.transformacion
@@ -334,6 +363,9 @@ def texto_parametros(ajuste, pares, ruta, destino, epsg, ahora=None):
         else:
             lineas.append("Sin puntos de más: los residuos son nulos por construcción y no comprueban el ajuste "
                           "(conviene añadir algún punto de control).")
+    dudas = avisos(ajuste, pares, tamano)
+    if dudas:
+        lineas += ["", "AVISOS:"] + [f"- {d}" for d in dudas]
     lineas += ["", "Resolución conjunta DGSJFP-DGC de 29/03/2021 (BOE-A-2021-5949), apartado octavo: se aportan los dos "
                "GML (levantamiento y ajustado a la cartografía catastral) y estos parámetros. ICUC con la cartografía "
                "desplazada (ayuda de la Sede): se marca que existe desplazamiento, se escriben los parámetros, se sube el "
@@ -341,10 +373,10 @@ def texto_parametros(ajuste, pares, ruta, destino, epsg, ahora=None):
     return '\n'.join(lineas) + '\n'
 
 
-def escribir_parametros(ajuste, pares, ruta, destino, epsg, ahora=None):
+def escribir_parametros(ajuste, pares, ruta, destino, epsg, ahora=None, tamano=0.0):
     """Escribe el fichero de parámetros junto al GML ajustado; devuelve su ruta (OSError si no se puede)."""
     salida = ruta_parametros(destino)
-    problema = escribir_texto(salida, texto_parametros(ajuste, pares, ruta, destino, epsg, ahora), 'utf-8')
+    problema = escribir_texto(salida, texto_parametros(ajuste, pares, ruta, destino, epsg, ahora, tamano), 'utf-8')
     if problema is not None:
         raise OSError(problema.mensaje)
     return salida

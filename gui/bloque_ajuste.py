@@ -8,6 +8,8 @@ copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
 import os
+import re
+from html import escape
 
 from qgis.core import (
     Qgis,
@@ -53,6 +55,12 @@ NOMBRES_PARAMETROS = ('AX', 'BX', 'CX', 'AY', 'BY', 'CY')
 EMC_ALTO = 0.5  #m: con más error medio, se avisa de que algún punto puede estar mal
 TOLERANCIA_PX = 12  #Atracción a los vértices, en píxeles
 COLOR = QColor(201, 42, 42)
+DECIMAL = re.compile(r'(\d)\.(\d)')
+
+
+def coma(texto):
+    """Los números de un texto con coma decimal (como se leen en el panel)."""
+    return DECIMAL.sub(r'\1,\2', texto)
 
 
 class HerramientaPares(QgsMapToolEmitPoint):
@@ -112,6 +120,8 @@ class BloqueAjuste(QWidget):
         self.marca = None        #Punto pendiente en el mapa
         self.epsg = None
         self.version = ''
+        self.tamano = 0.0        #Diagonal del rectángulo que ocupa el GML (m): para avisar de puntos muy juntos
+        self.parametros_ruta = ''
         self.destino_auto = ''
         self.ajuste = None
         self.ultimo = ''
@@ -167,6 +177,11 @@ class BloqueAjuste(QWidget):
             fila.addWidget(boton)
         fila.addStretch(1)
         caja.addLayout(fila)
+        #El paso de la captura, fijo en la utilidad mientras dura (en la barra se cortaba y se iba antes de leerlo)
+        self.pasoCaptura = QLabel(self)
+        self.pasoCaptura.setWordWrap(True)
+        self.pasoCaptura.setVisible(False)
+        caja.addWidget(self.pasoCaptura)
 
         rejilla = QGridLayout()
         self.parametros = []
@@ -206,6 +221,10 @@ class BloqueAjuste(QWidget):
                   and not any(i.nivel == ERROR and i.codigo in ('XML-MAL-FORMADO', 'COORDENADAS') for i in lectura.incidencias))
         self.epsg = lectura.epsg if valido else None
         self.version = lectura.version if valido else ''
+        self.tamano = 0.0
+        if valido:
+            caja = QgsGeometry.collectGeometry([e.geometria for e in lectura.elementos]).boundingBox()
+            self.tamano = (caja.width() ** 2 + caja.height() ** 2) ** 0.5
         if valido:
             destino = self.destinoAj.filePath().strip()
             if not destino or destino == self.destino_auto:
@@ -318,6 +337,8 @@ class BloqueAjuste(QWidget):
                 texto += f" · el Catastro está {abs(dx):.2f} m al {'E' if dx >= 0 else 'O'} y {abs(dy):.2f} m al " \
                          f"{'N' if dy >= 0 else 'S'}"
             partes.append(texto.replace('.', ','))
+            partes += [f"<span style='color:#e67700'>⚠ {escape(coma(d))}</span>"
+                       for d in aj.avisos(self.ajuste, pares, self.tamano)]
         return f"<small>{'<br>'.join(partes)}</small>" if partes else ''
 
     def anadir_par(self, par):
@@ -383,23 +404,29 @@ class BloqueAjuste(QWidget):
             dock.warn("No se ha creado el GML ajustado: " + (errores[0].mensaje if errores else "error desconocido"))
             return None
         try:
-            parametros = aj.escribir_parametros(self.ajuste, self.pares()[0], ruta, destino, self.epsg)
+            parametros = aj.escribir_parametros(self.ajuste, self.pares()[0], ruta, destino, self.epsg, tamano=self.tamano)
         except OSError as e:
             dock.warn(f"El GML ajustado se ha creado, pero no los parámetros: {e}")
             return None
         self.ultimo = destino
+        self.parametros_ruta = parametros
         notas = ["ICUC: marque que existe desplazamiento, escriba los parámetros, suba el GML ajustado y adjunte el del "
                  "levantamiento en «+ Documentación»"] \
             if self.version.startswith('BU') else ["Para la Sede o el notario: los dos GML y los parámetros "
                                                    "(Resolución de 29/03/2021, apartado octavo)"]
         dock.success(f"GML ajustado: {os.path.basename(destino)} · parámetros: {os.path.basename(parametros)}",
-                     [("Validar", self.validar), ("Abrir carpeta", self.abrir_carpeta)], notas=notas)
+                     [("Validar", self.validar), ("Ver parámetros", self.abrir_parametros), ("Abrir carpeta", self.abrir_carpeta)],
+                     notas=notas)
         return destino
 
     def validar(self, *args):
         """Abre el GML ajustado en Validar, donde se compara con el Catastro."""
         if self.ultimo:
             self.pestana.dock.abrir_en_validar(self.ultimo)
+
+    def abrir_parametros(self, *args):
+        if self.parametros_ruta:
+            self.pestana.dock.open_path(self.parametros_ruta)
 
     def abrir_carpeta(self, *args):
         if self.ultimo:
@@ -419,6 +446,7 @@ class BloqueAjuste(QWidget):
             self.pendiente = None
             self.soltar_herramienta()
             self.mostrar_en_mapa()
+            self.mostrar_paso()
             return
         if self.epsg is None:
             self.capturarBoton.blockSignals(True)
@@ -434,9 +462,22 @@ class BloqueAjuste(QWidget):
         if lienzo.mapTool() is not self.herramienta:
             self.anterior = lienzo.mapTool()
         lienzo.setMapTool(self.herramienta)
-        self.pestana.dock.notify("Clic en un punto del levantamiento y después en el mismo punto de la cartografía "
-                                 "catastral (se ajusta a los vértices). Esc o clic derecho: anular el par",
-                                 Qgis.MessageLevel.Info, 10)
+        self.mostrar_paso()
+
+    def mostrar_paso(self):
+        """Qué clic toca ahora, a la vista mientras se captura."""
+        if sip.isdeleted(self):
+            return
+        activa = self.capturarBoton.isChecked()
+        self.pasoCaptura.setVisible(activa)
+        if not activa:
+            return
+        if self.pendiente is None:
+            texto = ("<b>1/2</b> · Clic en un punto del <b>levantamiento</b> (una esquina; el clic se ajusta a los "
+                     "vértices). Tome los puntos en extremos opuestos")
+        else:
+            texto = "<b>2/2</b> · Clic en el <b>mismo punto en la cartografía catastral</b>"
+        self.pasoCaptura.setText(f"<span style='color:#1971c2'>{texto}. Esc o clic derecho: anular el par.</span>")
 
     def a_gml(self, punto):
         """Del SRC del mapa al del GML."""
@@ -453,16 +494,17 @@ class BloqueAjuste(QWidget):
         punto = self.a_gml(punto)
         if self.pendiente is None:
             self.pendiente = punto
-            self.pestana.dock.notify("Ahora el mismo punto en la cartografía catastral", Qgis.MessageLevel.Info, 6)
         else:
             self.anadir_par(aj.Par(self.pendiente.x(), self.pendiente.y(), punto.x(), punto.y()))
             self.pendiente = None
             self.recalcular()
         self.mostrar_en_mapa()
+        self.mostrar_paso()
 
     def anular_pendiente(self):
         self.pendiente = None
         self.mostrar_en_mapa()
+        self.mostrar_paso()
 
     def herramienta_desactivada(self):
         """Otra herramienta ha sustituido a la nuestra: se desmarca el botón y se olvida el punto a medias."""
@@ -473,6 +515,7 @@ class BloqueAjuste(QWidget):
         self.capturarBoton.setChecked(False)
         self.capturarBoton.blockSignals(False)
         self.mostrar_en_mapa()
+        self.mostrar_paso()
 
     def soltar_herramienta(self):
         lienzo = self.lienzo()
