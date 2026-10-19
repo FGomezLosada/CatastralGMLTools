@@ -134,6 +134,7 @@ Decisiones técnicas:
 | 32 | Lector del XML del informe de validación gráfica (IVG): cargar en QGIS las parcelas propuestas y las afectadas total y parcialmente (`parcelasGML`, `parcelasAfecT`, `parcelasAfectP`, ZIP en base64) | Revisar un IVG negativo sobre el mapa | |
 | 33 | Exportar los vértices como puntos de apoyo para el editor parcelario de la Sede (.txt «x y» por línea) | Usar el editor en línea con datos de campo | |
 | 31 | Detección de territorios con catastro propio (Navarra, Álava/Araba, Gipuzkoa, Bizkaia) con aviso antes de generar GML para la Sede de la DGC | Evitar ficheros que no sirven | ✅ |
+| 34 | Comparar dos GML (vengan de donde vengan): fichero, emparejado por id o geometría, superficies, desplazamiento de vértices, vértices añadidos o quitados, desplazamiento uniforme, redondeo de coordenadas (p. ej. geográficas con 6 decimales), iguales a efectos de la Sede (±1 cm); informe HTML y ver en el mapa | Consulta del grupo de QGIS en español (19/10/2026): GML inscrito que difiere centímetros del presentado | ✅ (`core/comparar_gml.py`, Utilidades «5.») |
 
 ---
 

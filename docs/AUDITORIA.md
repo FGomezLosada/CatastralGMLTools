@@ -129,6 +129,7 @@ CHANGELOG, DESARROLLO y la ayuda.
 | AU-58 | Simulación del informe de identidad gráfica (±0,5 m urbana, ±2 m rústica, 5 % superficie) | Opcional, como ayuda previa al notario o al registro |
 | AU-59 | WFS forales (Álava, Gipuzkoa, Bizkaia) solo para descargar y ver | Opcional; comprobar sus licencias antes |
 | AU-60 | Publicación: escaneo de seguridad del repositorio de QGIS (desde 23/04/2026) | Sin `.bat` en el ZIP; revisar Bandit/detect-secrets |
+| AU-61 | Comparar dos GML (nuevo, mejora 34) | Diferencias que interesan al técnico entre dos versiones de una representación, sin suponer su origen — ✅ 19/10/2026 (`core/comparar_gml.py`, Utilidades «5.») |
 
 Decisiones tomadas (no requieren consulta): viario y cesión → aviso «positivo condicionado» (AU-21); agregación →
 aviso con el quíntuplo y mención del 80 % (AU-25); ED50 → aviso, no bloqueo (AU-32); BICE → aviso (AU-33).

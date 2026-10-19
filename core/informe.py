@@ -121,18 +121,22 @@ def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=
         textos.append(etiqueta(v.geometria, v.local_id, 'etiqueta', ' style="fill:#868e96;font-size:10px"'))
     numeros, ocupados = [], []  #Números ya puestos, para no montar uno sobre otro
     for i, e in enumerate(validas):
-        color = PALETA_CROQUIS[i % len(PALETA_CROQUIS)]
+        color = getattr(e, 'color', None) or PALETA_CROQUIS[i % len(PALETA_CROQUIS)]
+        trazo = ' stroke-dasharray="7 4"' if getattr(e, 'discontinua', False) else ''
         tenue = foco is not None and e is not foco
         d, poligonos = trazado(e.geometria)
         relleno = 0 if con_fondo else 0.06 if tenue else 0.15
         if con_fondo:  #Sobre la ortofoto: un halo blanco bajo el borde para que se vea en cualquier fondo
             partes.append(f'<path d="{d}" fill="none" stroke="#ffffff" stroke-width="{2 if tenue else 4.5}" '
                           'stroke-opacity="0.85" fill-rule="evenodd"/>')
+        if trazo:  #Superpuesto a otro (comparación): sin relleno, para que se vean los dos contornos
+            relleno = 0
         partes.append(f'<path d="{d}" fill="{color}" fill-opacity="{relleno}" stroke="{color}" '
-                      f'stroke-width="{1.2 if tenue else 2.5 if con_fondo else 2}" fill-rule="evenodd"/>')
+                      f'stroke-width="{1.2 if tenue else 2.5 if con_fondo else 2}" fill-rule="evenodd"{trazo}/>')
         if vertices and (foco is None or e is foco) and poligonos and poligonos[0]:
             numeros += _numeros_vertices(e.geometria, poligonos[0][0], color, escala, pantalla, ocupados)
-        textos.append(etiqueta(e.geometria, e.local_id))
+        if e.local_id:
+            textos.append(etiqueta(e.geometria, e.local_id))
     partes += textos + numeros
     #Norte (arriba: las coordenadas UTM tienen el norte de la cuadrícula hacia arriba) y barra de escala
     partes.append(f'<path d="M {ancho - 16},6 L {ancho - 21},20 L {ancho - 16},17 L {ancho - 11},20 Z" '
