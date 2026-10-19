@@ -26,11 +26,13 @@ from qgis.core import (
     QgsCoordinateReferenceSystem,
     QgsCoordinateTransform,
     QgsCoordinateTransformContext,
+    QgsCsException,
     QgsGeometry,
     QgsPointXY,
 )
 
 from . import gml_lector as gl
+from .geometria import epsg_recomendado
 from .ficheros import escribir_texto
 from .info import AVISO_LEGAL, NOMBRE, version
 
@@ -38,6 +40,7 @@ TOLERANCIA = 0.01       #m: la de la Sede por vértice
 VERTICE_PROPIO = 0.10   #m: un vértice sin otro a menos de esto en el otro GML es añadido o quitado
 PAREJA = 0.5            #Fracción de la superficie del menor que deben compartir dos recintos con distinto id
 MAX_VERTICES_TABLA = 200
+MAX_SOLAPES = 5
 GRADOS_A_METROS = 111_320.0  #Un grado de latitud, en metros (aproximado: para estimar el redondeo)
 
 
@@ -57,6 +60,7 @@ class Pareja:
     quitados: int = 0          #Vértices de A sin otro de B cerca
     traslacion: tuple = None   #(dx, dy) si los vértices se mueven todos igual
     giro: tuple = None         #(grados, escala, dx, dy) si el segundo es el primero girado o escalado
+    solapes: list = field(default_factory=list)     #[(qué, '', con quién)] otros recintos del otro GML con suelo común
 
     @property
     def nombre(self):
@@ -98,6 +102,8 @@ class Comparacion:
     generales: list            #[(qué, primero, segundo)] del fichero
     notas: list                #Textos que explican la diferencia (redondeo, cambio de SRC…)
     errores: list              #No se ha podido comparar
+    vista_a: object = None     #Lecturas ya en el sistema de trabajo (para verlas en el mapa en su sitio, también si
+    vista_b: object = None     #alguno venía en geográficas con el orden latitud-longitud)
 
     def iguales(self):
         return not self.errores and all(p.veredicto() == "Igual (±1 cm)" for p in self.parejas)
@@ -108,8 +114,12 @@ def rumbo(dx, dy):
     return nombres[int(((math.degrees(math.atan2(dy, dx)) + 22.5) % 360) // 45)]
 
 
+def _crs(epsg):
+    return QgsCoordinateReferenceSystem(f'EPSG:{epsg}')
+
+
 def _geografico(epsg):
-    crs = QgsCoordinateReferenceSystem(f'EPSG:{epsg}')
+    crs = _crs(epsg)
     return crs.isValid() and crs.isGeographic()
 
 
@@ -119,33 +129,66 @@ def _girar_ejes(geometria):
     return nueva
 
 
-def al_src_de(lectura, epsg_destino):
-    """
-    Copia de los elementos de lectura en el SRC epsg_destino (y la nota de lo hecho). En geográficas, el GML 3.2 escribe
-    latitud-longitud (EPSG); si el primer número parece la latitud de España (27°-44°) se cambian de orden.
-    """
-    notas = []
-    elementos = []
-    origen = lectura.epsg
+def _familia(elemento):
+    """Parcelas con parcelas y construcciones con construcciones (un edificio no es la versión de una parcela)."""
+    return 'parcela' if elemento.tipo == gl.PARCELA else 'construccion'
+
+
+def _copias(lectura):
+    salida = []
     for e in lectura.elementos:
         copia = gl.ElementoGML(**{**e.__dict__})
         copia.geometria = QgsGeometry(e.geometria)
-        elementos.append(copia)
-    if origen is None or origen == epsg_destino:
+        salida.append(copia)
+    return salida
+
+
+def _orden_lat_lon(elementos):
+    """En geográficas: ¿el primer número es la latitud de España (26°-44,5°) y el segundo la longitud (−19°-5°)?"""
+    centro = QgsGeometry.collectGeometry([e.geometria for e in elementos]).boundingBox().center()
+    return 26.0 <= centro.x() <= 44.5 and -19.0 <= centro.y() <= 5.0
+
+
+def src_de_trabajo(epsg_a, epsg_b, elementos_a, elementos_b):
+    """
+    Sistema en metros en el que se comparan: el del primero si es proyectado; si no, el del segundo; si los dos son
+    geográficos (o no se sabe), el huso UTM de la zona (EPSG:25829/30/31 o 32628).
+    """
+    for epsg in (epsg_a, epsg_b):
+        if epsg is not None and _crs(epsg).isValid() and not _geografico(epsg):
+            return epsg
+    for epsg, elementos in ((epsg_a, elementos_a), (epsg_b, elementos_b)):
+        if epsg is not None and elementos:
+            todos = QgsGeometry.collectGeometry([e.geometria for e in elementos])
+            if _orden_lat_lon(elementos):
+                todos = _girar_ejes(todos)
+            recomendado = epsg_recomendado(todos, _crs(epsg))
+            if recomendado:
+                return recomendado
+    return None
+
+
+def al_src_de(elementos, epsg_origen, epsg_destino, cual='el segundo'):
+    """
+    Los elementos (copias) pasados de epsg_origen a epsg_destino, y las notas de lo hecho. En geográficas, el GML 3.2
+    escribe latitud-longitud (orden EPSG); si el primer número parece la latitud de España, se cambian de orden.
+    """
+    notas = []
+    if epsg_origen is None or epsg_destino is None or epsg_origen == epsg_destino or not elementos:
         return elementos, notas
-    if _geografico(origen):
-        centro = QgsGeometry.collectGeometry([e.geometria for e in elementos]).centroid().asPoint()
-        if 26.0 <= centro.x() <= 44.5 and -19.0 <= centro.y() <= 5.0:
-            elementos = [_con_geometria(e, _girar_ejes(e.geometria)) for e in elementos]
-            notas.append("El segundo está en coordenadas geográficas en el orden latitud, longitud; se han leído así")
-    transformacion = QgsCoordinateTransform(QgsCoordinateReferenceSystem(f'EPSG:{origen}'),
-                                            QgsCoordinateReferenceSystem(f'EPSG:{epsg_destino}'),
-                                            QgsCoordinateTransformContext())
+    if _geografico(epsg_origen) and _orden_lat_lon(elementos):
+        elementos = [_con_geometria(e, _girar_ejes(e.geometria)) for e in elementos]
+        notas.append(f"{cual[0].upper()}{cual[1:]} está en coordenadas geográficas en el orden latitud, longitud; se han "
+                     "leído así")
+    transformacion = QgsCoordinateTransform(_crs(epsg_origen), _crs(epsg_destino), QgsCoordinateTransformContext())
     for e in elementos:
-        e.geometria.transform(transformacion)
-    notas.append(f"Están en sistemas de referencia distintos (EPSG:{origen} y EPSG:{epsg_destino}): el segundo se ha "
-                 f"pasado al del primero para compararlos")
-    return elementos, notas
+        try:
+            e.geometria.transform(transformacion)
+        except QgsCsException:
+            e.geometria = QgsGeometry()
+    notas.append(f"{cual[0].upper()}{cual[1:]} está en EPSG:{epsg_origen}: se ha pasado a EPSG:{epsg_destino} para "
+                 "compararlos")
+    return [e for e in elementos if not e.geometria.isEmpty()], notas
 
 
 def _con_geometria(e, geometria):
@@ -162,51 +205,72 @@ def _sin_cierre(puntos):
 
 
 def _puntos(elemento):
-    poligonos = elemento.geometria.asMultiPolygon() if elemento.geometria.isMultipart() else [elemento.geometria.asPolygon()]
+    geometria = elemento.geometria
+    poligonos = geometria.asMultiPolygon() if geometria.isMultipart() else [geometria.asPolygon()]
     return _sin_cierre([anillo for poligono in poligonos for anillo in poligono])
 
 
-def _cercano(p, puntos):
-    mejor, d = None, float('inf')
-    for q in puntos:
-        distancia = math.hypot(q.x() - p.x(), q.y() - p.y())
-        if distancia < d:
-            mejor, d = q, distancia
-    return mejor, d
+def _cercano(p, geometria):
+    """Vértice de geometria más cercano a p (y la distancia); con el índice de QGIS, rápido aunque tenga miles."""
+    vertice, _, _, _, distancia2 = geometria.closestVertex(p)
+    return QgsPointXY(vertice), math.sqrt(max(distancia2, 0.0))
+
+
+def _valida(geometria):
+    if geometria.isGeosValid():
+        return geometria
+    arreglada = geometria.makeValid()
+    return arreglada if not arreglada.isEmpty() else geometria
+
+
+def _area_fuera(a, b):
+    try:
+        return _valida(a).difference(_valida(b)).area()
+    except Exception:  #GEOS con geometrías imposibles: mejor sin el dato que sin comparación
+        return float('nan')
 
 
 def _medir(pareja):
     a, b = pareja.a.geometria, pareja.b.geometria
     pareja.area_a, pareja.area_b = a.area(), b.area()
     pareja.hausdorff = a.hausdorffDistance(b)
-    pareja.gana = b.difference(a).area()
-    pareja.pierde = a.difference(b).area()
+    pareja.gana = _area_fuera(b, a)
+    pareja.pierde = _area_fuera(a, b)
     pa, pb = _puntos(pareja.a), _puntos(pareja.b)
+    if not pa or not pb:
+        return
     #Cada vértice se busca en el otro GML después de quitar el desplazamiento de conjunto (prueba a mano del
     #19/10/2026: con un GML ajustado 44 cm, todos los vértices salían «añadidos y quitados» y no se veía que era un
     #desplazamiento). Primero con el de los centros; después, con la media de los vértices emparejados.
-    centro_a, centro_b = a.centroid().asPoint(), b.centroid().asPoint()
+    centro_a, centro_b = a.boundingBox().center(), b.boundingBox().center()
     tx, ty = centro_b.x() - centro_a.x(), centro_b.y() - centro_a.y()
-    for _ in range(2):
+    parejas_v = []
+    for _ in range(3):
         parejas_v = []
         for p in pa:
-            q, residuo = _cercano(QgsPointXY(p.x() + tx, p.y() + ty), pb)
+            q, residuo = _cercano(QgsPointXY(p.x() + tx, p.y() + ty), b)
             parejas_v.append((p, q, residuo))
         emparejados = [(p, q) for p, q, r in parejas_v if r <= VERTICE_PROPIO]
         if not emparejados:
             break
         tx = sum(q.x() - p.x() for p, q in emparejados) / len(emparejados)
         ty = sum(q.y() - p.y() for p, q in emparejados) / len(emparejados)
+    #Si el desplazamiento de conjunto no empareja más que el emparejado directo (formas distintas), se usa el directo
+    directos = [(p, *_cercano(p, b)) for p in pa]
+    if sum(r <= VERTICE_PROPIO for _, _, r in directos) > sum(r <= VERTICE_PROPIO for _, _, r in parejas_v):
+        parejas_v, tx, ty = directos, 0.0, 0.0
     pareja.vertices = [(n, p.x(), p.y(), math.hypot(q.x() - p.x(), q.y() - p.y()), q.x() - p.x(), q.y() - p.y())
                        for n, (p, q, _) in enumerate(parejas_v, start=1)]
     pareja.quitados = sum(1 for _, _, r in parejas_v if r > VERTICE_PROPIO)
-    pareja.anadidos = sum(1 for q in pb if _cercano(QgsPointXY(q.x() - tx, q.y() - ty), pa)[1] > VERTICE_PROPIO)
-    #Desplazamiento uniforme: todos los vértices se mueven igual (más de 1 cm y con poca dispersión)
-    if len(pa) >= 3 and not pareja.anadidos and not pareja.quitados:
+    a_desplazada = QgsGeometry(a)
+    a_desplazada.translate(tx, ty)
+    pareja.anadidos = sum(1 for q in pb if _cercano(q, a_desplazada)[1] > VERTICE_PROPIO)
+    #Desplazamiento uniforme: todos los vértices se mueven igual (dentro de ±1 cm)
+    if len(pa) >= 3 and not pareja.anadidos and not pareja.quitados and pareja.hausdorff > TOLERANCIA:
         dispersion = max(math.hypot(v[4] - tx, v[5] - ty) for v in pareja.vertices)
-        if math.hypot(tx, ty) > TOLERANCIA and dispersion <= TOLERANCIA:  #Lo que no se mueve igual, dentro de ±1 cm
+        if math.hypot(tx, ty) > TOLERANCIA and dispersion <= TOLERANCIA:
             pareja.traslacion = (tx, ty)
-        elif pareja.hausdorff > TOLERANCIA:
+        else:
             #¿Un giro o un cambio de escala de todo el recinto (un GML ajustado con semejanza, por ejemplo)?
             from .ajuste import SEMEJANZA, Par, calcular
             try:
@@ -215,7 +279,8 @@ def _medir(pareja):
                 semejanza = None
             if semejanza is not None and max(semejanza.residuos) <= TOLERANCIA:
                 giro, escala, _, _ = semejanza.transformacion.descripcion()
-                pareja.giro = (giro, escala, tx, ty)
+                if abs(giro) > 1e-4 or abs(escala - 1) > 1e-6:
+                    pareja.giro = (giro, escala, tx, ty)
 
 
 def _datos(a, b):
@@ -231,12 +296,24 @@ def _datos(a, b):
     return cambios
 
 
+def _comun(a, b):
+    if not a.geometria.boundingBox().intersects(b.geometria.boundingBox()):
+        return 0.0
+    try:
+        return _valida(a.geometria).intersection(_valida(b.geometria)).area()
+    except Exception:
+        return 0.0
+
+
 def emparejar(elementos_a, elementos_b):
-    """Por identificador y, los que queden, por la superficie que comparten (más de la mitad del menor)."""
+    """
+    Por identificador (del mismo tipo: parcela o construcción) y, los que queden, por la superficie que comparten (más
+    de la mitad del menor).
+    """
     parejas, libres_b = [], list(elementos_b)
     sin_pareja = []
     for a in elementos_a:
-        b = next((x for x in libres_b if x.local_id == a.local_id), None)
+        b = next((x for x in libres_b if x.local_id == a.local_id and _familia(x) == _familia(a)), None)
         if b is not None:
             libres_b.remove(b)
             parejas.append(Pareja(a, b, 'id'))
@@ -245,7 +322,9 @@ def emparejar(elementos_a, elementos_b):
     for a in sin_pareja:
         mejor, comun = None, 0.0
         for b in libres_b:
-            area = a.geometria.intersection(b.geometria).area()
+            if _familia(b) != _familia(a):
+                continue
+            area = _comun(a, b)
             if area > comun:
                 mejor, comun = b, area
         if mejor is not None and comun >= PAREJA * min(a.geometria.area(), mejor.geometria.area()):
@@ -257,44 +336,144 @@ def emparejar(elementos_a, elementos_b):
     return parejas
 
 
+def _solapes(pareja, elementos_a, elementos_b):
+    """Con qué otros recintos del otro GML comparte suelo (una división, una segregación, una agrupación)."""
+    textos = []
+    for propio, otros, pareja_propia, cual in ((pareja.a, elementos_b, pareja.b, 'segundo'),
+                                                (pareja.b, elementos_a, pareja.a, 'primero')):
+        if propio is None:
+            continue
+        minimo = max(1.0, 0.01 * propio.geometria.area())
+        nombres = [o.local_id for o in otros if o is not pareja_propia and _familia(o) == _familia(propio)
+                   and _comun(propio, o) >= minimo]
+        if nombres:
+            texto = ', '.join(nombres[:MAX_SOLAPES]) + (f'… ({len(nombres)})' if len(nombres) > MAX_SOLAPES else '')
+            textos.append((f'Comparte suelo con (del {cual})', '', texto))
+    return textos
+
+
 def _redondeo(decimales, epsg):
     """Error máximo (m) por redondear las coordenadas a esos decimales."""
     paso = 10 ** -decimales / 2
-    return paso * GRADOS_A_METROS if _geografico(epsg) else paso
+    return paso * GRADOS_A_METROS if epsg is not None and _geografico(epsg) else paso
 
 
-def comparar(ruta_a, ruta_b):
-    lectura_a, lectura_b = gl.leer(ruta_a), gl.leer(ruta_b)
+def _leer(ruta):
+    """Lectura del GML; si no es INSPIRE (un «Guardar como» de QGIS), como GML genérico. (lectura, nota o '')."""
+    lectura = gl.leer(ruta)
+    if lectura.elementos:
+        return lectura, ''
+    from .conversor import leer_generico
+    datos = lectura.datos
+    if not datos and os.path.isfile(ruta):  #Si no es XML válido, la lectura no guarda el contenido
+        try:
+            with open(ruta, 'rb') as f:
+                datos = f.read()
+        except OSError:
+            datos = b''
+    try:
+        generica, _ = leer_generico(datos or b'')
+    except Exception:
+        generica = None
+    if generica is not None and generica.elementos:
+        return generica, f"{os.path.basename(ruta)} no es un GML de la Sede (INSPIRE): se ha leído como GML genérico"
+    return lectura, ''
+
+
+def _repetidos(elementos):
+    vistos, repetidos = set(), []
+    for e in elementos:
+        clave = (_familia(e), e.local_id)
+        if clave in vistos and e.local_id not in repetidos:
+            repetidos.append(e.local_id)
+        vistos.add(clave)
+    return repetidos
+
+
+def comparar(ruta_a, ruta_b, feedback=None):
+    """
+    Compara dos GML cualesquiera. feedback (QgsFeedback, opcional): avance y cancelación (en una QgsTask). Devuelve
+    una Comparacion (con errores si no se ha podido comparar; vacía de parejas si se ha cancelado).
+    """
+    (lectura_a, nota_a), (lectura_b, nota_b) = _leer(ruta_a), _leer(ruta_b)
+    notas = [n for n in (nota_a, nota_b) if n]
     errores = []
     for ruta, lectura in ((ruta_a, lectura_a), (ruta_b, lectura_b)):
         if not lectura.elementos:
             motivo = next((i.mensaje for i in lectura.incidencias), "no tiene parcelas ni construcciones")
             errores.append(f"{os.path.basename(ruta)}: {motivo}")
-        elif lectura.epsg is None:
-            errores.append(f"{os.path.basename(ruta)}: no se sabe en qué sistema de referencia está (srsName)")
     if errores:
-        return Comparacion(ruta_a, ruta_b, lectura_a, lectura_b, [], [], [], errores)
-    elementos_b, notas = al_src_de(lectura_b, lectura_a.epsg)
+        return Comparacion(ruta_a, ruta_b, lectura_a, lectura_b, [], [], notas, errores)
+    #Recintos cuya geometría no se ha podido leer: se dicen y no se comparan
+    elementos = {}
+    for cual, lectura in (('primero', lectura_a), ('segundo', lectura_b)):
+        buenos = [e for e in _copias(lectura) if e.geometria is not None and not e.geometria.isNull()
+                  and not e.geometria.isEmpty()]
+        malos = [e.local_id or '(sin identificador)' for e in lectura.elementos
+                 if e.geometria is None or e.geometria.isNull() or e.geometria.isEmpty()]
+        if malos:
+            notas.append(f"En el {cual}, sin geometría legible (no se comparan): {', '.join(malos[:MAX_SOLAPES])}")
+        repetidos = _repetidos(buenos)
+        if repetidos:
+            notas.append(f"El {cual} repite identificadores: {', '.join(repetidos[:MAX_SOLAPES])}")
+        elementos[cual] = buenos
+    epsg_a, epsg_b = lectura_a.epsg, lectura_b.epsg
+    if epsg_a is None and epsg_b is None:
+        notas.append("Ninguno declara el sistema de referencia (srsName): se comparan las coordenadas tal cual")
+    elif epsg_a is None or epsg_b is None:
+        conocido = epsg_a or epsg_b
+        notas.append(f"El {'primero' if epsg_a is None else 'segundo'} no declara el sistema de referencia (srsName): se "
+                     f"supone EPSG:{conocido}, como el otro")
+        epsg_a = epsg_b = conocido
+    trabajo = src_de_trabajo(epsg_a, epsg_b, elementos['primero'], elementos['segundo']) or epsg_a
+    elementos_a, notas_a = al_src_de(elementos['primero'], epsg_a, trabajo, 'el primero')
+    elementos_b, notas_b = al_src_de(elementos['segundo'], epsg_b, trabajo, 'el segundo')
+    notas += notas_a + notas_b
     dec_a = max((e.decimales for e in lectura_a.elementos), default=0)
     dec_b = max((e.decimales for e in lectura_b.elementos), default=0)
     generales = [("Esquema", lectura_a.version or 'desconocido', lectura_b.version or 'desconocido'),
-                 ("Sistema de referencia", f"EPSG:{lectura_a.epsg}", f"EPSG:{lectura_b.epsg}"),
+                 ("Sistema de referencia", f"EPSG:{lectura_a.epsg}" if lectura_a.epsg else 'sin declarar',
+                  f"EPSG:{lectura_b.epsg}" if lectura_b.epsg else 'sin declarar'),
                  ("Decimales de las coordenadas", str(dec_a), str(dec_b)),
                  ("Recintos", str(len(lectura_a.elementos)), str(len(lectura_b.elementos)))]
-    redondeo_b = _redondeo(dec_b, lectura_b.epsg)
-    if redondeo_b > TOLERANCIA / 2:
-        unidad = 'grados' if _geografico(lectura_b.epsg) else 'm'
-        notas.append(f"El segundo tiene {dec_b} decimales en {unidad}: solo por el redondeo, cada vértice puede moverse "
-                     f"hasta {_num(redondeo_b * 100, 1)} cm")
-    parejas = emparejar(lectura_a.elementos, elementos_b)
-    for p in parejas:
+    familias_a = {_familia(e) for e in elementos_a}
+    familias_b = {_familia(e) for e in elementos_b}
+    if familias_a and familias_b and not familias_a & familias_b:
+        notas.append("Uno es de parcelas y el otro de construcciones: solo se comparan recintos del mismo tipo, así que "
+                     "no hay parejas")
+    redondeo = {}
+    for cual, decimales, epsg in (('primero', dec_a, epsg_a), ('segundo', dec_b, epsg_b)):
+        redondeo[cual] = _redondeo(decimales, epsg)
+        if redondeo[cual] > TOLERANCIA / 2:
+            unidad = 'grados' if epsg is not None and _geografico(epsg) else 'm'
+            notas.append(f"El {cual} tiene {decimales} decimales en {unidad}: solo por el redondeo, cada vértice puede "
+                         f"moverse hasta {_num(redondeo[cual] * 100, 1)} cm")
+    margen_redondeo = redondeo['primero'] + redondeo['segundo']
+    parejas = emparejar(elementos_a, elementos_b)
+    for n, p in enumerate(parejas):
+        if feedback is not None:
+            if feedback.isCanceled():
+                return Comparacion(ruta_a, ruta_b, lectura_a, lectura_b, [], generales, notas, ["Cancelado"])
+            feedback.setProgress(100.0 * n / max(len(parejas), 1))
         if p.a is not None and p.b is not None:
             p.datos = _datos(p.a, p.b)
             _medir(p)
-            if not p.iguales_geometria() and p.traslacion is None and p.hausdorff <= redondeo_b * 1.5 + TOLERANCIA:
-                p.datos.append(("Diferencia", "", f"compatible con el redondeo de las coordenadas del segundo "
-                                                  f"(±{_num(redondeo_b * 100, 1)} cm)"))
-    return Comparacion(ruta_a, ruta_b, lectura_a, lectura_b, parejas, generales, notas, [])
+            if (not p.iguales_geometria() and p.traslacion is None and p.giro is None and margen_redondeo > TOLERANCIA / 2
+                    and p.hausdorff <= margen_redondeo * 1.5 + TOLERANCIA):
+                p.datos.append(("Diferencia", "", f"compatible con el redondeo de las coordenadas "
+                                                  f"(±{_num(margen_redondeo * 100, 1)} cm)"))
+        p.solapes = _solapes(p, elementos_a, elementos_b)
+    #¿Comparten suelo? Si ninguna pareja se toca, seguramente son fincas distintas o un srsName mal puesto
+    if elementos_a and elementos_b:
+        caja_a = QgsGeometry.collectGeometry([e.geometria for e in elementos_a]).boundingBox()
+        caja_b = QgsGeometry.collectGeometry([e.geometria for e in elementos_b]).boundingBox()
+        if not caja_a.intersects(caja_b):
+            distancia = math.hypot(caja_a.center().x() - caja_b.center().x(), caja_a.center().y() - caja_b.center().y())
+            notas.append(f"Los dos GML no se tocan (sus centros están a {_distancia(distancia)}): ¿son fincas distintas, o "
+                         "alguno declara mal su sistema de referencia?")
+    vistas = [gl.ResultadoLectura(version=lectura.version, epsg=trabajo, elementos=elementos)
+              for lectura, elementos in ((lectura_a, elementos_a), (lectura_b, elementos_b))]
+    return Comparacion(ruta_a, ruta_b, lectura_a, lectura_b, parejas, generales, notas, [], *vistas)
 
 
 # ------------------------------------------------------------------ Resumen e informe
@@ -323,6 +502,7 @@ def resumen(c):
                     partes.append("cambia " + ", ".join(cambios))
                 if any(d[0] == 'Diferencia' for d in p.datos):
                     partes.append("compatible con el redondeo")
+            partes += [f"{q[0].lower()}: {q[2]}" for q in p.solapes]
             lineas.append("; ".join(partes))
     return lineas + c.notas
 
@@ -333,6 +513,8 @@ def ruta_informe(ruta_a):
 
 
 def _num(valor, decimales=2):
+    if valor != valor:  #NaN: no se ha podido calcular
+        return '—'
     return f"{valor:,.{decimales}f}".replace(',', ' ').replace('.', ',')
 
 
@@ -371,13 +553,15 @@ def html(c, ahora=None):
     filas = []
     secciones = []
     for p in c.parejas:
-        filas.append(f"<tr><td class='id'>{escape(p.nombre)}</td><td>{escape(p.veredicto())}</td>"
+        solapes = ''.join(f"<br><small>{escape(q[0])}: {escape(q[2])}</small>" for q in p.solapes)
+        filas.append(f"<tr><td class='id'>{escape(p.nombre)}</td><td>{escape(p.veredicto())}{solapes}</td>"
                      f"<td class='num'>{_num(p.area_a) if p.a is not None else ''}</td>"
                      f"<td class='num'>{_num(p.area_b) if p.b is not None else ''}</td>"
                      f"<td class='num'>{_num(p.hausdorff * 100, 1) if p.a is not None and p.b is not None else ''}</td></tr>")
         if p.a is None or p.b is None:
             continue
-        datos = ''.join(f"<tr><td>{escape(n)}</td><td>{escape(a)}</td><td>{escape(b)}</td></tr>" for n, a, b in p.datos)
+        datos = ''.join(f"<tr><td>{escape(n)}</td><td>{escape(a)}</td><td>{escape(b)}</td></tr>"
+                        for n, a, b in p.datos + p.solapes)
         movidos = [v for v in p.vertices if v[3] > TOLERANCIA]
         tabla_v = ''.join(f"<tr><td>{n}</td><td class='num'>{x:.2f}</td><td class='num'>{y:.2f}</td>"
                           f"<td class='num'>{_num(d * 100, 1)}</td><td>{rumbo(dx, dy) if d > 1e-6 else ''}</td></tr>"

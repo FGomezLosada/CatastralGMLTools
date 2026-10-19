@@ -193,7 +193,7 @@ interfaz = interfaz and not bc.compararBoton.isEnabled() and 'mismo fichero' in 
 #Uno solo soltado con el primero ya puesto: va al segundo
 pu.soltar([desplazado])
 interfaz = interfaz and os.path.normpath(bc.gmlB.filePath()) == os.path.normpath(desplazado)
-hecho = bc.comparar()
+hecho = bc.comparar(segundo_plano=False)
 botones = [b.text() for item in dw.messageBar.items() for b in item.findChildren(QPushButton)]
 interfaz = (interfaz and os.path.normpath(hecho or '') == os.path.normpath(cg.ruta_informe(A)) and 'Desplazado 3,0 cm hacia E' in bc.resultado.text() and 'Hay diferencias' in bc.resultado.text()
             and 'Abrir informe' in botones and 'Ver en el mapa' in botones)
@@ -209,14 +209,14 @@ grupos = [g for g in QgsProject.instance().layerTreeRoot().findGroups(True) if g
 mapa = mapa and len(QgsProject.instance().mapLayers()) == 2 and len(grupos) == 1
 #Iguales: mensaje en verde
 bc.gmlB.setFilePath(copia)
-bc.comparar()
+bc.comparar(segundo_plano=False)
 interfaz = interfaz and 'Son iguales a efectos de la Sede' in bc.resultado.text()
 #Un fichero que no es un GML
 malo = os.path.join(carpeta, 'malo.gml')
 with open(malo, 'w', encoding='utf-8') as f:
     f.write('esto no es un GML')
 bc.gmlB.setFilePath(malo)
-interfaz = interfaz and bc.comparar() is None and 'No se han podido comparar' in textos_barra()
+interfaz = interfaz and bc.comparar(segundo_plano=False) is None and 'No se han podido comparar' in textos_barra()
 
 QgsProject.instance().removeAllMapLayers()
 for _n, _f in _originales.items():

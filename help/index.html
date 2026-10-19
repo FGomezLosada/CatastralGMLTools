@@ -300,7 +300,13 @@ dos programas… No importa de dónde salgan. Pulse <strong>Comparar</strong> y 
       decimales: cada vértice puede moverse hasta unos 5 cm);</li>
   <li>si son <strong>iguales a efectos de la Sede</strong>: ningún vértice se separa más de 1 cm.</li>
 </ul>
-<p>Si el segundo está en otro sistema de referencia, se pasa al del primero para compararlos. Se escribe además un
+<p>Se compara siempre en metros: si alguno está en otro sistema de referencia (otro huso, o en geográficas, con
+latitud y longitud en cualquier orden), se pasa al del otro o al huso UTM de la zona, y se dice. Si uno no declara su
+sistema de referencia, se supone el del otro. También lee un GML guardado con «Guardar como» de QGIS. Las parcelas se
+comparan con parcelas y las construcciones con construcciones; si un recinto comparte suelo con otros del otro fichero
+(una división, una segregación, una agrupación), se indica con cuáles. Si los dos ficheros no se tocan, avisa: o son
+fincas distintas o alguno declara mal su sistema de referencia. Con ficheros grandes, la comparación va en segundo
+plano y se puede cancelar. Se escribe además un
 informe (<code>…_comparacion.html</code>, junto al primero) con un croquis de cada recinto con los dos contornos
 superpuestos y la tabla de los vértices que se mueven más de 1 cm. <strong>Ver en el mapa</strong> carga los dos en un
 grupo, el segundo en azul discontinuo encima del primero.</p>
