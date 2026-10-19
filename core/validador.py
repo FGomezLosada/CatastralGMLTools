@@ -165,6 +165,11 @@ def validar_elemento(e, es_parcela):
                                   nombre))
         if len(anillo) < geo.MINIMO_VERTICES:
             inc.append(Incidencia(ERROR, 'ANILLO-VERTICES', f"Anillo {que} con {len(anillo)} vértices: el mínimo es 4", nombre))
+        repetidos = sum(1 for a, b in zip(anillo, anillo[1:]) if a == b)
+        if repetidos:  #Batería de casos (19/10/2026): no se decía nada; el escritor del plugin los quita al reparar
+            inc.append(Incidencia(AVISO, 'ANILLO-REPETIDO', f"Anillo {que} con {repetidos} vértice{'s' if repetidos > 1 else ''} "
+                                                            "repetido seguido: sobra (algunos programas lo rechazan). "
+                                                            "«Reparar» lo quita", nombre))
         count = e.counts[i - 1] if i - 1 < len(e.counts) else None
         if count is not None and count != len(anillo):
             inc.append(Incidencia(ERROR, 'ANILLO-COUNT', f"Anillo {que}: count={count} pero tiene {len(anillo)} vértices",

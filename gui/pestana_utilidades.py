@@ -437,6 +437,7 @@ class PestanaUtilidades(QWidget):
     def cancelar_tareas(self):
         """Al cerrar o recargar el plugin: la consulta en curso se corta y el ajuste suelta el mapa."""
         self.ajuste.soltar()
+        self.comparador.cancelar_tareas()
         if self.tarea_sup is not None and not sip.isdeleted(self.tarea_sup):
             with contextlib.suppress(RuntimeError):
                 self.tarea_sup.cancel()

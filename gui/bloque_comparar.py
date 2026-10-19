@@ -6,11 +6,13 @@ segundo, con trazo azul discontinuo encima del primero).
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
+import contextlib
 import os
 from html import escape
 
-from qgis.core import QgsApplication, QgsProject
+from qgis.core import QgsApplication, QgsFeedback, QgsProject, QgsTask
 from qgis.gui import QgsFileWidget
+from qgis.PyQt import sip
 from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
@@ -30,6 +32,7 @@ class BloqueComparar(QWidget):
         self.pestana = pestana
         self.comparacion = None
         self.informe = ''
+        self.tarea = None
         self.construir()
         self.gmlA.fileChanged.connect(self.actualizar)
         self.gmlB.fileChanged.connect(self.actualizar)
@@ -89,11 +92,36 @@ class BloqueComparar(QWidget):
         else:
             self.gmlB.setFilePath(rutas[0])
 
-    def comparar(self, *args):
+    def comparar(self, *args, segundo_plano=True):
+        """Compara los dos GML (en segundo plano: con ficheros de cientos de parcelas tarda) y muestra el resultado."""
         dock = self.pestana.dock
         dock.messageBar.clearWidgets()
         a, b = self.rutas()
-        self.comparacion = c = cg.comparar(a, b)
+        if not segundo_plano:
+            return self.mostrar(cg.comparar(a, b))
+        self.cancelar_tareas()
+        self.tarea = TareaComparar(a, b, self)
+        self.compararBoton.setEnabled(False)
+        self.compararBoton.setText("Comparando…")
+        QgsApplication.taskManager().addTask(self.tarea)
+        return None
+
+    def terminada(self, comparacion):
+        self.tarea = None
+        self.compararBoton.setText("Comparar")
+        self.actualizar()
+        if comparacion is not None:
+            self.mostrar(comparacion)
+
+    def cancelar_tareas(self):
+        if self.tarea is not None and not sip.isdeleted(self.tarea):
+            with contextlib.suppress(RuntimeError):
+                self.tarea.cancel()
+        self.tarea = None
+
+    def mostrar(self, c):
+        dock = self.pestana.dock
+        self.comparacion = c
         lineas = cg.resumen(c)
         if c.errores:
             self.resultado.setText("<small><span style='color:#c92a2a'>" + "<br>".join(escape(x) for x in lineas)
@@ -139,7 +167,8 @@ class BloqueComparar(QWidget):
         grupo.setCustomProperty(GRUPO, True)
         grupo.setCustomProperty(PROPIEDAD_GML, c.ruta_a)
         capas = []
-        for lectura, ruta, nombre in ((c.lectura_b, c.ruta_b, "segundo"), (c.lectura_a, c.ruta_a, "primero")):
+        for lectura, ruta, nombre in ((c.vista_b or c.lectura_b, c.ruta_b, "segundo"),
+                                      (c.vista_a or c.lectura_a, c.ruta_a, "primero")):
             capa = estilos.aplicar(gl.capa(lectura, f"{os.path.splitext(os.path.basename(ruta))[0]} ({nombre})"))
             capa.setCustomProperty(PROPIEDAD_GML, ruta)  #Se puede arrastrar a otra pestaña
             proyecto.addMapLayer(capa, False)
@@ -163,3 +192,30 @@ class BloqueComparar(QWidget):
             lienzo.setExtent(lienzo.mapSettings().layerExtentToOutputExtent(primera, primera.extent()).buffered(5))
             lienzo.refresh()
         return primera, segunda
+
+
+class TareaComparar(QgsTask):
+    """La comparación en segundo plano, cancelable (el gestor de tareas de QGIS muestra el avance)."""
+
+    def __init__(self, ruta_a, ruta_b, bloque):
+        super().__init__("Catastral GML Tools: comparar dos GML", QgsTask.Flag.CanCancel)
+        self.ruta_a, self.ruta_b, self.bloque = ruta_a, ruta_b, bloque
+        self.resultado = None
+        self.feedback = QgsFeedback()
+        self.feedback.progressChanged.connect(self.setProgress)
+
+    def cancel(self):
+        self.feedback.cancel()
+        super().cancel()
+
+    def run(self):
+        try:
+            self.resultado = cg.comparar(self.ruta_a, self.ruta_b, self.feedback)
+        except Exception as e:  #Nunca debe cerrar QGIS
+            self.resultado = cg.Comparacion(self.ruta_a, self.ruta_b, None, None, [], [], [], [f"Error inesperado: {e}"])
+        return not self.isCanceled()
+
+    def finished(self, correcto):
+        if self.bloque is None or sip.isdeleted(self.bloque):
+            return
+        self.bloque.terminada(self.resultado if correcto else None)
