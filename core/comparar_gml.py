@@ -27,6 +27,7 @@ from qgis.core import (
     QgsCoordinateTransform,
     QgsCoordinateTransformContext,
     QgsGeometry,
+    QgsPointXY,
 )
 
 from . import gml_lector as gl
@@ -55,6 +56,7 @@ class Pareja:
     anadidos: int = 0          #Vértices de B sin otro de A cerca
     quitados: int = 0          #Vértices de A sin otro de B cerca
     traslacion: tuple = None   #(dx, dy) si los vértices se mueven todos igual
+    giro: tuple = None         #(grados, escala, dx, dy) si el segundo es el primero girado o escalado
 
     @property
     def nombre(self):
@@ -78,7 +80,11 @@ class Pareja:
             return "Igual (±1 cm)" if not self.datos else "Misma geometría; cambian datos"
         if self.traslacion is not None:
             dx, dy = self.traslacion
-            return f"Desplazado {_num(math.hypot(dx, dy) * 100, 1)} cm hacia {rumbo(dx, dy)}"
+            return f"Desplazado {_distancia(math.hypot(dx, dy))} hacia {rumbo(dx, dy)}"
+        if self.giro is not None:
+            grados, escala, dx, dy = self.giro
+            return (f"Girado ≈{_num(grados, 3)}° y escalado ≈{_num((escala - 1) * 1e6, 0)} ppm (y desplazado "
+                    f"{_distancia(math.hypot(dx, dy))}): misma forma")
         return f"Distinto: hasta {_num(self.hausdorff * 100, 1)} cm"
 
 
@@ -176,19 +182,40 @@ def _medir(pareja):
     pareja.gana = b.difference(a).area()
     pareja.pierde = a.difference(b).area()
     pa, pb = _puntos(pareja.a), _puntos(pareja.b)
-    for n, p in enumerate(pa, start=1):
-        q, d = _cercano(p, pb)
-        pareja.vertices.append((n, p.x(), p.y(), d, q.x() - p.x(), q.y() - p.y()))
-    pareja.quitados = sum(1 for v in pareja.vertices if v[3] > VERTICE_PROPIO)
-    pareja.anadidos = sum(1 for q in pb if _cercano(q, pa)[1] > VERTICE_PROPIO)
-    #Desplazamiento uniforme: todos los vértices homólogos se mueven igual (más de 1 cm y con poca dispersión)
-    homologos = [v for v in pareja.vertices if v[3] <= VERTICE_PROPIO * 10]
-    if len(homologos) >= 3 and not pareja.anadidos and not pareja.quitados:
-        mx = sum(v[4] for v in homologos) / len(homologos)
-        my = sum(v[5] for v in homologos) / len(homologos)
-        dispersion = max(math.hypot(v[4] - mx, v[5] - my) for v in homologos)
-        if math.hypot(mx, my) > TOLERANCIA and dispersion <= max(0.005, 0.2 * math.hypot(mx, my)):
-            pareja.traslacion = (mx, my)
+    #Cada vértice se busca en el otro GML después de quitar el desplazamiento de conjunto (prueba a mano del
+    #19/10/2026: con un GML ajustado 44 cm, todos los vértices salían «añadidos y quitados» y no se veía que era un
+    #desplazamiento). Primero con el de los centros; después, con la media de los vértices emparejados.
+    centro_a, centro_b = a.centroid().asPoint(), b.centroid().asPoint()
+    tx, ty = centro_b.x() - centro_a.x(), centro_b.y() - centro_a.y()
+    for _ in range(2):
+        parejas_v = []
+        for p in pa:
+            q, residuo = _cercano(QgsPointXY(p.x() + tx, p.y() + ty), pb)
+            parejas_v.append((p, q, residuo))
+        emparejados = [(p, q) for p, q, r in parejas_v if r <= VERTICE_PROPIO]
+        if not emparejados:
+            break
+        tx = sum(q.x() - p.x() for p, q in emparejados) / len(emparejados)
+        ty = sum(q.y() - p.y() for p, q in emparejados) / len(emparejados)
+    pareja.vertices = [(n, p.x(), p.y(), math.hypot(q.x() - p.x(), q.y() - p.y()), q.x() - p.x(), q.y() - p.y())
+                       for n, (p, q, _) in enumerate(parejas_v, start=1)]
+    pareja.quitados = sum(1 for _, _, r in parejas_v if r > VERTICE_PROPIO)
+    pareja.anadidos = sum(1 for q in pb if _cercano(QgsPointXY(q.x() - tx, q.y() - ty), pa)[1] > VERTICE_PROPIO)
+    #Desplazamiento uniforme: todos los vértices se mueven igual (más de 1 cm y con poca dispersión)
+    if len(pa) >= 3 and not pareja.anadidos and not pareja.quitados:
+        dispersion = max(math.hypot(v[4] - tx, v[5] - ty) for v in pareja.vertices)
+        if math.hypot(tx, ty) > TOLERANCIA and dispersion <= TOLERANCIA:  #Lo que no se mueve igual, dentro de ±1 cm
+            pareja.traslacion = (tx, ty)
+        elif pareja.hausdorff > TOLERANCIA:
+            #¿Un giro o un cambio de escala de todo el recinto (un GML ajustado con semejanza, por ejemplo)?
+            from .ajuste import SEMEJANZA, Par, calcular
+            try:
+                semejanza = calcular([Par(p.x(), p.y(), q.x(), q.y()) for p, q, _ in parejas_v], SEMEJANZA)
+            except ValueError:
+                semejanza = None
+            if semejanza is not None and max(semejanza.residuos) <= TOLERANCIA:
+                giro, escala, _, _ = semejanza.transformacion.descripcion()
+                pareja.giro = (giro, escala, tx, ty)
 
 
 def _datos(a, b):
@@ -309,6 +336,11 @@ def _num(valor, decimales=2):
     return f"{valor:,.{decimales}f}".replace(',', ' ').replace('.', ',')
 
 
+def _distancia(metros):
+    """En cm hasta 1 m; en m a partir de ahí."""
+    return f"{_num(metros * 100, 1)} cm" if metros < 1 else f"{_num(metros)} m"
+
+
 def _signo(valor):
     if abs(valor) < 0.005:
         return 'sin cambio'
@@ -316,7 +348,7 @@ def _signo(valor):
 
 
 def _signo_cm(metros):
-    return ('+' if metros >= 0 else '−') + _num(abs(metros) * 100, 1)
+    return ('+' if metros > -0.0005 else '−') + _num(abs(metros) * 100, 1)  #Sin «−0,0»
 
 
 class _Dibujo:
