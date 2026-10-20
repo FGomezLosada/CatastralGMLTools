@@ -177,7 +177,9 @@ def preparar(geometria, elemento='', area_entera=True):
         return [], [Incidencia(ERROR, 'GEO-SRC', "No se ha podido pasar al SRC del GML: las coordenadas no encajan con el "
                                                  "SRC de la capa (revíselo en sus propiedades, pestaña Fuente)", elemento)]
     if geometria.isNull() or geometria.isEmpty():
-        return [], [Incidencia(ERROR, 'GEO-VACIA', "La geometría está vacía", elemento)]
+        return [], [Incidencia(ERROR, 'GEO-VACIA', "No tiene geometría (un elemento vacío de la capa): bórrelo, o "
+                                                   "seleccione los demás y marque «Solo los elementos seleccionados»",
+                               elemento)]
     if not finita(geometria):
         return [], [Incidencia(ERROR, 'GEO-SRC', "Coordenadas no válidas (infinitas): revise el SRC de la capa", elemento)]
     if QgsWkbTypes.geometryType(geometria.wkbType()) != Qgis.GeometryType.Polygon:
@@ -208,14 +210,15 @@ def preparar(geometria, elemento='', area_entera=True):
             anillo, repetidos, cerrado = limpiar_anillo((p.x(), p.y()) for p in puntos)
             repetidos_total += repetidos
             cerrados_total += int(cerrado)
-            if len(anillo) < MINIMO_VERTICES:
-                incidencias.append(Incidencia(ERROR, 'GEO-POCOS-VERTICES',
-                                              f"Un anillo tiene {len(anillo)} vértices: el mínimo es {MINIMO_VERTICES} "
-                                              "(incluido el de cierre)", elemento))
-                continue
-            if degenerado(anillo):
-                incidencias.append(Incidencia(ERROR, 'GEO-ALINEADOS', "Un anillo no encierra superficie (sus vértices están "
-                                                                      "alineados): la Sede no lo admite", elemento))
+            if len(anillo) < MINIMO_VERTICES or degenerado(anillo):
+                #Casi siempre es una astilla del dibujo: al ajustar al centímetro (como pide la Sede) y al cerrar los
+                #linderos con las vecinas, sus vértices se juntan (batería de casos, 19/10/2026: el mensaje solo decía
+                #«un anillo tiene 3 vértices» y no se entendía)
+                codigo = 'GEO-POCOS-VERTICES' if len(anillo) < MINIMO_VERTICES else 'GEO-ALINEADOS'
+                incidencias.append(Incidencia(ERROR, codigo, (
+                    "Se queda sin superficie al ajustar sus vértices al centímetro (como pide la Sede): es una astilla "
+                    "del dibujo, o sus vértices están repetidos o alineados. Bórrela, únala a la de al lado o revise sus "
+                    f"vértices ({'un anillo' if i == 0 else 'un hueco'} con {len(anillo)} vértices útiles)"), elemento))
                 continue
             orientado = orientar(anillo, horario=(i == 0))
             reorientados += int(orientado is not anillo)
@@ -235,8 +238,7 @@ def preparar(geometria, elemento='', area_entera=True):
     for recinto in recintos:
         geom = recinto.geometria()
         if not geom.isGeosValid():
-            error = geom.validateGeometry()
-            detalle = f": {error[0].what()}" if error else ''
+            detalle = motivo_invalida(geom)
             incidencias.append(Incidencia(ERROR, 'GEO-INVALIDA',
                                           f"La geometría no es válida (autointersección o anillos que se tocan){detalle}",
                                           elemento))
@@ -247,6 +249,41 @@ def preparar(geometria, elemento='', area_entera=True):
 
 
 SOLAPE_MINIMO = 0.01  #m: un solape más estrecho que 1 cm entra en la tolerancia de la Sede (±1 cm)
+
+
+#Textos de GEOS (en inglés) → castellano, para decir por qué una geometría no es válida
+MOTIVOS_GEOS = (('ring self-intersection', "un anillo se toca a sí mismo"),
+                ('self-intersection', "el contorno se corta a sí mismo"),
+                ('intersect', "el contorno se corta a sí mismo"),
+                ('hole lies outside', "un hueco queda fuera del contorno"),
+                ('holes are nested', "hay un hueco dentro de otro"),
+                ('nested', "hay un recinto dentro de otro"),
+                ('disconnected', "los huecos parten la parcela en trozos"),
+                ('too few points', "tiene menos de 3 vértices distintos"),
+                ('duplicate', "tiene vértices repetidos"))
+
+
+def motivo_invalida(geometria):
+    """
+    Por qué no es válida la geometría, en castellano y con el sitio («: el contorno se corta a sí mismo cerca de
+    X 421510.00, Y 4070515.00»), o '' si GEOS no lo dice. Nunca el texto de GEOS en inglés.
+    """
+    errores = geometria.validateGeometry() if geometria is not None else []
+    if not errores:
+        return ''
+    texto = errores[0].what().lower()
+    motivo = next((m for clave, m in MOTIVOS_GEOS if clave in texto), '')
+    if not motivo:
+        return ''
+    if errores[0].hasWhere():
+        p = errores[0].where()
+        motivo += f" cerca de X {p.x():.2f}, Y {p.y():.2f}"
+    return f": {motivo}"
+
+
+def anchura_texto(anchura):
+    """Anchura de un solape o hueco para un mensaje: en cm por debajo de 1 m, en m por encima («10.00 m», no «1000 cm»)."""
+    return f"{anchura * 100:.0f} cm" if anchura < 1 else f"{anchura:.2f} m"
 
 
 def solapes(geometrias):
@@ -462,10 +499,15 @@ def huecos(geometrias, franja=0.5):
 
 def rellenar_huecos(geometrias, franja=0.2):
     """
-    Unión de las parcelas con los huecos y las franjas de menos de «franja» m que quedan entre ellas rellenos (dibujo que
-    no encaja al agregarlas): devuelve (geometría, superficie rellenada en m²). Los patios de cada parcela se conservan.
+    Unión de las parcelas con los huecos y las franjas de menos de «franja» m de ancho que quedan entre ellas rellenos
+    (dibujo que no encaja al agregarlas): devuelve (geometría, superficie rellenada en m²). Los patios de cada parcela,
+    y los huecos más anchos que «franja» que rodean entre todas (un patio, otra parcela), se conservan.
     """
     union, piezas = huecos_entre(geometrias, franja)
+    #Solo los fallos del dibujo (huecos y franjas estrechas, de menos de «franja» de ancho). Un hueco ancho rodeado por
+    #las parcelas es un patio u otra parcela, no un fallo: se conserva como hueco de la unida (batería de casos,
+    #19/10/2026: cuatro parcelas alrededor de un patio de 100 m² se unían con el patio dentro)
+    piezas = [p for p in piezas if anchura_maxima(p) <= franja]
     if not piezas:
         return union, 0.0
     rellena = QgsGeometry.unaryUnion([union, *piezas])
@@ -615,6 +657,25 @@ def transformar(geometria, crs_origen, epsg_destino):
         if not finita(copia):
             return None
     return copia
+
+
+def orden_lat_lon(geometrias):
+    """
+    En geográficas, ¿están en el orden latitud, longitud (el de EPSG:4326 en GML 3.2)? Lo está si el primer número
+    parece la latitud de España (26°-44,5°) y el segundo su longitud (−19°-5°).
+    """
+    geometrias = [g for g in geometrias if g is not None and not g.isEmpty()]
+    if not geometrias:
+        return False
+    centro = QgsGeometry.collectGeometry(geometrias).boundingBox().center()
+    return 26.0 <= centro.x() <= 44.5 and -19.0 <= centro.y() <= 5.0
+
+
+def girar_ejes(geometria):
+    """Copia con x e y intercambiadas (latitud, longitud → longitud, latitud)."""
+    nueva = QgsGeometry(geometria)
+    nueva.get().swapXy()
+    return nueva
 
 
 def finita(geometria):

@@ -227,6 +227,10 @@ la Sede): se toman la geometría y los campos <code>localId</code>, <code>namesp
 <code>nationalCadastralReference</code>. Y al reparar se quitan los datos que no son del esquema INSPIRE (por ejemplo,
 <code>Clave_Obra</code> o <code>REFCATASTR</code> en GML de expropiaciones), porque la Sede rechaza el fichero si los lleva.
 Una parcela con varias partes no se convierte: hay que decidir antes cómo se aporta (cada parte, una parcela).</p>
+<p>Un GML en <strong>coordenadas geográficas</strong> (grados, EPSG:4326 o 4258, como el que exportan algunas aplicaciones o
+visores) se pasa al huso UTM de la zona (EPSG:25829, 25830 o 25831, o 32628 en Canarias), que es lo que admite la Sede; en
+Validar sale «Reparar». Otros sistemas no admitidos, como ED50 (EPSG:23030), no se convierten aquí: su paso a ETRS89 necesita
+la rejilla oficial, así que reproyecte la capa en QGIS y cree el GML desde la pestaña Parcela.</p>
 
 <h2>Informe de superficies y coordenadas</h2>
 <p>En <strong>Utilidades › 3. Informe de superficies y coordenadas</strong>, elija un GML de parcela (el último creado en
@@ -268,7 +272,8 @@ identidad. En <strong>Utilidades › 4. Ajustar a la cartografía catastral</str
       punto del levantamiento y después en el del Catastro (el clic se ajusta a los vértices de las capas visibles; Esc o
       clic derecho anulan el par a medias; mientras captura, la utilidad dice qué clic toca). Tome los puntos en
       <strong>extremos opuestos</strong> del levantamiento: con puntos muy juntos, el giro y la escala no son fiables y
-      el resumen lo avisa (también si la escala o el giro salen impropios de un desplazamiento). También se pueden importar de un TXT o CSV (una línea por punto:
+      el resumen lo avisa (también si la escala o el giro salen impropios de un desplazamiento, o si el desplazamiento es de
+      más de 100 m: suele ser un huso distinto o las columnas cambiadas). También se pueden importar de un TXT o CSV (una línea por punto:
       <code>[nombre] X Y X′ Y′</code>) o escribir en la tabla. Las líneas violetas discontinuas del mapa unen cada par.</li>
   <li>Elija el ajuste: <strong>traslación</strong> (1 punto o más), <strong>giro, escala y traslación</strong> (2 o más) o
       <strong>afín</strong> (3 o más, no alineados). Con puntos de más, la tabla da el <strong>residuo</strong> de cada

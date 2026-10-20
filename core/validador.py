@@ -190,8 +190,7 @@ def validar_elemento(e, es_parcela):
         inc.append(Incidencia(AVISO, 'DECIMALES', f"Coordenadas con {e.decimales} decimales: la Sede trabaja al centímetro "
                                                   "(2 decimales)", nombre))
     if not e.geometria.isGeosValid():
-        errores = e.geometria.validateGeometry()
-        detalle = f": {errores[0].what()}" if errores else ''
+        detalle = geo.motivo_invalida(e.geometria)
         inc.append(Incidencia(ERROR, 'GEO-INVALIDA', f"Geometría no válida (autointersección o anillos que se tocan){detalle}",
                               nombre))
 
@@ -227,7 +226,7 @@ def validar_conjunto(elementos, es_parcela):
     validos = [e for e in elementos if not e.geometria.isNull() and not e.geometria.isEmpty()]
     for i, j, area, anchura in geo.solapes([e.geometria for e in validos]):
         inc.append(Incidencia(ERROR, 'SOLAPE', f"Se superpone con {validos[j].local_id} ({area:.2f} m², hasta "
-                                               f"{anchura * 100:.0f} cm de ancho)", validos[i].local_id))
+                                               f"{geo.anchura_texto(anchura)} de ancho)", validos[i].local_id))
     if es_parcela and len(validos) > 1:
         n_zonas = len(geo.zonas([e.geometria for e in validos]))
         if n_zonas > 1:  #Varias operaciones en un fichero (multiparcela): la Sede no las tramita de forma automática

@@ -105,7 +105,7 @@ mal = servicios.descargar('1907401VK48')
 foral = servicios.descargar('31001A00100001')
 sin_peticiones = not sim.peticiones
 sin_red = servicios.descargar(sim.RC_SIN_RED)
-errores = (not no_existe.correcta and codigos(no_existe.incidencias) == ['WFS-EXCEPCION']
+errores = (not no_existe.correcta and codigos(no_existe.incidencias) == ['WFS-VACIO']
            and 'No se ha encontrado la parcela 1907499VK4810H' in no_existe.incidencias[0].mensaje
            and not mal.correcta and codigos(mal.incidencias) == ['RC']
            and not foral.correcta and codigos(foral.incidencias) == ['RC-FORAL'] and 'Navarra' in foral.incidencias[0].mensaje

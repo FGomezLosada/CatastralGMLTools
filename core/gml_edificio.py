@@ -203,7 +203,7 @@ def comprobar(construcciones, epsg):
     huellas = [QgsGeometry.unaryUnion([r.geometria() for r in rs]) if rs else None for rs in todos]
     for i, j, area, anchura in geo.solapes(huellas):
         incidencias.append(Incidencia(ERROR, 'BU-SOLAPE', f"Se superpone con {construcciones[j].local_id} ({area:.2f} m², "
-                                                          f"hasta {anchura * 100:.0f} cm de ancho): el ICUC no admite "
+                                                          f"hasta {geo.anchura_texto(anchura)} de ancho): el ICUC no admite "
                                                           "construcciones solapadas", construcciones[i].local_id))
     return todos, incidencias
 

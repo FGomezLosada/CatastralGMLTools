@@ -59,6 +59,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.setup_descargar()
         self.setup_utilidades()
         desplazable.proteger(self.dockWidgetContents)  #La rueda desplaza el panel; no cambia listas sin foco
+        desplazable.estrechar(self.dockWidgetContents)  #Un nombre largo en una lista no ensancha el panel
         self.visibilityChanged.connect(self.visibilidad_cambiada)
         self.gml_pendiente = ''
         self.tabWidget.currentChanged.connect(self.pestana_cambiada)
@@ -214,7 +215,8 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         primera, _, resto = message.strip().partition('\n')
         lineas = [linea.strip().removeprefix('- ').strip() for linea in resto.splitlines() if linea.strip()]
         if not lineas:
-            self.messageBar.pushMessage('', primera, level, duration)
+            #La barra lo pinta como HTML: sin escapar, «(<ogr:2082108VF2628S…>)» salía «()» (batería del panel)
+            self.messageBar.pushMessage('', html.escape(primera, quote=False), level, duration)
             return
         contenido = QWidget(self.messageBar)  #Con padre: si no, Python lo borraría al salir de aquí
         fila = QHBoxLayout(contenido)
@@ -246,6 +248,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         fila = QHBoxLayout(contenido)
         fila.setContentsMargins(0, 0, 0, 0)
         etiqueta = QLabel(message, contenido)
+        etiqueta.setTextFormat(Qt.TextFormat.PlainText)  #Lo que venga en el mensaje (nombres, «<1 m²»…) se lee tal cual
         etiqueta.setWordWrap(True)
         if detalles or notas:  #Los avisos se leen en el propio mensaje (antes solo al pasar el ratón: no se encontraban)
             lineas = [f"⚠ {html.escape(d)}" for d in detalles[:MAX_AVISOS_MENSAJE]]

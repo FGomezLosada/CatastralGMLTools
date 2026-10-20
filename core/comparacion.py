@@ -160,6 +160,17 @@ def comparar(lectura):
                                                            "que tiene catastro propio (no el de la Dirección General del "
                                                            "Catastro)"))
         return c
+    invalidas = [e.local_id for e in propuestas if not e.geometria.isGeosValid()]
+    if invalidas:  #Batería de casos (19/10/2026): con una pajarita, GEOS fallaba por dentro y el resultado no era fiable
+        c.incidencias.append(Incidencia(AVISO, 'CMP-GEO-INVALIDA', f"Geometría no válida ({', '.join(invalidas[:5])}): se "
+                                                                   "compara una versión corregida y el resultado puede no "
+                                                                   "ser exacto. Corrija la geometría (vea los errores de "
+                                                                   "arriba)"))
+        propuestas = [replace(e, geometria=e.geometria.makeValid()) if not e.geometria.isGeosValid() else e
+                      for e in propuestas]
+        propuestas = [e for e in propuestas if not e.geometria.isEmpty()]
+        if not propuestas:
+            return c
     if any(e.decimales > 2 for e in propuestas):  #La Sede trunca a 2 decimales: se compara lo que verá ella (AU-29)
         propuestas = [replace(e, geometria=geo.truncar(e.geometria)) for e in propuestas]
         c.incidencias.append(Incidencia(INFO, 'CMP-TRUNCADO', "El GML trae más de 2 decimales: se compara con las coordenadas "
@@ -285,7 +296,12 @@ def comparar(lectura):
     for e in propuestas:
         if e.namespace != 'ES.SDGC.CP':
             continue
-        if e.local_id not in ids_todas and not _existe(e.local_id, lectura.epsg):
+        existe = True if e.local_id in ids_todas else _existe(e.local_id, lectura.epsg)
+        if existe is None:
+            c.incidencias.append(Incidencia(AVISO, 'CMP-RC-SIN-COMPROBAR', f"No se ha podido comprobar si la referencia "
+                                                                         f"{e.local_id} existe (sin conexión con el "
+                                                                         "Catastro)", e.local_id))
+        elif not existe:
             c.incidencias.append(Incidencia(ERROR, 'CMP-RC-NO-EXISTE', f"La referencia {e.local_id} no existe en el Catastro",
                                             e.local_id))
         elif e.local_id not in ids_origen:
@@ -372,11 +388,11 @@ def comparar_edificio(lectura):
         c.incidencias.append(Incidencia(AVISO, 'RC-FORAL', refcat.comprobar(rc).mensaje))
         return c
     resultado, errores = servicios.consultar_wfs(servicios.url_parcela(rc, lectura.epsg), f"la parcela {rc}")
-    if errores:
+    if errores and not _no_encontrada(errores):
         c.incidencias += [Incidencia(AVISO, 'CMP-NO-COMPARADO', f"No se ha podido comparar con el Catastro: {i.mensaje}")
                           for i in errores]
         return c
-    parcelas = [e for e in (resultado.elementos if resultado else []) if not e.geometria.isEmpty()]
+    parcelas = [e for e in (resultado.elementos if resultado and not errores else []) if not e.geometria.isEmpty()]
     if not parcelas:
         c.operacion = "Parcela no encontrada"
         c.incidencias.append(Incidencia(ERROR, 'CMP-RC-NO-EXISTE', f"La parcela {rc} no existe en el Catastro: el ICUC "
@@ -439,6 +455,15 @@ def _clave_tramite(rc):
     return ''
 
 
+def _no_encontrada(errores):
+    """El WFS contesta que esa parcela no existe (un ExceptionReport «No se ha encontrado la parcela…»), que no es un fallo
+    de conexión (batería de casos, 19/10/2026: con una RC inexistente se decía «no se ha podido comparar»)."""
+    return any(i.codigo == 'WFS-EXCEPCION' and 'no se ha encontrado' in i.mensaje.lower() for i in errores)
+
+
 def _existe(rc, epsg):
+    """True o False; None si no se ha podido saber (sin conexión: no se debe decir que no existe)."""
     resultado, errores = servicios.consultar_wfs(servicios.url_parcela(rc, epsg), f"la parcela {rc}")
-    return not errores and resultado is not None and bool(resultado.elementos)
+    if errores:
+        return False if _no_encontrada(errores) else None
+    return resultado is not None and bool(resultado.elementos)
