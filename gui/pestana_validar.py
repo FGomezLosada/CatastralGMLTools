@@ -156,9 +156,9 @@ class PestanaValidar(QWidget):
     # ------------------------------------------------------------------ Arrastrar y soltar
 
     @staticmethod
-    def rutas_gml(mime):
+    def rutas_gml(mime, extensiones=('.gml', '.xml')):
         """
-        Ficheros .gml o .xml que vienen en lo arrastrado:
+        Ficheros .gml o .xml (o con esas extensiones) que vienen en lo arrastrado:
           - desde el Explorador de Windows: rutas de ficheros;
           - desde el panel de Capas o el Navegador de QGIS: capas. De una capa cargada por el plugin se toma el GML del
             que salió (propiedad PROPIEDAD_GML); de una capa abierta desde un .gml, su fichero de origen.
@@ -177,7 +177,7 @@ class PestanaValidar(QWidget):
                     rutas.append((capa.source() if capa is not None else uri.uri).split('|')[0])
         vistas = []
         for ruta in rutas:
-            if ruta and ruta.lower().endswith(('.gml', '.xml')) and os.path.isfile(ruta) and ruta not in vistas:
+            if ruta and ruta.lower().endswith(tuple(extensiones)) and os.path.isfile(ruta) and ruta not in vistas:
                 vistas.append(ruta)
         return vistas
 

@@ -3,7 +3,8 @@ Pestaña «Utilidades»: «Unir GML» (multiparcela, core/unir.py): varios GML d
 reparar» (core/conversor.py): un GML de parcela del esquema 3.0 al 4.0, o un 4.0 con fallos que se arreglan al
 reescribirlo; «Informe de superficies y coordenadas» (core/superficies.py): superficies, linderos y coordenadas de cada
 parcela de un GML, en HTML; «Ajustar a la cartografía catastral» (core/ajuste.py, gui/bloque_ajuste.py); y «Comparar
-dos GML» (core/comparar_gml.py, gui/bloque_comparar.py).
+dos GML» (core/comparar_gml.py, gui/bloque_comparar.py); y «Parcela desde coordenadas» (core/coordenadas.py,
+gui/bloque_coordenadas.py).
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
@@ -43,6 +44,9 @@ from . import desplazable
 from .bloque_ajuste import BloqueAjuste
 from .bloque_comparar import ICONO as ICONO_COMPARAR
 from .bloque_comparar import BloqueComparar
+from .bloque_coordenadas import EXTENSIONES as EXTENSIONES_COORDENADAS
+from .bloque_coordenadas import ICONO as ICONO_COORDENADAS
+from .bloque_coordenadas import BloqueCoordenadas
 from .pestana_validar import PestanaValidar
 
 
@@ -94,12 +98,20 @@ class PestanaUtilidades(QWidget):
                  "Dos GML de la misma finca o construcción, vengan de donde vengan (el presentado y el que devuelve otro "
                  "organismo, dos versiones, dos programas): diferencias de fichero, identificadores, superficies, "
                  "desplazamiento de cada vértice, vértices añadidos o quitados y si son iguales a efectos de la Sede (±1 cm)."),
+                (self.pagina_coordenadas(), "Parcela desde coordenadas (levantamiento)", ICONO_COORDENADAS,
+                 "Las parcelas de un fichero de puntos (TXT o CSV del levantamiento: X Y, o nombre X Y), en una capa que se "
+                 "abre en la pestaña Parcela para crear el GML. Varias parcelas: separadas por una línea en blanco o un "
+                 "título, o con una columna con el identificador de cada una."),
         ), start=1):
             indice = self.utilidades.addItem(widget, QgsApplication.getThemeIcon(icono), f"{numero}. {titulo}")
             self.utilidades.setItemToolTip(indice, ayuda)
         principal.addWidget(self.utilidades, 1)
         self.utilidades.currentChanged.connect(self.ajuste.mostrar_en_mapa)
         desplazable.soltar_en(self)  #Un GML soltado en cualquier punto (también sobre una casilla) va a la utilidad abierta
+
+    def pagina_coordenadas(self):
+        self.coordenadas = BloqueCoordenadas(self, self)
+        return self.coordenadas
 
     def pagina_comparar(self):
         self.comparador = BloqueComparar(self, self)
@@ -240,7 +252,7 @@ class PestanaUtilidades(QWidget):
 
     def dragEnterEvent(self, event):  # noqa: N802 (nombre impuesto por Qt)
         #Del Explorador de Windows (ficheros) o del panel de Capas y el Navegador de QGIS (capas: su GML de origen)
-        if PestanaValidar.rutas_gml(event.mimeData()):
+        if PestanaValidar.rutas_gml(event.mimeData(), self.extensiones()):
             event.setDropAction(Qt.DropAction.CopyAction)  #Nunca «mover» (quitaría la capa o el fichero de su origen)
             event.accept()
         else:
@@ -250,7 +262,7 @@ class PestanaUtilidades(QWidget):
         self.dragEnterEvent(event)
 
     def dropEvent(self, event):  # noqa: N802 (nombre impuesto por Qt)
-        rutas = PestanaValidar.rutas_gml(event.mimeData())
+        rutas = PestanaValidar.rutas_gml(event.mimeData(), self.extensiones())
         if not rutas:
             event.ignore()
             return
@@ -258,10 +270,17 @@ class PestanaUtilidades(QWidget):
         event.accept()
         self.soltar(rutas)
 
+    def extensiones(self):
+        """Lo que se puede soltar en la utilidad abierta: GML, o ficheros de puntos en «Parcela desde coordenadas»."""
+        return EXTENSIONES_COORDENADAS if self.utilidades.currentIndex() == 5 else ('.gml', '.xml')
+
     def soltar(self, rutas):
         """El GML soltado va a la utilidad abierta: a la lista de «Unir», o como fichero de «Convertir» o del informe."""
         if self.utilidades.currentIndex() == 4:
             self.comparador.soltar(rutas)
+            return
+        if self.utilidades.currentIndex() == 5:
+            self.coordenadas.soltar(rutas)
             return
         casilla = {1: self.origenConv, 2: self.origenSup, 3: self.ajuste.origenAj}.get(self.utilidades.currentIndex())
         if casilla is None:

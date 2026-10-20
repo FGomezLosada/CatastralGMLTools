@@ -316,6 +316,29 @@ informe (<code>…_comparacion.html</code>, junto al primero) con un croquis de 
 superpuestos y la tabla de los vértices que se mueven más de 1 cm. <strong>Ver en el mapa</strong> carga los dos en un
 grupo, el segundo en azul discontinuo encima del primero.</p>
 
+<h2>Parcela desde coordenadas (levantamiento)</h2>
+<p>En <strong>Utilidades › 6. Parcela desde coordenadas</strong> elija (o arrastre) el fichero de puntos del
+levantamiento, un TXT o CSV con una línea por punto, y el sistema de referencia en que están (el huso). Se leen los
+formatos habituales:</p>
+<ul>
+  <li><code>X Y</code>, o un nombre o número de punto delante (<code>V1 421500.25 4070500.10</code>); si llevan Z o un
+      código detrás, se ignoran;</li>
+  <li>separados por espacios, tabuladores, punto y coma o comas; con coma decimal y, en un CSV de Excel con punto y
+      coma, también con punto de millares (<code>V1;421.500,25;4.070.500,10</code>);</li>
+  <li>cabeceras, comentarios y líneas de texto se saltan (la utilidad dice cuáles);</li>
+  <li><strong>varias parcelas</strong>: separadas por una línea en blanco, por una línea de título
+      (<code>Parcela A</code>, <code>P2:</code>), o con una primera columna con el identificador de la parcela de cada
+      punto (<code>P1;421500;4070500</code>).</li>
+</ul>
+<p>Los puntos de cada parcela tienen que ir en el orden del contorno; da igual el sentido y no hace falta repetir el
+primero al final. La utilidad dice cuántas parcelas salen y su superficie, y lo que no se puede formar: coordenadas en
+grados (la Sede pide UTM en metros), un contorno que se cruza (los puntos no van en orden), menos de tres puntos,
+puntos alineados, una coordenada que no es de España (mal escrita: dice la línea) o un huso que no corresponde a la
+zona. Si las coordenadas vienen en el orden Y X, se leen bien y se avisa. Con <strong>Crear capa</strong>, las
+parcelas van a una capa del proyecto y se abre la pestaña <strong>Parcela</strong> con ella, donde se elige el
+identificador, el namespace y la alteración de cada una y se crea el GML como con cualquier otra capa. La capa es
+temporal: si quiere conservarla, guárdela desde el panel de Capas.</p>
+
 <h2>Unir varios GML (multiparcela)</h2>
 <p>En la pestaña <strong>Utilidades › 1. Unir GML</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse
 <strong>Unir GML</strong>. Las parcelas que estén en varios ficheros se incluyen una sola vez. Si dos parcelas nuevas (LOCAL) se

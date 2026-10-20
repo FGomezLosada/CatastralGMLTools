@@ -47,6 +47,7 @@ Cada batería recorre las categorías que le apliquen:
 | Utilidades «4. Ajustar a la cartografía catastral» | `ajuste_casos_test.py` | ✅ |
 | Panel: avisos, pestañas, cerrar y recargar | `panel_casos_test.py` | ✅ |
 | Ficheros rotos a mano (cualquier carácter quitado, de más o cortado) | `xml_roto_casos_test.py` | ✅ |
+| Utilidades «6. Parcela desde coordenadas» (AU-57) | `coordenadas_casos_test.py` | ✅ |
 
 Las pruebas que ya hay (`*_test.py`) cubren el uso normal y los fallos encontrados hasta ahora; las baterías añaden
 los casos de la sección 2 que falten.

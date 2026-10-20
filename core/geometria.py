@@ -602,6 +602,32 @@ def epsg_recomendado(geometria, crs):
     return {29: 25829, 30: 25830, 31: 25831}.get(huso)
 
 
+#Contorno aproximado de la España peninsular (grados, ETRS89; trazado propio, unos 30 vértices) y recuadros de
+#Baleares, Canarias, Ceuta y Melilla. Grueso y con MARGEN_ESPANA de holgura: solo sirve para saber que unas coordenadas
+#no pueden ser de una parcela española (un huso equivocado las mueve unos 6°), no para decidir en la costa
+PENINSULA = ((-9.3, 43.2), (-7.9, 43.8), (-5.8, 43.7), (-3.8, 43.5), (-1.8, 43.4), (-1.6, 43.3), (0.7, 42.85), (3.2, 42.5),
+             (3.3, 41.9), (2.2, 41.25), (0.9, 40.7), (0.0, 39.9), (0.2, 38.75), (-0.5, 38.2), (-0.8, 37.6), (-1.6, 37.3),
+             (-2.1, 36.7), (-4.4, 36.65), (-5.3, 36.0), (-6.0, 36.2), (-6.4, 36.8), (-7.4, 37.15), (-7.0, 38.2),
+             (-7.3, 39.6), (-6.9, 40.2), (-6.8, 41.0), (-6.2, 41.6), (-8.1, 41.9), (-8.9, 41.9), (-9.3, 42.9))
+RECUADROS_ESPANA = ((1.15, 38.6, 4.4, 40.1), (-18.3, 27.5, -13.3, 29.5),     #Baleares, Canarias
+                    (-5.45, 35.8, -5.2, 35.95), (-3.05, 35.25, -2.85, 35.35),  #Ceuta, Melilla
+                    (-3.06, 35.92, -3.0, 35.96), (-4.31, 35.16, -4.29, 35.18),  #Alborán, Peñón de Vélez de la Gomera
+                    (-3.92, 35.20, -3.89, 35.22), (-2.45, 35.16, -2.40, 35.19))  #Alhucemas, Chafarinas
+MARGEN_ESPANA = 0.25  #Grados (unos 25 km)
+_PENINSULA = []
+
+
+def en_espana(lon, lat):
+    """¿Están esas coordenadas (grados) en España o cerca (MARGEN_ESPANA)? Grueso: ver PENINSULA."""
+    if any(o - MARGEN_ESPANA <= lon <= e + MARGEN_ESPANA and s - MARGEN_ESPANA <= lat <= n + MARGEN_ESPANA
+           for o, s, e, n in RECUADROS_ESPANA):
+        return True
+    if not _PENINSULA:
+        _PENINSULA.append(QgsGeometry.fromPolygonXY([[QgsPointXY(x, y) for x, y in PENINSULA + PENINSULA[:1]]])
+                          .buffer(MARGEN_ESPANA, 4))
+    return _PENINSULA[0].contains(QgsGeometry.fromPointXY(QgsPointXY(lon, lat)))
+
+
 LIMITES_HUSO = {25829: (-12.0, -6.0), 25830: (-6.0, 0.0), 25831: (0.0, 6.0)}
 MARGEN_HUSO = 1.5  #Grados fuera de su huso a partir de los que el SRC es claramente el de otra zona (AU-30)
 
@@ -631,6 +657,12 @@ def aviso_huso(geometria, crs, epsg, provincia=''):
     if not finita(centro):
         return None
     lon, lat = centro.asPoint().x(), centro.asPoint().y()
+    if not en_espana(lon, lat):
+        #Dentro de la franja del huso, pero en el mar o en otro país (p. ej. coordenadas de Nerja con EPSG:25829 caen al
+        #suroeste de Portugal; prueba de «Parcela desde coordenadas», 20/10/2026)
+        return Incidencia(AVISO, 'SRC-HUSO', f"Con EPSG:{epsg} la geometría cae fuera de España (longitud {lon:.2f}°, "
+                                             f"latitud {lat:.2f}°): revise el sistema de referencia (el huso) o las "
+                                             "coordenadas")
     canarias = 27.0 <= lat <= 29.6 and -18.5 <= lon <= -13.0
     if canarias != (epsg == 32628):
         recomendado = 32628 if canarias else epsg_recomendado(geometria, crs)
