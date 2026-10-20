@@ -124,8 +124,8 @@ CHANGELOG, DESARROLLO y la ayuda.
 | AU-53 | 9 · Conversor 3.0 → 4.0 | Lista de cambios de normativa §8 (raíz, namespaces, srsName, nilReason, quitar `boundedBy`, `zoning`, `validFrom/To`) — ✅ 14/10/2026 (`core/conversor.py`: se reescribe con el escritor del plugin; informe de cambios y de lo que queda) |
 | AU-54 | 10 · División | Por superficie, partes iguales, porcentaje, franjas paralelas **y cuotas**, con la regla del resto del editor de la Sede; puntos de apoyo .txt (mejora 33) — ✅ 14/10/2026 (`core/division.py`, bloque en Parcela); pivote y puntos de apoyo, pendientes |
 | AU-55 | 11 · Informe de superficies y coordenadas | Linderos por parcela resultante (colindantes catastrales), superficie UTM y nota sobre la del terreno, tolerancias de cabida (10 %/5 %), datos del técnico, pie «no oficial» — ✅ 15/10/2026 (`core/superficies.py`; umbrales de los arts. 9.b y 201.3 LH comprobados en el BOE) |
-| AU-56 | Lector del XML del IVG/ICUC y apertura por CSV (mejora 32) | Sin datos personales en capas ni en memoria |
-| AU-57 | Crear parcela desde coordenadas (TXT/CSV de levantamiento) | Nuevo: entrada habitual del topógrafo |
+| AU-56 | Lector del XML del IVG/ICUC y apertura por CSV (mejora 32) | Sin datos personales en capas ni en memoria — en espera (20/10/2026): el esquema `informeGrafAlt.xsd` está publicado, pero no se ha encontrado dónde obtiene el XML un usuario (el IVG de ejemplo de la Sede es un PDF sin él) |
+| AU-57 | Crear parcela desde coordenadas (TXT/CSV de levantamiento) | Nuevo: entrada habitual del topógrafo — ✅ 20/10/2026 (`core/coordenadas.py`, Utilidades «6.», batería `coordenadas_casos_test.py`) |
 | AU-58 | Simulación del informe de identidad gráfica (±0,5 m urbana, ±2 m rústica, 5 % superficie) | Opcional, como ayuda previa al notario o al registro |
 | AU-59 | WFS forales (Álava, Gipuzkoa, Bizkaia) solo para descargar y ver | Opcional; comprobar sus licencias antes |
 | AU-60 | Publicación: escaneo de seguridad del repositorio de QGIS (desde 23/04/2026) | Sin `.bat` en el ZIP; revisar Bandit/detect-secrets |
