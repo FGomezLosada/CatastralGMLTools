@@ -447,9 +447,25 @@ def anchura_maxima(geometria):
     for parte in partes:
         if QgsWkbTypes.geometryType(parte.wkbType()) != Qgis.GeometryType.Polygon or parte.area() <= 0:
             continue
-        polo = parte.poleOfInaccessibility(0.001)
+        #Precisión de 1 mm, pero relativa al tamaño: con un vértice a 42 km (una coordenada mal tecleada) 1 mm hacía
+        #que GEOS tardara medio minuto y fallara (batería de XML rotos, 20/10/2026)
+        caja = parte.boundingBox()
+        perimetro = parte.constGet().perimeter()
+        cota = 4 * parte.area() / perimetro if perimetro else 0.0  #Ningún círculo inscrito es más ancho que 4·A/P
+        if cota < 0.005 or max(caja.width(), caja.height()) > 5000:
+            #Una franja de milímetros, o una pieza de más de 5 km (una coordenada mal tecleada): basta la cota; el cálculo
+            #exacto tardaba más de 10 s (batería de XML rotos, 20/10/2026)
+            mayor = max(mayor, cota)
+            continue
+        tolerancia = max(0.001, max(caja.width(), caja.height()) / 20000)
+        try:
+            polo = parte.poleOfInaccessibility(tolerancia)
+        except Exception:  # noqa: BLE001  (GEOS con una geometría imposible: se estima)
+            polo = None
         if polo and polo[0] is not None:
             mayor = max(mayor, 2 * polo[1])
+        else:
+            mayor = max(mayor, cota)
     return mayor
 
 
@@ -572,7 +588,12 @@ def epsg_recomendado(geometria, crs):
     destino = QgsCoordinateReferenceSystem('EPSG:4258')
     centro = QgsGeometry(geometria.centroid())
     if crs != destino:
-        centro.transform(QgsCoordinateTransform(crs, destino, QgsProject.instance()))
+        try:  #Coordenadas que no encajan con el SRC (p. ej. EPSG:5830 por una cifra de menos en 25830)
+            centro.transform(QgsCoordinateTransform(crs, destino, QgsProject.instance()))
+        except QgsCsException:
+            return None
+    if centro.isNull() or not finita(centro):
+        return None
     p = centro.asPoint()
     lon, lat = p.x(), p.y()
     if 27.0 <= lat <= 29.6 and -18.5 <= lon <= -13.0:
@@ -619,8 +640,12 @@ def aviso_huso(geometria, crs, epsg, provincia=''):
         oeste, este = LIMITES_HUSO[epsg]
         fuera = max(oeste - lon, lon - este, 0.0)
         if fuera > MARGEN_HUSO:
+            recomendado = epsg_recomendado(geometria, crs)
+            if recomendado is None:  #Fuera de España (p. ej. por una coordenada mal escrita): no hay huso que proponer
+                return Incidencia(AVISO, 'SRC-HUSO', f"La geometría cae fuera de España con EPSG:{epsg}: revise las "
+                                                     "coordenadas y el sistema de referencia")
             return Incidencia(AVISO, 'SRC-HUSO', f"La geometría cae lejos del huso de EPSG:{epsg}: el GML debería ir en "
-                                                 f"EPSG:{epsg_recomendado(geometria, crs)} (el huso de su provincia)")
+                                                 f"EPSG:{recomendado} (el huso de su provincia)")
     return None
 
 
@@ -688,6 +713,9 @@ def grados_a_utm(geometrias, epsg):
     crs = QgsCoordinateReferenceSystem(f'EPSG:{epsg}') if epsg else QgsCoordinateReferenceSystem()
     if not (crs.isValid() and crs.isGeographic()) or not geometrias:
         return epsg, list(geometrias), False
+    caja = QgsGeometry.collectGeometry(list(geometrias)).boundingBox()
+    if max(abs(caja.xMinimum()), abs(caja.xMaximum()), abs(caja.yMinimum()), abs(caja.yMaximum())) > 180:
+        return None, [], f"El fichero dice EPSG:{epsg} (grados), pero las coordenadas no son grados"
     girar = orden_lat_lon(geometrias)
     if girar:
         geometrias = [girar_ejes(g) for g in geometrias]
@@ -698,6 +726,25 @@ def grados_a_utm(geometrias, epsg):
     if any(g is None for g in transformadas):
         return None, [], f"No se han podido pasar las coordenadas de EPSG:{epsg} a EPSG:{destino}"
     return destino, transformadas, girar
+
+
+def vertice_lejano(anillos, distancia=1000.0):
+    """
+    El vértice que queda lejos de todos los demás de la parcela (una coordenada mal escrita: una cifra o el punto de
+    menos; una parcela real muy alargada también puede dar positivo: es un aviso), como (número de vértice contando desde 1 con la numeración seguida de los anillos, x, y, metros a la mediana
+    de los demás), o None. Solo si está a más de distancia metros y los demás quedan juntos.
+    """
+    puntos = [p for anillo in anillos for p in (anillo[:-1] if len(anillo) > 1 and anillo[0] == anillo[-1] else anillo)]
+    if len(puntos) < 4:
+        return None
+    xs, ys = sorted(p[0] for p in puntos), sorted(p[1] for p in puntos)
+    mx, my = xs[len(xs) // 2], ys[len(ys) // 2]
+    lejos = [(math.hypot(x - mx, y - my), n, x, y) for n, (x, y) in enumerate(puntos, start=1)]
+    peor = max(lejos)
+    resto = sorted(d for d, *_ in lejos)[:-1]
+    if peor[0] > distancia and resto[-1] < peor[0] / 50:
+        return peor[1], peor[2], peor[3], peor[0]
+    return None
 
 
 def finita(geometria):

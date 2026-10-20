@@ -214,7 +214,7 @@ try:
     numero = [c[0] for c in CASOS].index("EPSG:4326 de verdad (latitud, longitud): solo el SRC") + 1
     pv.fichero.setFilePath(os.path.join(carpeta, f'caso {numero:02d}.gml'))
     #XML roto a mano (prueba del 20/10/2026): el mensaje dice qué falta y enseña el trozo de la línea
-    rotos = {BASE[1:]: '¿se ha borrado el primer carácter?', BASE.replace('<cp:label>', '<cp:label', 1): '«<cp:label01'}
+    rotos = {BASE[1:]: 'no empieza por una etiqueta XML', BASE.replace('<cp:label>', '<cp:label', 1): '<cp:label01▶'}
     extra["XML roto a mano: dice qué falta y dónde, con el trozo de línea"] = all(
         palabra in gl.leer_datos(texto.encode('utf-8')).incidencias[0].mensaje for texto, palabra in rotos.items())
     extra["en grados: la tabla da 600 m², no 0"] = pv.tabla.item(0, 4) is not None and pv.tabla.item(0, 4).text() == '600'

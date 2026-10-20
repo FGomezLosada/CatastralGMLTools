@@ -252,6 +252,14 @@ def validar_elemento(e, es_parcela, metrica=None):
             if not e.geometria.contains(punto):
                 inc.append(Incidencia(AVISO, 'REFPOINT', "El punto de referencia (referencePoint) está fuera de la parcela",
                                       nombre))
+        lejano = geo.vertice_lejano(e.anillos if metrica is None else _anillos_de(metrica))
+        if lejano is not None:  #Batería de XML rotos: 42150000 en lugar de 421500.00 solo daba avisos sin pista
+            n, x, y, metros = lejano
+            km = f"{metros / 1000:.1f}".replace('.', ',')
+            inc.append(Incidencia(AVISO, 'GEO-VERTICE-LEJANO', f"El vértice {n} ({geo.formatear(x)} {geo.formatear(y)}) está "
+                                                               f"a {km} km de los demás de la parcela: compruebe que esa "
+                                                               "coordenada está bien escrita",
+                                  nombre))
         caja = (metrica if metrica is not None else e.geometria).orientedMinimumBoundingBox()
         if caja and len(caja) >= 5 and min(caja[3], caja[4]) > 0:
             esbeltez = max(caja[3], caja[4]) / min(caja[3], caja[4])

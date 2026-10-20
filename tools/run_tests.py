@@ -23,7 +23,7 @@ import tempfile
 import time
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PRUEBAS = ['smoke_test.py', 'package_test.py', 'refcat_test.py', 'geometria_test.py', 'gml_parcela_test.py', 'parcela_ui_test.py', 'gml_lector_test.py', 'validar_ui_test.py', 'validador_test.py', 'esquemas_test.py', 'informe_test.py', 'servicios_test.py', 'descargar_ui_test.py', 'comparacion_test.py', 'alteraciones_test.py', 'unir_test.py', 'union_test.py', 'gml_edificio_test.py', 'edificio_ui_test.py', 'robustez_test.py', 'division_test.py', 'panel_test.py', 'conversor_test.py', 'superficies_test.py', 'ajuste_test.py', 'comparar_gml_test.py', 'comparar_casos_test.py', 'validar_casos_test.py', 'comparacion_casos_test.py', 'parcela_casos_test.py', 'division_casos_test.py', 'edificio_casos_test.py', 'descargar_casos_test.py', 'unir_casos_test.py', 'conversor_casos_test.py', 'superficies_casos_test.py', 'ajuste_casos_test.py', 'panel_casos_test.py']
+PRUEBAS = ['smoke_test.py', 'package_test.py', 'refcat_test.py', 'geometria_test.py', 'gml_parcela_test.py', 'parcela_ui_test.py', 'gml_lector_test.py', 'validar_ui_test.py', 'validador_test.py', 'esquemas_test.py', 'informe_test.py', 'servicios_test.py', 'descargar_ui_test.py', 'comparacion_test.py', 'alteraciones_test.py', 'unir_test.py', 'union_test.py', 'gml_edificio_test.py', 'edificio_ui_test.py', 'robustez_test.py', 'division_test.py', 'panel_test.py', 'conversor_test.py', 'superficies_test.py', 'ajuste_test.py', 'comparar_gml_test.py', 'comparar_casos_test.py', 'validar_casos_test.py', 'comparacion_casos_test.py', 'parcela_casos_test.py', 'division_casos_test.py', 'edificio_casos_test.py', 'descargar_casos_test.py', 'unir_casos_test.py', 'conversor_casos_test.py', 'superficies_casos_test.py', 'ajuste_casos_test.py', 'panel_casos_test.py', 'xml_roto_casos_test.py']
 ESPERA = 600  #Segundos máximos por prueba
 ESPERA_TRAZA = 150  #Segundos tras los que una prueba colgada guarda su traza y se cierra
 ESPERA_ARRANQUE = 60  #Segundos máximos para que arranque QGIS en el proceso de la prueba
@@ -121,7 +121,14 @@ def limpiar_restos():
     borradas = 0
     if sys.platform == 'win32':
         import winreg
-        borradas += borrar_clave(ORGANIZACION)
+        try:  #Las de los procesos que no llegaron a borrar la suya (la de la organización, vacía, no cuenta)
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, f'Software\\{ORGANIZACION}') as propia:
+                restos = [winreg.EnumKey(propia, i) for i in range(winreg.QueryInfoKey(propia)[0])]
+        except OSError:
+            restos = []
+        for nombre in restos:
+            borradas += 1 if borrar_clave(ORGANIZACION, nombre) else 0
+        borrar_clave(ORGANIZACION)
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 'Software\\QGIS') as qgis:
                 antiguas = [winreg.EnumKey(qgis, i) for i in range(winreg.QueryInfoKey(qgis)[0])]
@@ -129,7 +136,7 @@ def limpiar_restos():
             antiguas = []
         for nombre in antiguas:
             if nombre.startswith(PREFIJO_ANTIGUO):
-                borradas += borrar_clave('QGIS', nombre)
+                borradas += 1 if borrar_clave('QGIS', nombre) else 0
         base = os.environ.get('LOCALAPPDATA', '')
     else:
         base = os.path.join(os.path.expanduser('~'), '.cache')
@@ -198,6 +205,43 @@ def ejecutar_una(prueba):
     os._exit(0)  #Salida inmediata: evita mensajes de cierre de QGIS que no aportan nada
 
 
+def lanzar(prueba):
+    """
+    Ejecuta una prueba en su propio proceso y devuelve (salida, código). Si en ESPERA_ARRANQUE (+ margen) segundos no
+    dice que QGIS ha arrancado, se corta para reintentarla, sin esperar a ESPERA: el 20/10/2026 un arranque colgado en
+    QGIS 4.2 tuvo la batería parada 10 minutos; el proceso no llegaba a cerrarse del todo (como otros que Windows da por
+    terminados y no desaparecen) y su salida no se cerraba. La salida se lee en un hilo aparte, que se abandona si el
+    proceso no la cierra.
+    """
+    import threading
+    hijo = subprocess.Popen([sys.executable, os.path.abspath(__file__), '--una', prueba], stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
+    lineas, arrancado, fin = [], threading.Event(), threading.Event()
+
+    def leer():
+        for linea in hijo.stdout:
+            lineas.append(linea)
+            if ARRANCADO in linea:
+                arrancado.set()
+        fin.set()
+    threading.Thread(target=leer, daemon=True).start()
+    codigo = None
+    if not arrancado.wait(ESPERA_ARRANQUE + 20) and not fin.is_set():
+        codigo = 'QGIS no arrancó a tiempo'
+    elif not fin.wait(ESPERA):
+        codigo = 'tiempo agotado'
+    if codigo is not None:
+        hijo.kill()
+        fin.wait(10)  #Si ni así se cierra su salida, se sigue sin ella
+    else:
+        try:
+            codigo = hijo.wait(30)
+        except subprocess.TimeoutExpired:
+            hijo.kill()
+            codigo = 'no terminó de cerrarse'
+    return ''.join(lineas), codigo
+
+
 def main(pruebas):
     from qgis.core import Qgis
     version = '.'.join(Qgis.version().split('.')[:2])
@@ -209,12 +253,7 @@ def main(pruebas):
         inicio = time.time()
         reintentos = 0
         while True:
-            try:
-                hijo = subprocess.run([sys.executable, os.path.abspath(__file__), '--una', prueba], capture_output=True,
-                                      text=True, encoding='utf-8', errors='replace', timeout=ESPERA)
-                salida, codigo = hijo.stdout + hijo.stderr, hijo.returncode
-            except subprocess.TimeoutExpired:
-                salida, codigo = '', 'tiempo agotado'
+            salida, codigo = lanzar(prueba)
             if ARRANCADO in salida or reintentos >= REINTENTOS_ARRANQUE:
                 break
             reintentos += 1  #QGIS no llegó a arrancar: no es un fallo de la prueba, se repite
@@ -235,7 +274,8 @@ def main(pruebas):
         print("\n".join(lineas[desde:]), flush=True)
     borradas = limpiar_restos()
     if borradas:
-        lineas.append(f"(Se han borrado {borradas} claves del registro que dejaron procesos de prueba cortados)")
+        lineas.append(f"(Se han borrado {borradas} clave{'s' if borradas != 1 else ''} del registro que dejaron procesos de "
+                      "prueba cortados)")
     lineas += ["", "RESULTADO GLOBAL: " + ("TODO CORRECTO" if todo_bien else "HAY FALLOS")]
     with open(resultados, 'w', encoding='utf-8') as f:
         f.write("\n".join(lineas) + "\n")
