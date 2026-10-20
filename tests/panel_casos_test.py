@@ -285,8 +285,9 @@ caso("todo botón con solo icono tiene una explicación al pasar el ratón", bot
 
 
 def estrecho():
-    #Relativo a la letra: 64 «x» son unos 420 px con la de Windows (en el entorno de pruebas la letra es más ancha)
-    limite = QFontMetrics(dw.font()).horizontalAdvance('x' * 64)
+    #Relativo a la letra: 42 «x» son unos 280 px con la de Windows (en el entorno de pruebas la letra es más ancha).
+    #Prueba a mano del 20/10/2026: a unos 370 px, la pestaña Parcela sacaba una barra horizontal que tapaba el resumen
+    limite = QFontMetrics(dw.font()).horizontalAdvance('x' * 42)
     anchos = {'límite': limite}
     paginas = [(dw.tabWidget.tabText(i), dw.tabWidget.widget(i)) for i in range(dw.tabWidget.count())]
     for nombre, pagina in paginas:
@@ -296,7 +297,17 @@ def estrecho():
     return all(a <= limite for a in anchos.values()), anchos
 
 
-caso("cabe en un panel estrecho (unos 420 px) en todas las pestañas y utilidades", estrecho)
+caso("cabe en un panel estrecho (unos 280 px) en todas las pestañas y utilidades", estrecho)
+
+
+def division_abierta():
+    dw.pestanaParcela.division.setCollapsed(False)
+    ancho = dw.pestanaParcela.minimumSizeHint().width()
+    dw.pestanaParcela.division.setCollapsed(True)
+    return ancho <= QFontMetrics(dw.font()).horizontalAdvance('x' * 42), ancho
+
+
+caso("con «Dividir la parcela» desplegado también cabe", division_abierta)
 
 
 def ayuda():

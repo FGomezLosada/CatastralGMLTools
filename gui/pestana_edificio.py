@@ -91,7 +91,8 @@ class PestanaEdificio(QWidget):
         fila_capa.addWidget(self.nuevaBoton)
         formulario.addRow("Capa", fila_capa)
 
-        self.soloSeleccion = QCheckBox("Solo los elementos seleccionados", self)
+        self.soloSeleccion = QCheckBox("Solo los seleccionados", self)
+        self.soloSeleccion.setToolTip("Solo los elementos seleccionados en el mapa (o en la tabla de atributos) de la capa")
         formulario.addRow("", self.soloSeleccion)
 
         self.referencia = QLineEdit(self)
@@ -380,7 +381,7 @@ class PestanaEdificio(QWidget):
                          "la capa «Construcciones» de la descarga o pulse «Dibujar huellas».</span>")
             elif self.demasiadas:
                 texto = (f"<i>Demasiadas construcciones: seleccione en el mapa las de la parcela (máximo {MAX_FILAS}) y "
-                         "marque «Solo los elementos seleccionados».</i>")
+                         "marque «Solo los seleccionados».</i>")
             else:
                 texto = ("<i>La capa no tiene polígonos (o no hay ninguno seleccionado). Dibuje la huella de cada "
                          "construcción con la herramienta de añadir polígono.</i>")

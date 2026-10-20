@@ -178,7 +178,7 @@ def preparar(geometria, elemento='', area_entera=True):
                                                  "SRC de la capa (revíselo en sus propiedades, pestaña Fuente)", elemento)]
     if geometria.isNull() or geometria.isEmpty():
         return [], [Incidencia(ERROR, 'GEO-VACIA', "No tiene geometría (un elemento vacío de la capa): bórrelo, o "
-                                                   "seleccione los demás y marque «Solo los elementos seleccionados»",
+                                                   "seleccione los demás y marque «Solo los seleccionados»",
                                elemento)]
     if not finita(geometria):
         return [], [Incidencia(ERROR, 'GEO-SRC', "Coordenadas no válidas (infinitas): revise el SRC de la capa", elemento)]
@@ -676,6 +676,28 @@ def girar_ejes(geometria):
     nueva = QgsGeometry(geometria)
     nueva.get().swapXy()
     return nueva
+
+
+def grados_a_utm(geometrias, epsg):
+    """
+    Geometrías en coordenadas geográficas (grados: EPSG:4326, 4258…) pasadas al huso UTM de la zona, como las admite la
+    Sede. El GML 3.2 escribe latitud, longitud: si el primer número parece la latitud de España, se leen en ese orden.
+    Devuelve (epsg UTM, geometrías, si venían en latitud-longitud) o (None, [], motivo) si no se puede; (epsg, las mismas
+    geometrías, False) si no están en grados.
+    """
+    crs = QgsCoordinateReferenceSystem(f'EPSG:{epsg}') if epsg else QgsCoordinateReferenceSystem()
+    if not (crs.isValid() and crs.isGeographic()) or not geometrias:
+        return epsg, list(geometrias), False
+    girar = orden_lat_lon(geometrias)
+    if girar:
+        geometrias = [girar_ejes(g) for g in geometrias]
+    destino = epsg_recomendado(QgsGeometry.collectGeometry(list(geometrias)), crs)
+    if destino is None:
+        return None, [], f"Las coordenadas están en EPSG:{epsg} (grados) y no caen en España: no se puede saber a qué huso pasarlas"
+    transformadas = [transformar(g, crs, destino) for g in geometrias]
+    if any(g is None for g in transformadas):
+        return None, [], f"No se han podido pasar las coordenadas de EPSG:{epsg} a EPSG:{destino}"
+    return destino, transformadas, girar
 
 
 def finita(geometria):

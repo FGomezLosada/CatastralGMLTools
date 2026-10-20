@@ -365,8 +365,9 @@ MOTIVOS_XML = (('no element found', "está vacío o cortado (termina antes de ti
                ('extra content', "tiene texto después del final del documento"),
                ('undefined entity', "tiene un «&» suelto o una entidad desconocida (escríbalo como &amp;amp;)"),
                ('entityref', "tiene un «&» suelto o una entidad desconocida (escríbalo como &amp;amp;)"),
-               ('invalid token', "tiene un carácter que no es válido en XML"),
-               ('not well-formed', "tiene un carácter que no es válido en XML"),
+               ('unclosed token', "tiene una etiqueta que no se cierra (falta un «>»)"),
+               ('invalid token', "tiene un carácter que no puede ir ahí (¿falta un «<» o un «>», o sobra uno?)"),
+               ('not well-formed', "tiene un carácter que no puede ir ahí (¿falta un «<» o un «>», o sobra uno?)"),
                ('encoding', "tiene caracteres que no corresponden a su codificación (encoding)"))
 
 
@@ -377,6 +378,10 @@ def motivo_xml(error, datos=b''):
     """
     if not (datos or b'').strip():
         return "El fichero está vacío"
+    inicio = (datos or b'').lstrip(b'\xef\xbb\xbf').lstrip()
+    if inicio and not inicio.startswith(b'<'):  #Prueba a mano del 20/10/2026: se borró el «<» del principio
+        return ("El fichero no es un XML bien formado: no empieza por «<» (empieza por "
+                f"«{inicio[:20].decode('utf-8', 'replace')}…»; ¿se ha borrado el primer carácter?)")
     texto = str(error)
     motivo = next((m for clave, m in MOTIVOS_XML if clave in texto.lower()), "tiene un error de formato")
     posicion = getattr(error, 'position', None)
@@ -386,7 +391,21 @@ def motivo_xml(error, datos=b''):
     #ElementTree cuenta las columnas desde 0; lxml, desde 1
     columna = posicion[1] + (1 if isinstance(error, ET.ParseError) else 0) if posicion else 0
     donde = f" (línea {posicion[0]}, columna {columna})" if posicion else ''
-    return f"El fichero no es un XML bien formado: {motivo}{donde}"
+    return f"El fichero no es un XML bien formado: {motivo}{donde}{_trozo(datos, posicion)}"
+
+
+def _trozo(datos, posicion):
+    """El trozo de la línea donde está el fallo, para encontrarlo en el Bloc de notas: «: …texto…»."""
+    if not posicion or not datos:
+        return ''
+    try:
+        linea = datos.splitlines()[posicion[0] - 1].decode('utf-8', 'replace')
+    except IndexError:
+        return ''
+    columna = max(posicion[1], 0)
+    desde = max(0, columna - 30)
+    trozo = linea[desde:columna + 30].strip()
+    return f": «{'…' if desde else ''}{trozo}{'…' if columna + 30 < len(linea) else ''}»" if trozo else ''
 
 
 def leer_datos(datos):

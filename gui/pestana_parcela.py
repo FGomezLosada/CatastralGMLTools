@@ -99,7 +99,8 @@ class PestanaParcela(QWidget):
         self.capaCombo.setToolTip("Capa de polígonos con las parcelas (cada polígono será una parcela del GML)")
         formulario.addRow("Capa", self.capaCombo)
 
-        self.soloSeleccion = QCheckBox("Solo los elementos seleccionados", self)
+        self.soloSeleccion = QCheckBox("Solo los seleccionados", self)
+        self.soloSeleccion.setToolTip("Solo los elementos seleccionados en el mapa (o en la tabla de atributos) de la capa")
         formulario.addRow("", self.soloSeleccion)
 
         self.campoId = QgsFieldComboBox(self)
@@ -293,7 +294,7 @@ class PestanaParcela(QWidget):
         self.destino.setFilePath(self.destino_automatico)
 
     def seguir_seleccion(self, capa):
-        """Con «Solo los elementos seleccionados», la tabla se actualiza al seleccionar parcelas en el mapa."""
+        """Con «Solo los seleccionados», la tabla se actualiza al seleccionar parcelas en el mapa."""
         anterior = self.capa_conectada
         if anterior is not None and not sip.isdeleted(anterior):
             for senal, metodo in self.senales(anterior):
@@ -376,13 +377,13 @@ class PestanaParcela(QWidget):
         self.antes_union = antes  #Con Ctrl+Z la tabla vuelve a este estado (capa_editada)
         if tipo:
             #Agregación o agrupación de parcelas catastrales: el GML lleva solo la parcela resultante (que queda
-            #seleccionada), así que la tabla pasa a «Solo los elementos seleccionados»
+            #seleccionada), así que la tabla pasa a «Solo los seleccionados»
             self.soloSeleccion.blockSignals(True)
             self.soloSeleccion.setChecked(True)
             self.soloSeleccion.blockSignals(False)
             self.recargar()
             self.poner_alteracion(tipo, False)
-            vista = (". La tabla muestra solo la parcela unida (desmarque «Solo los elementos seleccionados» para ver "
+            vista = (". La tabla muestra solo la parcela unida (desmarque «Solo los seleccionados» para ver "
                      "todas)")
             propuesta = f" · propuesta: {alt.NOMBRES[tipo]}"
         else:
@@ -514,7 +515,7 @@ class PestanaParcela(QWidget):
                 texto = "<i>Elija una capa de polígonos con las parcelas.</i>"
             elif self.demasiadas:
                 texto = (f"<i>La capa tiene {miles(self.numero_parcelas(capa))} parcelas: seleccione en el mapa las que "
-                         f"quiera incluir (máximo {MAX_FILAS}) y marque «Solo los elementos seleccionados».</i>")
+                         f"quiera incluir (máximo {MAX_FILAS}) y marque «Solo los seleccionados».</i>")
             else:
                 texto = "<i>La capa no tiene polígonos (o no hay ninguno seleccionado).</i>"
             self.resumen.setText(texto)
@@ -760,7 +761,7 @@ class PestanaParcela(QWidget):
         if not self.filas:
             if self.demasiadas:
                 self.dock.warn(f"Demasiadas parcelas: seleccione en el mapa las que quiera incluir (máximo {MAX_FILAS}) "
-                               "y marque «Solo los elementos seleccionados»")
+                               "y marque «Solo los seleccionados»")
             else:
                 self.dock.warn("No hay parcelas: la capa está vacía o no hay elementos seleccionados")
             return

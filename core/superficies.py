@@ -203,13 +203,15 @@ def _num(valor, decimales=2):
 
 
 def _coordenadas(ficha):
-    filas = []
+    filas, primero = [], 1
     for rol, puntos in ficha.anillos:
         filas.append(f'<tr class="anillo"><th colspan="4">{rol} · {len(puntos)} vértices</th></tr>')
-        for n, (x, y) in enumerate(puntos, start=1):
-            sx, sy = puntos[n % len(puntos)]
+        for k, (x, y) in enumerate(puntos):
+            n = primero + k  #Los huecos siguen la numeración del exterior, como en el croquis
+            sx, sy = puntos[(k + 1) % len(puntos)]
             filas.append(f'<tr><td>{n}</td><td class="num">{geo.formatear(x)}</td><td class="num">{geo.formatear(y)}</td>'
                          f'<td class="num">{_num(math.hypot(sx - x, sy - y))}</td></tr>')
+        primero += len(puntos)
     return ('<table class="coord"><thead><tr><th>Nº</th><th>X</th><th>Y</th><th>Lado hasta el siguiente (m)</th></tr></thead>'
             '<tbody>' + ''.join(filas) + '</tbody></table>')
 
