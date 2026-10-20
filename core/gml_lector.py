@@ -290,7 +290,7 @@ def leer_partes(datos):
     """
     try:
         raiz = ET.fromstring(datos)
-    except ET.ParseError:
+    except (ET.ParseError, LookupError, ValueError):  #LookupError: encoding desconocido
         return []
     return [_leer_construccion(e) for e in raiz.iter() if nombre_local(e.tag) == 'BuildingPart']
 
@@ -310,7 +310,7 @@ def _espacios_raiz(datos):
             if evento == 'start':
                 break
             espacios.add(valor[1])
-    except ET.ParseError:
+    except (ET.ParseError, LookupError, ValueError):  #LookupError: encoding desconocido
         pass
     return espacios
 
@@ -351,61 +351,136 @@ def leer(ruta):
     return leer_datos(datos)
 
 
-#Mensajes del lector XML (expat y libxml2, en inglés) → castellano
-MOTIVOS_XML = (('no element found', "está vacío o cortado (termina antes de tiempo)"),
-               ('document is empty', "está vacío"),
-               ('start tag expected', "no empieza por una etiqueta XML: no es un GML"),
-               ('syntax error', "no es un XML (no empieza por una etiqueta)"),
-               ('unbound prefix', "usa un prefijo (p. ej. «gml:» o «cp:») que no está declarado en la cabecera"),
-               ('namespace prefix', "usa un prefijo (p. ej. «gml:» o «cp:») que no está declarado en la cabecera"),
-               ('mismatched tag', "tiene una etiqueta mal cerrada"),
-               ('tag mismatch', "tiene una etiqueta mal cerrada"),
-               ('premature end', "está cortado (termina antes de tiempo)"),
-               ('junk after document', "tiene texto después del final del documento"),
-               ('extra content', "tiene texto después del final del documento"),
-               ('undefined entity', "tiene un «&» suelto o una entidad desconocida (escríbalo como &amp;amp;)"),
-               ('entityref', "tiene un «&» suelto o una entidad desconocida (escríbalo como &amp;amp;)"),
-               ('unclosed token', "tiene una etiqueta que no se cierra (falta un «>»)"),
-               ('invalid token', "tiene un carácter que no puede ir ahí (¿falta un «<» o un «>», o sobra uno?)"),
-               ('not well-formed', "tiene un carácter que no puede ir ahí (¿falta un «<» o un «>», o sobra uno?)"),
-               ('encoding', "tiene caracteres que no corresponden a su codificación (encoding)"))
+#Lo que dice el lector XML (libxml2, mediante lxml; o expat) pasado a castellano. Solo lo que el lector sabe: dónde deja
+#de ser XML y qué encuentra ahí; nunca qué se ha borrado o escrito de más, que no se puede saber (prueba a mano del
+#20/10/2026: «¿se ha borrado el primer carácter?» era una suposición). Cada patrón: (expresión, texto con {1}, {2}…)
+PATRONES_LXML = (
+    (r"Opening and ending tag mismatch: ([^\s,]+) line (\d+) and ([^\s,]+)",
+     "la etiqueta <{1}> que se abre en la línea {2} se cierra con </{3}>: no corresponden. Lo que está mal está entre "
+     "esas dos líneas"),
+    (r"Premature end of data in tag ([^\s,]+) line (\d+)",
+     "el fichero se acaba sin cerrar la etiqueta <{1}> que se abre en la línea {2}: está incompleto"),
+    (r"Couldn't find end of Start Tag ([^\s,]+)", "la etiqueta <{1}> no está bien cerrada"),
+    (r"Extra content at the end of the document", "hay texto después de donde termina el documento"),
+    (r"Start tag expected, '<' not found", "no empieza por una etiqueta XML («<…>»)"),
+    (r"Document is empty", "no tiene ninguna etiqueta XML"),
+    (r"Namespace prefix ([^\s,]+) for ([^\s,]+) on ([^\s,]+) is not defined",
+     "el atributo «{1}:{2}» de la etiqueta <{3}> usa el prefijo «{1}:», que no está declarado (xmlns:{1}) en la "
+     "etiqueta raíz"),
+    (r"Namespace prefix ([^\s,]+) on ([^\s,]+) is not defined",
+     "la etiqueta <{1}:{2}> usa el prefijo «{1}:», que no está declarado (xmlns:{1}) en la etiqueta raíz"),
+    (r"Failed to parse QName '([^']*)'", "el nombre «{1}» no es un nombre de etiqueta o atributo válido"),
+    (r"Specification mandates value for attribute ([^\s,]+)", "el atributo «{1}» no tiene valor (nombre=\"valor\")"),
+    (r"Unescaped '<' not allowed in attributes? values", "el valor de un atributo tiene un «<» o no está bien cerrado"),
+    (r"AttValue: \" or ' expected|String not started|String not closed",
+     "el valor de un atributo no está entre comillas o le falta una"),
+    (r"attributes construct error|error parsing attribute name|expected '='|Blank needed",
+     "la etiqueta no está bien escrita: después de su nombre solo pueden ir atributos (nombre=\"valor\") y el «>» que "
+     "la cierra"),
+    (r"(Malformed declaration|parsing XML declaration|XML declaration|xmlParseXMLDecl)",
+     "la primera línea (<?xml version=… encoding=…?>) no está bien escrita"),
+    (r"EntityRef|xmlParseEntityRef|Entity '[^']*' not defined",
+     "hay un «&» que no es una entidad (&amp;, &lt;…): un «&» suelto se escribe &amp;"),
+    (r"Input is not proper UTF-8|Char 0x|invalid character|not proper",
+     "hay caracteres que no corresponden a la codificación del fichero (encoding) o que no se permiten en XML"),
+    (r"StartTag: invalid element name|invalid element name", "hay un «<» que no empieza una etiqueta válida"),
+    (r"(Comment not terminated|Comment must not contain)", "un comentario (<!-- … -->) no está bien cerrado"),
+    (r"(Opening and ending tag mismatch|tag mismatch|mismatched tag)", "una etiqueta se cierra con otra distinta"),
+)
+#Si no hay lxml: los mensajes de expat (ElementTree)
+PATRONES_EXPAT = (
+    (r"no element found", "el fichero se acaba antes de tiempo: está incompleto"),
+    (r"mismatched tag", "una etiqueta se cierra con otra distinta (lo que está mal está antes de este punto)"),
+    (r"unbound prefix", "se usa un prefijo (como «gml:» o «cp:») que no está declarado en la etiqueta raíz"),
+    (r"junk after document element", "hay texto después de donde termina el documento"),
+    (r"undefined entity", "hay un «&» que no es una entidad (&amp;, &lt;…)"),
+    (r"unclosed token|not well-formed|invalid token|syntax error",
+     "aquí hay un carácter que no puede ir en este sitio del XML"),
+    (r"XML declaration|unknown encoding", "la primera línea (<?xml version=… encoding=…?>) no está bien escrita"),
+)
 
 
 def motivo_xml(error, datos=b''):
     """
-    «El fichero no es un XML bien formado: …» en castellano, con la línea y la columna, a partir de la excepción del
-    lector XML (ElementTree o lxml). Nunca el texto en inglés del lector.
+    «El fichero no es un XML bien formado …» en castellano: qué ha encontrado el lector XML, la línea y la columna, y el
+    texto de ese punto con una marca (▶), para encontrarlo con un editor. Usa el detalle de libxml2 si está lxml.
+    Nunca el texto en inglés del lector, ni una suposición de qué falta.
     """
-    if not (datos or b'').strip():
+    datos = datos or b''
+    if not datos.strip():
         return "El fichero está vacío"
-    inicio = (datos or b'').lstrip(b'\xef\xbb\xbf').lstrip()
-    if inicio and not inicio.startswith(b'<'):  #Prueba a mano del 20/10/2026: se borró el «<» del principio
-        return ("El fichero no es un XML bien formado: no empieza por «<» (empieza por "
-                f"«{inicio[:20].decode('utf-8', 'replace')}…»; ¿se ha borrado el primer carácter?)")
-    texto = str(error)
-    motivo = next((m for clave, m in MOTIVOS_XML if clave in texto.lower()), "tiene un error de formato")
-    posicion = getattr(error, 'position', None)
-    if not posicion:
-        m = re.search(r'line (\d+), column (\d+)', texto)
-        posicion = (int(m.group(1)), int(m.group(2))) if m else None
-    #ElementTree cuenta las columnas desde 0; lxml, desde 1
-    columna = posicion[1] + (1 if isinstance(error, ET.ParseError) else 0) if posicion else 0
-    donde = f" (línea {posicion[0]}, columna {columna})" if posicion else ''
-    return f"El fichero no es un XML bien formado: {motivo}{donde}{_trozo(datos, posicion)}"
-
-
-def _trozo(datos, posicion):
-    """El trozo de la línea donde está el fallo, para encontrarlo en el Bloc de notas: «: …texto…»."""
-    if not posicion or not datos:
-        return ''
+    #Dónde: el primer punto en que el fichero deja de ser XML, que da expat (ElementTree) con exactitud
+    linea = columna = None
+    if isinstance(error, LookupError):
+        motivo = "la codificación (encoding) de la primera línea no existe"
+        linea, columna = 1, 1
+    else:
+        motivo = _traducir(str(error), PATRONES_EXPAT)
+        posicion = getattr(error, 'position', None)
+        if posicion:
+            linea, columna = posicion[0], posicion[1] + 1  #expat cuenta las columnas desde 0
+    #Qué: libxml2 (lxml) lo explica mejor (nombres de las etiquetas), si señala la misma línea. Se usa el error de esta
+    #lectura (e.msg), no el registro de errores, que conserva los de lecturas anteriores (batería de XML rotos)
     try:
-        linea = datos.splitlines()[posicion[0] - 1].decode('utf-8', 'replace')
-    except IndexError:
+        from lxml import etree
+        try:
+            etree.fromstring(datos, etree.XMLParser(resolve_entities=False, no_network=True))
+        except etree.XMLSyntaxError as e:
+            linea_lxml = e.position[0] if e.position else None
+            mejor = _traducir(e.msg or '', PATRONES_LXML)
+            misma = re.search(r"tag mismatch: [^\s,]+ line (\d+)", e.msg or '')
+            if misma and linea_lxml is not None and int(misma.group(1)) == linea_lxml:
+                mejor = mejor.replace(f"se abre en la línea {linea_lxml}", "se abre en esta misma línea").replace(
+                    ". Lo que está mal está entre esas dos líneas", "")
+            if mejor and (linea is None or linea_lxml == linea):
+                motivo = mejor
+                if linea is None and e.position:
+                    linea, columna = e.position
+        except (ValueError, LookupError):
+            pass
+    except ImportError:
+        pass
+    donde = f" (línea {linea}, columna {columna})" if linea else ''
+    inicio = _inicio_etiqueta(datos, linea, columna) if 'atribut' in (motivo or '') or 'etiqueta no está bien' in (motivo or '') else ''
+    return (f"El fichero no es un XML bien formado{donde}: {motivo or 'tiene un error de formato'}"
+            f"{_trozo(datos, linea, columna)}{inicio}")
+
+
+def _inicio_etiqueta(datos, linea, columna):
+    """Cómo empieza la etiqueta en la que está el fallo (un atributo sin cerrar se ve al final de la línea, no donde está)."""
+    if not linea:
         return ''
-    columna = max(posicion[1], 0)
-    desde = max(0, columna - 30)
-    trozo = linea[desde:columna + 30].strip()
-    return f": «{'…' if desde else ''}{trozo}{'…' if columna + 30 < len(linea) else ''}»" if trozo else ''
+    lineas = datos.splitlines(keepends=True)
+    desplazamiento = sum(len(x) for x in lineas[:linea - 1]) + max((columna or 1) - 1, 0)
+    abre = datos.rfind(b'<', 0, max(desplazamiento, 0))
+    if abre < 0:
+        return ''
+    etiqueta = datos[abre:abre + 70].decode('utf-8', 'replace').split('\n')[0]
+    return f". La etiqueta empieza así: «{etiqueta}{'…' if len(etiqueta) >= 70 else ''}»"
+
+
+def _traducir(texto, patrones):
+    for patron, plantilla in patrones:
+        m = re.search(patron, texto)
+        if m:
+            return plantilla.format(None, *[g.lstrip('<').rstrip('>') for g in m.groups()])
+    return ''
+
+
+def _trozo(datos, linea, columna):
+    """El texto de la línea en ese punto, con una marca: «… <cp:label01 ▶</cp:label> …»."""
+    if not linea:
+        return ''
+    lineas = datos.splitlines()
+    texto = lineas[linea - 1].decode('utf-8', 'replace') if linea - 1 < len(lineas) else ''
+    columna = min(max((columna or 1) - 1, 0), len(texto))
+    antes, despues = texto[max(0, columna - 35):columna], texto[columna:columna + 35]
+    if not (antes.strip() or despues.strip()):
+        #Al final del fichero (está cortado): cómo termina
+        final = datos.decode('utf-8', 'replace').rstrip()
+        return f". El fichero termina así: «{'…' if len(final) > 60 else ''}{final[-60:].lstrip()}▶»" if final else ''
+    return (f". En ese punto: «{'…' if columna > 35 else ''}{antes.lstrip()}▶{despues.rstrip()}"
+            f"{'…' if columna + 35 < len(texto) else ''}»")
 
 
 def leer_datos(datos):
@@ -413,7 +488,7 @@ def leer_datos(datos):
     resultado = ResultadoLectura()
     try:
         raiz = ET.fromstring(datos)
-    except ET.ParseError as e:
+    except (ET.ParseError, LookupError, ValueError) as e:  #LookupError: encoding="tf-8" (batería de XML rotos)
         motivo = motivo_xml(e, datos)
         numero = re.search(rb'<(/?)([A-Za-z_][\w.-]*:)?\d[\w.-]*', datos)
         if numero:  #«Guardar como» GML de QGIS con una capa que se llama como la RC: <ogr:2082108VF2628S>

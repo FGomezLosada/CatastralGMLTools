@@ -278,7 +278,7 @@ def excepcion_wfs(datos):
         return ''
     try:
         raiz = ET.fromstring(datos)
-    except ET.ParseError:
+    except (ET.ParseError, LookupError, ValueError):  #LookupError: encoding desconocido
         return 'respuesta de error del servicio'
     textos = [(e.text or '').strip() for e in raiz.iter() if gl.nombre_local(e.tag) == 'ExceptionText']
     return ' '.join(t for t in textos if t) or 'respuesta de error del servicio'

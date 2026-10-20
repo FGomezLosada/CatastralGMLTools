@@ -184,7 +184,7 @@ def _validar(datos, version):
         return [_sin_comprobar(faltan)]
     try:
         documento = etree.fromstring(datos, etree.XMLParser(resolve_entities=False, no_network=True))
-    except etree.XMLSyntaxError as e:
+    except (etree.XMLSyntaxError, ValueError, LookupError) as e:  #ValueError/LookupError: encoding desconocido
         return [Incidencia(ERROR, 'XML-MAL-FORMADO', gl.motivo_xml(e, datos))]
     if esquema.validate(documento):
         return [Incidencia(INFO, 'XSD-VALIDO', "Cumple el esquema XSD público de INSPIRE (la Sede comprueba además otras reglas: vea los errores de arriba, si los hay)")]

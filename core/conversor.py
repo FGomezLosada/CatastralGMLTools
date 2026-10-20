@@ -80,7 +80,7 @@ def leer_generico(datos):
                       "hace «Guardar como» GML de QGIS con una capa cuyo nombre empieza por un número")
     try:
         raiz = ET.fromstring(arreglado)
-    except ET.ParseError:
+    except (ET.ParseError, LookupError, ValueError):  #LookupError: encoding desconocido
         return None, []
     resultado = gl.ResultadoLectura(version=GENERICO, datos=arreglado, texto=gl._texto(arreglado), raiz=raiz.tag)
     srs = set()
@@ -135,7 +135,7 @@ def ajenos(datos):
     """Nombres de los elementos de las parcelas que no son del esquema INSPIRE (ni de gml), sin repetir y en orden."""
     try:
         raiz = ET.fromstring(datos)
-    except ET.ParseError:
+    except (ET.ParseError, LookupError, ValueError):  #LookupError: encoding desconocido
         return []
     vistos = []
     for parcela in raiz.iter():
