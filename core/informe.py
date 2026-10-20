@@ -134,7 +134,15 @@ def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=
         partes.append(f'<path d="{d}" fill="{color}" fill-opacity="{relleno}" stroke="{color}" '
                       f'stroke-width="{1.2 if tenue else 2.5 if con_fondo else 2}" fill-rule="evenodd"{trazo}/>')
         if vertices and (foco is None or e is foco) and poligonos and poligonos[0]:
-            numeros += _numeros_vertices(e.geometria, poligonos[0][0], color, escala, pantalla, ocupados)
+            #El exterior y los huecos, con la numeración seguida (como la tabla de coordenadas: 1-11, hueco 12-15)
+            primero = 1
+            for n, anillo in enumerate(poligonos[0]):
+                #Un hueco pequeño en el croquis (un patio de 1,5 m): solo los puntos, los números se leen en la tabla
+                lado = max(max(p.x() for p in anillo) - min(p.x() for p in anillo),
+                           max(p.y() for p in anillo) - min(p.y() for p in anillo)) * escala
+                numeros += _numeros_vertices(e.geometria, anillo, color, escala, pantalla, ocupados, primero=primero,
+                                             numerar=n == 0 or lado >= HUECO_NUMERADO)
+                primero += len(anillo) - 1 if len(anillo) > 1 and anillo[0] == anillo[-1] else len(anillo)
         if e.local_id:
             textos.append(etiqueta(e.geometria, e.local_id))
     partes += textos + numeros
@@ -179,8 +187,14 @@ def _giro_etiqueta(geometria, texto, escala, ancho_letra=7.0):
     return 0 if abs(grados) < 3 else grados
 
 
-def _numeros_vertices(geometria, anillo, color, escala, pantalla, hecho, separacion=11):
-    """Puntos y números de los vértices de un anillo exterior, por fuera del recinto (bisectriz del ángulo)."""
+HUECO_NUMERADO = 40  #px: un hueco más pequeño en el croquis lleva sus vértices sin número (no caben)
+
+
+def _numeros_vertices(geometria, anillo, color, escala, pantalla, hecho, separacion=11, primero=1, numerar=True):
+    """
+    Puntos y números de los vértices de un anillo, por fuera del recinto (bisectriz del ángulo; en un hueco, dentro de
+    él). primero: número del primer vértice (los huecos siguen la numeración del exterior).
+    """
     puntos = list(anillo[:-1]) if len(anillo) > 1 and anillo[0] == anillo[-1] else list(anillo)
     n = len(puntos)
     partes = []
@@ -201,23 +215,24 @@ def _numeros_vertices(geometria, anillo, color, escala, pantalla, hecho, separac
         if geometria.contains(QgsPointXY(p.x() + bx * desplazamiento / 3, p.y() + by * desplazamiento / 3)):
             bx, by = -bx, -by
         tx, ty = pantalla(p.x() + bx * desplazamiento, p.y() + by * desplazamiento)
-        if any(math.hypot(tx - hx, ty - hy) < separacion for hx, hy in hecho):
+        if not numerar or any(math.hypot(tx - hx, ty - hy) < separacion for hx, hy in hecho):
             continue
         hecho.append((tx, ty))
         partes.append(f'<text x="{tx:.1f}" y="{ty + 4:.1f}" text-anchor="middle" class="etiqueta" '
-                      f'style="fill:{color};font-size:10.5px;font-weight:600">{k + 1}</text>')
+                      f'style="fill:{color};font-size:10.5px;font-weight:600">{k + primero}</text>')
     return partes
 
 
 def coordenadas_html(elemento):
     """Tabla de vértices de cada anillo, numerados, con 2 decimales."""
-    filas = []
+    filas, primero = [], 1
     for i, (anillo, rol) in enumerate(zip(elemento.anillos, elemento.roles or ['exterior'] * len(elemento.anillos))):
         nombre = 'Exterior' if rol == 'exterior' else f'Hueco {i}'
         vertices = anillo[:-1] if len(anillo) > 1 and anillo[0] == anillo[-1] else anillo
         filas.append(f'<tr class="anillo"><th colspan="3">{nombre} · {len(vertices)} vértices</th></tr>')
         filas += [f'<tr><td>{n}</td><td>{geo.formatear(x)}</td><td>{geo.formatear(y)}</td></tr>'
-                  for n, (x, y) in enumerate(vertices, start=1)]
+                  for n, (x, y) in enumerate(vertices, start=primero)]
+        primero += len(vertices)  #Los huecos siguen la numeración: no hay dos vértices con el mismo número
     return ('<table class="coord"><thead><tr><th>Nº</th><th>X</th><th>Y</th></tr></thead><tbody>'
             + ''.join(filas) + '</tbody></table>')
 

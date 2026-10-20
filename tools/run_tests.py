@@ -8,7 +8,8 @@ Uso (CMD, desde la carpeta del proyecto):
     ... tools\run_tests.py smoke_test.py                                                 (solo esa)
 
 El resumen sale en pantalla y en tests/resultados_qgis<versión>.txt (p. ej. resultados_qgis3.40.txt). Usa la configuración de pruebas de QGIS, no la tuya
-(favoritos, plantillas y configuraciones guardadas no se tocan).
+(favoritos, plantillas y configuraciones guardadas no se tocan). Lo que guardan las pruebas va a la organización
+«CatastralGMLTools-Pruebas» (no a la de QGIS) y se borra al terminar: no quedan claves en el registro ni carpetas.
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
@@ -29,22 +30,30 @@ ESPERA_ARRANQUE = 60  #Segundos máximos para que arranque QGIS en el proceso de
 ARRANCADO = '[QGIS arrancado]'
 REINTENTOS_ARRANQUE = 2
 MODULO = 'catastral_gml_tools'  #Nombre con el que QGIS carga el plugin
+#Organización propia (no «QGIS»): lo que Qt guarda de las pruebas va a HKCU\Software\CatastralGMLTools-Pruebas y no se
+#mezcla con QGIS ni con las pruebas de otros plugins (20/10/2026: 1115 claves QGIS-TEST-CGT-<pid> bajo
+#HKCU\Software\QGIS dejaban QGIS 4.2 parado en initQgis() al arrancar cualquier prueba con la organización «QGIS»)
+ORGANIZACION = 'CatastralGMLTools-Pruebas'
+PREFIJO_APLICACION = 'QGIS-TEST-'
+PREFIJO_ANTIGUO = 'QGIS-TEST-CGT-'  #Nombre que usaba este lanzador bajo la organización «QGIS» (hasta el 20/10/2026)
 
 
 def arrancar_qgis():
-    """
-    Como qgis.testing.start_app, pero con un nombre de aplicación propio de este proceso: QGIS guarda su caché (y el
-    candado hstsstore.lock de la red) en una carpeta con ese nombre. Con el nombre común «QGIS-TEST», un proceso de
-    prueba que se quedaba colgado al salir retenía el candado y todos los QGIS siguientes se colgaban al arrancar hasta
-    reiniciar Windows (QGIS 4.2, 15/10/2026). La carpeta se borra al terminar (borrar_cache).
+    r"""
+    Como qgis.testing.start_app, pero con una organización propia (ORGANIZACION) y un nombre de aplicación de este
+    proceso. El nombre por proceso es necesario: QGIS guarda su caché, y el candado hstsstore.lock de la red, en
+    LOCALAPPDATA\<organización>\<aplicación>\cache; con un nombre común, un proceso de prueba colgado retenía el
+    candado y todos los QGIS siguientes se colgaban al arrancar hasta reiniciar Windows (QGIS 4.2, 15/10/2026). Lo que
+    deja cada proceso (la carpeta de la caché y su clave del registro) se borra al terminar (borrar_cache); lo que dejara
+    uno que se cortó, lo borra el proceso padre al acabar la batería (limpiar_restos).
     """
     import qgis.testing
     from qgis.core import QgsApplication
     from qgis.PyQt.QtCore import QCoreApplication, Qt
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
-    QCoreApplication.setOrganizationName('QGIS')
-    QCoreApplication.setOrganizationDomain('qgis.org')
-    QCoreApplication.setApplicationName(f'QGIS-TEST-CGT-{os.getpid()}')
+    QCoreApplication.setOrganizationName(ORGANIZACION)
+    QCoreApplication.setOrganizationDomain('catastralgmltools.invalid')
+    QCoreApplication.setApplicationName(f'{PREFIJO_APLICACION}{os.getpid()}')
     os.environ['QGIS_CUSTOM_CONFIG_PATH'] = tempfile.mkdtemp('', 'QGIS-PythonTestConfigPath-')
     aplicacion = QgsApplication([os.fsencode(a) for a in sys.argv], True)
     aplicacion.initQgis()
@@ -53,15 +62,84 @@ def arrancar_qgis():
 
 
 def borrar_cache():
-    """Carpetas de este proceso: la de la caché de QGIS (con su nombre propio) y la del perfil temporal."""
+    r"""
+    Lo que deja este proceso: la carpeta de la caché de QGIS (con su nombre propio), la del perfil temporal y, en
+    Windows, su clave del registro (HKCU\Software\<organización>\<aplicación>).
+    """
     import shutil
-    from qgis.PyQt.QtCore import QStandardPaths
+    from qgis.PyQt.QtCore import QCoreApplication, QStandardPaths
+    aplicacion = QCoreApplication.applicationName()
     cache = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.CacheLocation)
-    while cache and not os.path.basename(cache).startswith('QGIS-TEST-CGT-') and os.path.dirname(cache) != cache:
-        cache = os.path.dirname(cache)  #Windows: …/QGIS/QGIS-TEST-CGT-n/cache; Linux: …/QGIS/QGIS-TEST-CGT-n
+    while cache and os.path.basename(cache) != aplicacion and os.path.dirname(cache) != cache:
+        cache = os.path.dirname(cache)  #Windows: …/<organización>/<aplicación>/cache; Linux: …/<organización>/<aplicación>
     for carpeta in (cache, os.environ.get('QGIS_CUSTOM_CONFIG_PATH', '')):
-        if carpeta and ('QGIS-TEST-CGT-' in carpeta or 'QGIS-PythonTestConfigPath-' in carpeta):
+        if carpeta and (os.path.basename(carpeta) == aplicacion or 'QGIS-PythonTestConfigPath-' in carpeta):
             shutil.rmtree(carpeta, ignore_errors=True)
+    borrar_clave(ORGANIZACION, aplicacion)
+
+
+def borrar_clave(organizacion, aplicacion=None):
+    r"""
+    Borra HKCU\Software\<organización>\<aplicación> con todo lo que tenga dentro (o, sin aplicación, la de la
+    organización entera). En Linux y macOS Qt guarda los ajustes en ficheros de la configuración temporal: nada que hacer.
+    Devuelve las claves borradas.
+    """
+    if sys.platform != 'win32':
+        return 0
+    import winreg
+    ruta = f'Software\\{organizacion}' + (f'\\{aplicacion}' if aplicacion else '')
+
+    def borrar(padre, nombre):
+        try:
+            clave = winreg.OpenKey(padre, nombre, 0, winreg.KEY_ALL_ACCESS)
+        except OSError:
+            return 0
+        n = 0
+        with clave:
+            while True:
+                try:
+                    hija = winreg.EnumKey(clave, 0)
+                except OSError:
+                    break
+                n += borrar(clave, hija)
+        try:
+            winreg.DeleteKey(padre, nombre)
+            return n + 1
+        except OSError:
+            return n
+    return borrar(winreg.HKEY_CURRENT_USER, ruta)
+
+
+def limpiar_restos():
+    """
+    Lo que dejaron los procesos de prueba que se cortaron antes de borrar_cache (tiempo agotado, cierre forzado), y las
+    claves que dejaba este lanzador cuando usaba la organización «QGIS» (QGIS-TEST-CGT-<pid>). Solo toca lo de estas
+    pruebas: nunca las claves ni las carpetas de QGIS ni las de otros plugins. Se llama al acabar la batería, con todos
+    los procesos de prueba ya terminados. Devuelve el número de claves borradas.
+    """
+    import shutil
+    borradas = 0
+    if sys.platform == 'win32':
+        import winreg
+        borradas += borrar_clave(ORGANIZACION)
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 'Software\\QGIS') as qgis:
+                antiguas = [winreg.EnumKey(qgis, i) for i in range(winreg.QueryInfoKey(qgis)[0])]
+        except OSError:
+            antiguas = []
+        for nombre in antiguas:
+            if nombre.startswith(PREFIJO_ANTIGUO):
+                borradas += borrar_clave('QGIS', nombre)
+        base = os.environ.get('LOCALAPPDATA', '')
+    else:
+        base = os.path.join(os.path.expanduser('~'), '.cache')
+    if base:
+        shutil.rmtree(os.path.join(base, ORGANIZACION), ignore_errors=True)
+        for carpeta in [os.path.join(base, 'QGIS', n) for n in (os.listdir(os.path.join(base, 'QGIS'))
+                                                               if os.path.isdir(os.path.join(base, 'QGIS')) else [])]:
+            if os.path.basename(carpeta).startswith(PREFIJO_ANTIGUO):
+                shutil.rmtree(carpeta, ignore_errors=True)
+    return borradas
 
 
 def ejecutar_una(prueba):
@@ -155,6 +233,9 @@ def main(pruebas):
             if not resultado:
                 lineas += [f"            | {linea}" for linea in salida.splitlines()[-25:]]
         print("\n".join(lineas[desde:]), flush=True)
+    borradas = limpiar_restos()
+    if borradas:
+        lineas.append(f"(Se han borrado {borradas} claves del registro que dejaron procesos de prueba cortados)")
     lineas += ["", "RESULTADO GLOBAL: " + ("TODO CORRECTO" if todo_bien else "HAY FALLOS")]
     with open(resultados, 'w', encoding='utf-8') as f:
         f.write("\n".join(lineas) + "\n")

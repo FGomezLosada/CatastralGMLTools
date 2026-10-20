@@ -28,7 +28,7 @@ import os
 import re
 import xml.etree.ElementTree as ET
 
-from qgis.core import QgsCoordinateReferenceSystem, QgsGeometry
+from qgis.core import QgsCoordinateReferenceSystem
 
 from . import geometria as geo
 from . import gml_lector as gl
@@ -189,17 +189,9 @@ def a_src_admitido(lectura):
     geometrias = [e.geometria for e in lectura.elementos]
     if not geograficas(lectura):
         return lectura.epsg, geometrias, ''
-    crs = QgsCoordinateReferenceSystem(f'EPSG:{lectura.epsg}')
-    girar = geo.orden_lat_lon(geometrias)
-    if girar:
-        geometrias = [geo.girar_ejes(g) for g in geometrias]
-    epsg = geo.epsg_recomendado(QgsGeometry.collectGeometry(geometrias), crs)
+    epsg, transformadas, girar = geo.grados_a_utm(geometrias, lectura.epsg)
     if epsg is None:
-        return None, [], (f"Las coordenadas están en EPSG:{lectura.epsg} (grados) y no caen en España: no se puede saber "
-                          "a qué huso pasarlas")
-    transformadas = [geo.transformar(g, crs, epsg) for g in geometrias]
-    if any(g is None for g in transformadas):
-        return None, [], f"No se han podido pasar las coordenadas de EPSG:{lectura.epsg} a EPSG:{epsg}"
+        return None, [], girar  #El motivo
     return epsg, transformadas, (f"Coordenadas en grados (EPSG:{lectura.epsg}) pasadas a EPSG:{epsg}, el huso UTM de la "
                                  "zona (la Sede solo admite ETRS89 UTM 29, 30 y 31 y, en Canarias, 32628)"
                                  + ("; venían en el orden latitud, longitud" if girar else ''))

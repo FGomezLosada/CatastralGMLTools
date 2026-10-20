@@ -31,7 +31,6 @@ from qgis.PyQt.QtWidgets import (
 from ..core import comparacion as cmp
 from ..core import conversor as cv
 from ..core import esquemas
-from ..core import geometria as geo
 from ..core import gml_lector as gl
 from ..core import informe as informe_html
 from ..core import validador
@@ -279,7 +278,7 @@ class PestanaValidar(QWidget):
         r = self.resultado
         self.tabla.setRowCount(len(r.elementos))
         for i, e in enumerate(r.elementos):
-            calculada = None if e.geometria.isNull() else geo.redondear_m2(e.geometria.area())
+            calculada = informe.superficie(i) if informe is not None else None  #En metros, también si viene en grados
             valores = [e.tipo.capitalize(), e.local_id, e.namespace,
                        '' if e.area_declarada is None else str(e.area_declarada), '' if calculada is None else str(calculada), '']
             for col, valor in enumerate(valores):

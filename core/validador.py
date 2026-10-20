@@ -58,6 +58,13 @@ class Informe:
     ruta: str
     lectura: object                                  #gml_lector.ResultadoLectura
     incidencias: list = field(default_factory=list)  #Todas, incluidas las de lectura
+    metricas: list = field(default_factory=list)     #Geometría de cada elemento en metros (en grados, pasada a su huso)
+
+    def superficie(self, indice):
+        """Superficie (m², UTM, redondeada) del elemento número indice, también si el GML está en grados; o None."""
+        if indice >= len(self.metricas) or self.metricas[indice] is None or self.metricas[indice].isNull():
+            return None
+        return geo.redondear_m2(self.metricas[indice].area())
 
     @property
     def errores(self):
@@ -92,9 +99,27 @@ def validar(ruta, lectura=None):
                                                "(«no cumple el esquema Inspire GML») aunque no se use"))
     if es_parcela and lectura.version == 'CP 4.0' and not lectura.raiz.endswith('}FeatureCollection'):
         inc.append(Incidencia(ERROR, 'RAIZ', "La raíz del fichero debe ser FeatureCollection"))
+    #En grados (EPSG:4326…), lo que se mide en metros (superficie, alineados, sentido, esbeltez) se comprueba en el huso
+    #de la zona: en grados, redondear al centímetro dejaba los recintos «sin superficie» (prueba a mano del 20/10/2026)
+    epsg_metrico, metricas, girado = geo.grados_a_utm([e.geometria for e in lectura.elementos], lectura.epsg)
+    en_grados = epsg_metrico is not None and epsg_metrico != lectura.epsg
+    informe.metricas = metricas if epsg_metrico is not None else [e.geometria for e in lectura.elementos]
     if lectura.epsg is not None and lectura.epsg not in geo.SRC_ADMITIDOS:
-        inc.append(Incidencia(ERROR, 'SRC-NO-ADMITIDO',
-                              f"EPSG:{lectura.epsg} no lo admite la Sede: use 25829, 25830, 25831 o 32628"))
+        caja = QgsGeometry.collectGeometry([e.geometria for e in lectura.elementos]).boundingBox()
+        if epsg_metrico is None and max(abs(caja.xMaximum()), abs(caja.yMaximum())) > 1000:
+            #Números de metros en un fichero que dice estar en grados (p. ej. «Guardar como» con el SRC equivocado)
+            inc.append(Incidencia(ERROR, 'SRC-NO-ADMITIDO',
+                                  f"El fichero dice EPSG:{lectura.epsg} (grados), pero las coordenadas son de metros (UTM): "
+                                  "el srsName está mal. Vuelva a crear el GML con el SRC correcto de la capa (p. ej. "
+                                  "EPSG:25830)"))
+        elif en_grados:
+            inc.append(Incidencia(ERROR, 'SRC-NO-ADMITIDO',
+                                  f"EPSG:{lectura.epsg} (coordenadas en grados) no lo admite la Sede: «Reparar» lo pasa a "
+                                  f"EPSG:{epsg_metrico}, el huso de la zona" + (" (vienen en el orden latitud, longitud)"
+                                                                               if girado else '')))
+        else:
+            inc.append(Incidencia(ERROR, 'SRC-NO-ADMITIDO',
+                                  f"EPSG:{lectura.epsg} no lo admite la Sede: use 25829, 25830, 25831 o 32628"))
     if es_parcela and len(lectura.elementos) > MAX_PARCELAS:
         inc.append(Incidencia(AVISO, 'N-PARCELAS', f"{len(lectura.elementos)} parcelas: la Sede no tramita automáticamente "
                                                     f"más de {MAX_PARCELAS} parcelas resultantes o a unir"))
@@ -104,8 +129,8 @@ def validar(ruta, lectura=None):
     for local_id in sorted(repetidos):
         inc.append(Incidencia(ERROR, 'ID-REPETIDO', "Identificador repetido en el fichero", local_id))
 
-    for elemento in lectura.elementos:
-        inc += validar_elemento(elemento, es_parcela)
+    for elemento, metrica in zip(lectura.elementos, informe.metricas):
+        inc += validar_elemento(elemento, es_parcela, metrica if en_grados else None)
 
     inc += validar_conjunto(lectura.elementos, es_parcela)
 
@@ -121,7 +146,17 @@ def validar(ruta, lectura=None):
     return informe
 
 
-def validar_elemento(e, es_parcela):
+def _anillos_de(geometria):
+    """Anillos (con el vértice de cierre) de un polígono, como los da el lector: [[(x, y), …], …]."""
+    poligono = geometria.asMultiPolygon()[0] if geometria.isMultipart() else geometria.asPolygon()
+    return [[(p.x(), p.y()) for p in anillo] for anillo in poligono]
+
+
+def validar_elemento(e, es_parcela, metrica=None):
+    """
+    metrica: la geometría pasada a metros si el GML está en grados (lo que se mide se comprueba con ella; la estructura
+    del fichero, con lo leído).
+    """
     inc = []
     nombre = e.local_id or e.gml_id or '(sin identificador)'
     nss = NS_PARCELA if es_parcela else NS_EDIFICIO
@@ -158,7 +193,14 @@ def validar_elemento(e, es_parcela):
     if es_parcela and e.recintos > 1:
         inc.append(Incidencia(ERROR, 'GEO-MULTIPARTE', f"La parcela tiene {e.recintos} recintos: la Sede solo admite uno "
                                                        "(una finca discontinua se aporta como varias parcelas)", nombre))
+    medidos = e.anillos
+    if metrica is not None and not metrica.isNull() and e.recintos <= 1:
+        try:
+            medidos = _anillos_de(metrica)
+        except (TypeError, IndexError):
+            medidos = e.anillos
     for i, (anillo, rol) in enumerate(zip(e.anillos, e.roles or ['exterior'] * len(e.anillos)), start=1):
+        medido = medidos[i - 1] if len(medidos) == len(e.anillos) else anillo
         que = 'exterior' if rol == 'exterior' else f'hueco {i - 1}'
         if len(anillo) < 2 or anillo[0] != anillo[-1]:
             inc.append(Incidencia(ERROR, 'ANILLO-ABIERTO', f"Anillo {que} sin cerrar: el último vértice debe ser igual al primero",
@@ -174,19 +216,19 @@ def validar_elemento(e, es_parcela):
         if count is not None and count != len(anillo):
             inc.append(Incidencia(ERROR, 'ANILLO-COUNT', f"Anillo {que}: count={count} pero tiene {len(anillo)} vértices",
                                   nombre))
-        if len(anillo) >= 4 and anillo[0] == anillo[-1] and geo.degenerado(anillo):
+        if len(anillo) >= 4 and anillo[0] == anillo[-1] and geo.degenerado(medido):
             inc.append(Incidencia(ERROR, 'GEO-ALINEADOS', f"Anillo {que} sin superficie: sus vértices están alineados o "
                                                           "repetidos (la Sede pide al menos 3 vértices no alineados más "
                                                           "el de cierre)", nombre))
         elif len(anillo) >= 4 and anillo[0] == anillo[-1]:
-            horario = geo.es_horario(anillo)
+            horario = geo.es_horario(anillo if metrica is None else medido)
             if rol == 'exterior' and not horario:
                 inc.append(Incidencia(ERROR, 'ANILLO-SENTIDO', "El anillo exterior va en sentido antihorario: debe ir en "
                                                                "sentido horario", nombre))
             if rol == 'interior' and horario:
                 inc.append(Incidencia(ERROR, 'ANILLO-SENTIDO', f"El {que} va en sentido horario: los huecos van en sentido "
                                                                "antihorario", nombre))
-    if e.decimales > MAX_DECIMALES:
+    if e.decimales > MAX_DECIMALES and metrica is None:  #En grados, los decimales no son centímetros
         inc.append(Incidencia(AVISO, 'DECIMALES', f"Coordenadas con {e.decimales} decimales: la Sede trabaja al centímetro "
                                                   "(2 decimales)", nombre))
     if not e.geometria.isGeosValid():
@@ -196,7 +238,7 @@ def validar_elemento(e, es_parcela):
 
     #Superficie, punto de referencia y esbeltez (parcelas)
     if es_parcela:
-        calculada = geo.redondear_m2(e.geometria.area())
+        calculada = geo.redondear_m2((metrica if metrica is not None else e.geometria).area())
         if e.area_declarada is None:
             inc.append(Incidencia(ERROR, 'SUP-FALTA', "Falta la superficie (areaValue)", nombre))
         elif abs(e.area_declarada - calculada) >= 1:
@@ -210,7 +252,7 @@ def validar_elemento(e, es_parcela):
             if not e.geometria.contains(punto):
                 inc.append(Incidencia(AVISO, 'REFPOINT', "El punto de referencia (referencePoint) está fuera de la parcela",
                                       nombre))
-        caja = e.geometria.orientedMinimumBoundingBox()
+        caja = (metrica if metrica is not None else e.geometria).orientedMinimumBoundingBox()
         if caja and len(caja) >= 5 and min(caja[3], caja[4]) > 0:
             esbeltez = max(caja[3], caja[4]) / min(caja[3], caja[4])
             if esbeltez > MAX_ESBELTEZ:

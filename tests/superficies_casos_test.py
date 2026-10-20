@@ -178,8 +178,10 @@ def con_hueco(lista, texto):
     huecos = [li for li in lista[0].linderos if li.tipo == 'hueco']
     total = sum(li.longitud for li in huecos)
     #El patio de 4 × 4 son 16 m de lindero «hacia el hueco»; su lado sur da al N (hacia dentro del patio)
+    #Los vértices del patio siguen la numeración del exterior (5 a 8), en la tabla: sin números repetidos
+    seguida = 'Hueco 1 · 4 vértices</th></tr><tr><td>5</td>' in texto
     return ([] if abs(total - 16) < 0.01 and {li.rumbo for li in huecos} == {'N', 'E', 'S', 'O'} and 'Hueco 1' in texto
-            else [f'hueco: {[(li.rumbo, round(li.longitud, 2)) for li in huecos]}'])
+            and seguida else [f'hueco: {[(li.rumbo, round(li.longitud, 2)) for li in huecos]}, numeración seguida {seguida}'])
 
 
 caso("con patio: los lados del patio son linderos y suman el perímetro", bien(gml('patio', [('Nueva_1', poligono(

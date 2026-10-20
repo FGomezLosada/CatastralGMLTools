@@ -198,7 +198,15 @@ class BloqueDivision(QgsCollapsibleGroupBox):
         iface = getattr(self.pestana.dock, 'iface', None)
         return iface.mapCanvas() if iface is not None and hasattr(iface, 'mapCanvas') else None
 
+    def minimumSizeHint(self):  # noqa: N802 (nombre impuesto por Qt)
+        """Plegado, no pide el ancho de lo que lleva dentro: el panel se puede estrechar (prueba a mano del 20/10/2026)."""
+        tamano = super().minimumSizeHint()
+        if self.isCollapsed():
+            tamano.setWidth(min(tamano.width(), self.fontMetrics().horizontalAdvance(self.title()) + 40))
+        return tamano
+
     def plegado(self, *args):
+        self.updateGeometry()
         if not self.isCollapsed():
             self.pestana.activar_capa()  #La selección del mapa y Ctrl+Z van a la capa activa
         self.actualizar()

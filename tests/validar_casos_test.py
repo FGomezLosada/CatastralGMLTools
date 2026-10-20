@@ -14,11 +14,12 @@ import tempfile
 import traceback
 
 import qgis.utils
-from qgis.core import Qgis, QgsGeometry
+from qgis.core import Qgis, QgsCoordinateReferenceSystem, QgsGeometry
 from qgis.PyQt.QtWidgets import QLabel, QMessageBox
 
 import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa: E402
 import catastral_gml_tools.gui.pestana_validar as pv_module  # noqa: E402
+from catastral_gml_tools.core import geometria as geo  # noqa: E402
 from catastral_gml_tools.core import gml_lector as gl  # noqa: E402
 from catastral_gml_tools.core import gml_parcela as gp  # noqa: E402
 from catastral_gml_tools.core import validador  # noqa: E402
@@ -92,7 +93,14 @@ CASOS = [
     ("UTF-8 con BOM", b'\xef\xbb\xbf' + BASE.encode('utf-8'), [], ['*ERROR']),
     ("ISO-8859-1 con acentos", BASE.replace('encoding="utf-8"', 'encoding="ISO-8859-1"').replace(
         '<cp:label>01</cp:label>', '<cp:label>01</cp:label><!-- Camiño, año -->').encode('iso-8859-1'), [], ['*ERROR']),
-    ("EPSG:4326 (no admitido)", BASE.replace('EPSG/0/25830', 'EPSG/0/4326'), ['SRC-NO-ADMITIDO'], []),
+    ("UTM con srsName EPSG:4326: dice que el srsName está mal", BASE.replace('EPSG/0/25830', 'EPSG/0/4326'),
+     ['SRC-NO-ADMITIDO'], []),
+    #Prueba a mano del 20/10/2026: en grados, redondear al centímetro daba «sin superficie» y 0 m²
+    ("EPSG:4326 de verdad (latitud, longitud): solo el SRC", con_poslist(BASE.replace('EPSG/0/25830', 'EPSG/0/4326'), [
+        (f'{q.y():.9f}', f'{q.x():.9f}') for q in geo.transformar(QgsGeometry.fromWkt(
+            'POLYGON((' + ', '.join(f'{x} {y}' for x, y in R) + '))'), QgsCoordinateReferenceSystem('EPSG:25830'),
+            4326).asPolygon()[0]]), ['SRC-NO-ADMITIDO'], ['GEO-ALINEADOS', 'SUP-DISTINTA', 'DECIMALES', 'ANILLO-SENTIDO',
+                                                         'ESBELTEZ']),
     ("sin srsName", re.sub(r' srsName="[^"]*"', '', BASE), ['SRC-FALTA'], []),
     ("srsName en un elemento distinto del resto", DOS.replace('EPSG/0/25830', 'EPSG/0/25829', 3), ['SRC-MEZCLADOS'], []),
     ("coordenadas con Z", con_poslist(BASE, [(x, y) for x, y in R], '<gml:posList srsDimension="3" count="5">').replace(
@@ -202,6 +210,14 @@ if not all(r[1] for r in reparados):
 #Casos de la pestaña que no son de contenido
 extra = {}
 try:
+    #En grados, la tabla da la superficie en m² (en el huso de la zona), no 0
+    numero = [c[0] for c in CASOS].index("EPSG:4326 de verdad (latitud, longitud): solo el SRC") + 1
+    pv.fichero.setFilePath(os.path.join(carpeta, f'caso {numero:02d}.gml'))
+    #XML roto a mano (prueba del 20/10/2026): el mensaje dice qué falta y enseña el trozo de la línea
+    rotos = {BASE[1:]: '¿se ha borrado el primer carácter?', BASE.replace('<cp:label>', '<cp:label', 1): '«<cp:label01'}
+    extra["XML roto a mano: dice qué falta y dónde, con el trozo de línea"] = all(
+        palabra in gl.leer_datos(texto.encode('utf-8')).incidencias[0].mensaje for texto, palabra in rotos.items())
+    extra["en grados: la tabla da 600 m², no 0"] = pv.tabla.item(0, 4) is not None and pv.tabla.item(0, 4).text() == '600'
     dw.messageBar.clearWidgets()
     pv.fichero.setFilePath(os.path.join(carpeta, 'no existe.gml'))
     barra = ' '.join(e.text() for item in dw.messageBar.items() for e in item.findChildren(QLabel)) + ' '.join(

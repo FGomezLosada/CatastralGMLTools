@@ -184,15 +184,16 @@ class PestanaUtilidades(QWidget):
         self.autor.setToolTip("Se escribe en la cabecera del informe y se recuerda para la próxima vez")
         formulario.addRow("Autor", self.autor)
         caja.addLayout(formulario)
-        self.colindantes = QCheckBox("Linderos con el Catastro (con internet)", pagina)
+        self.colindantes = QCheckBox("Linderos con el Catastro", pagina)
         self.colindantes.setToolTip("Consulta las parcelas catastrales de alrededor para decir con quién linda cada lado "
                                     "(datos públicos de la Dirección General del Catastro); sin internet, el informe sale "
-                                    "con los linderos entre las parcelas del GML")
+                                    "con los linderos entre las parcelas del GML. Necesita internet")
         self.colindantes.setChecked(True)
         caja.addWidget(self.colindantes)
-        self.ortofoto = QCheckBox("Ortofoto PNOA en el croquis (con internet)", pagina)
+        self.ortofoto = QCheckBox("Ortofoto PNOA de fondo", pagina)
         self.ortofoto.setToolTip("El croquis general va sobre la ortofoto del Instituto Geográfico Nacional; los croquis de "
-                                 "cada parcela, con los vértices numerados, van sin ella para que se lean bien impresos")
+                                 "cada parcela, con los vértices numerados, van sin ella para que se lean bien impresos. "
+                                 "Necesita internet")
         self.ortofoto.setChecked(True)
         caja.addWidget(self.ortofoto)
         self.estadoSup = QLabel(pagina)
