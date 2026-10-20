@@ -338,9 +338,55 @@ def leer(ruta):
             datos = f.read()
     except OSError as e:
         resultado = ResultadoLectura()
-        resultado.incidencias.append(Incidencia(ERROR, 'FICHERO', f"No se puede leer {nombre}: {e}"))
+        if isinstance(e, FileNotFoundError):
+            texto = f"No existe el fichero {nombre} (¿se ha movido o borrado?)"
+        elif isinstance(e, IsADirectoryError):
+            texto = f"{nombre} es una carpeta, no un fichero GML"
+        elif isinstance(e, PermissionError):
+            texto = f"No se puede abrir {nombre}: no hay permiso o lo tiene bloqueado otro programa"
+        else:
+            texto = f"No se puede leer {nombre}: {e.strerror or e}"
+        resultado.incidencias.append(Incidencia(ERROR, 'FICHERO', texto))
         return resultado
     return leer_datos(datos)
+
+
+#Mensajes del lector XML (expat y libxml2, en inglés) → castellano
+MOTIVOS_XML = (('no element found', "está vacío o cortado (termina antes de tiempo)"),
+               ('document is empty', "está vacío"),
+               ('start tag expected', "no empieza por una etiqueta XML: no es un GML"),
+               ('syntax error', "no es un XML (no empieza por una etiqueta)"),
+               ('unbound prefix', "usa un prefijo (p. ej. «gml:» o «cp:») que no está declarado en la cabecera"),
+               ('namespace prefix', "usa un prefijo (p. ej. «gml:» o «cp:») que no está declarado en la cabecera"),
+               ('mismatched tag', "tiene una etiqueta mal cerrada"),
+               ('tag mismatch', "tiene una etiqueta mal cerrada"),
+               ('premature end', "está cortado (termina antes de tiempo)"),
+               ('junk after document', "tiene texto después del final del documento"),
+               ('extra content', "tiene texto después del final del documento"),
+               ('undefined entity', "tiene un «&» suelto o una entidad desconocida (escríbalo como &amp;amp;)"),
+               ('entityref', "tiene un «&» suelto o una entidad desconocida (escríbalo como &amp;amp;)"),
+               ('invalid token', "tiene un carácter que no es válido en XML"),
+               ('not well-formed', "tiene un carácter que no es válido en XML"),
+               ('encoding', "tiene caracteres que no corresponden a su codificación (encoding)"))
+
+
+def motivo_xml(error, datos=b''):
+    """
+    «El fichero no es un XML bien formado: …» en castellano, con la línea y la columna, a partir de la excepción del
+    lector XML (ElementTree o lxml). Nunca el texto en inglés del lector.
+    """
+    if not (datos or b'').strip():
+        return "El fichero está vacío"
+    texto = str(error)
+    motivo = next((m for clave, m in MOTIVOS_XML if clave in texto.lower()), "tiene un error de formato")
+    posicion = getattr(error, 'position', None)
+    if not posicion:
+        m = re.search(r'line (\d+), column (\d+)', texto)
+        posicion = (int(m.group(1)), int(m.group(2))) if m else None
+    #ElementTree cuenta las columnas desde 0; lxml, desde 1
+    columna = posicion[1] + (1 if isinstance(error, ET.ParseError) else 0) if posicion else 0
+    donde = f" (línea {posicion[0]}, columna {columna})" if posicion else ''
+    return f"El fichero no es un XML bien formado: {motivo}{donde}"
 
 
 def leer_datos(datos):
@@ -349,7 +395,7 @@ def leer_datos(datos):
     try:
         raiz = ET.fromstring(datos)
     except ET.ParseError as e:
-        motivo = f"El fichero no es un XML bien formado: {e}"
+        motivo = motivo_xml(e, datos)
         numero = re.search(rb'<(/?)([A-Za-z_][\w.-]*:)?\d[\w.-]*', datos)
         if numero:  #«Guardar como» GML de QGIS con una capa que se llama como la RC: <ogr:2082108VF2628S>
             motivo += (f". Tiene etiquetas que empiezan por un número ({numero.group(0).decode('utf-8', 'replace')}…>): "

@@ -15,6 +15,9 @@ de la parcela. Se conservan identificadores, namespaces, label, nationalCadastra
 El informe dice qué ha cambiado (comparando la validación del original con la del resultado) y qué queda por corregir a
 mano (p. ej. una referencia catastral mal escrita o un solape), que el conversor no inventa.
 
+Un GML en coordenadas geográficas (EPSG:4326 o 4258, p. ej. exportado de una app o de un visor) se pasa al huso UTM
+de la zona, que es lo que admite la Sede.
+
 Sin interfaz. Nunca sobrescribe el fichero original.
 
 copyright : (C) 2026 by Francisco Gómez Losada
@@ -25,6 +28,9 @@ import os
 import re
 import xml.etree.ElementTree as ET
 
+from qgis.core import QgsCoordinateReferenceSystem, QgsGeometry
+
+from . import geometria as geo
 from . import gml_lector as gl
 from . import gml_parcela as gp
 from . import refcat
@@ -100,9 +106,18 @@ def leer_generico(datos):
                                                       campos.get('nationalCadastralReference', ''), area,
                                                       decimales=decimales))
     srs.discard(None)
-    if not resultado.elementos or len(srs) != 1:
+    if not resultado.elementos:
         return None, []
-    resultado.epsg = srs.pop()
+    if not srs:
+        resultado.incidencias.append(Incidencia(ERROR, 'SRC-FALTA', "El GML no dice en qué sistema de referencia están las "
+                                                                   "coordenadas (srsName): vuelva a exportar la capa desde "
+                                                                   "QGIS con su SRC (p. ej. EPSG:25830)"))
+    elif len(srs) > 1:
+        resultado.incidencias.append(Incidencia(ERROR, 'SRC-MEZCLADOS', "Las parcelas del GML están en sistemas de "
+                                                                       "referencia distintos (" + ", ".join(
+                                                                           f"EPSG:{s}" for s in sorted(srs)) + ")"))
+    else:
+        resultado.epsg = srs.pop()
     return resultado, avisos
 
 
@@ -154,6 +169,40 @@ def fecha_original(texto):
             except ValueError:
                 continue
     return None
+
+
+def geograficas(lectura):
+    """¿Coordenadas geográficas (grados: EPSG:4326, 4258…) que el conversor puede pasar al huso UTM de la zona?"""
+    crs = QgsCoordinateReferenceSystem(f'EPSG:{lectura.epsg}') if lectura.epsg else None
+    return (lectura.epsg not in geo.SRC_ADMITIDOS and crs is not None and crs.isValid() and crs.isGeographic()
+            and bool(lectura.elementos))
+
+
+def a_src_admitido(lectura):
+    """
+    (epsg, geometrías, nota) para escribir el GML en un SRC que admita la Sede. En geográficas (p. ej. EPSG:4326 de una
+    app o de «Guardar como»), se pasan al huso UTM de la zona; el GML 3.2 escribe latitud, longitud, y si el primer número
+    parece la latitud de España se leen en ese orden. Otros SRC no admitidos (ED50, 3857…) se dejan para que los avise el
+    escritor: su paso a ETRS89 necesita la rejilla oficial, y eso es mejor hacerlo en QGIS con la capa.
+    epsg None si no se puede: la nota dice por qué.
+    """
+    geometrias = [e.geometria for e in lectura.elementos]
+    if not geograficas(lectura):
+        return lectura.epsg, geometrias, ''
+    crs = QgsCoordinateReferenceSystem(f'EPSG:{lectura.epsg}')
+    girar = geo.orden_lat_lon(geometrias)
+    if girar:
+        geometrias = [geo.girar_ejes(g) for g in geometrias]
+    epsg = geo.epsg_recomendado(QgsGeometry.collectGeometry(geometrias), crs)
+    if epsg is None:
+        return None, [], (f"Las coordenadas están en EPSG:{lectura.epsg} (grados) y no caen en España: no se puede saber "
+                          "a qué huso pasarlas")
+    transformadas = [geo.transformar(g, crs, epsg) for g in geometrias]
+    if any(g is None for g in transformadas):
+        return None, [], f"No se han podido pasar las coordenadas de EPSG:{lectura.epsg} a EPSG:{epsg}"
+    return epsg, transformadas, (f"Coordenadas en grados (EPSG:{lectura.epsg}) pasadas a EPSG:{epsg}, el huso UTM de la "
+                                 "zona (la Sede solo admite ETRS89 UTM 29, 30 y 31 y, en Canarias, 32628)"
+                                 + ("; venían en el orden latitud, longitud" if girar else ''))
 
 
 def _codigos(informe):
@@ -209,11 +258,16 @@ def convertir(ruta, destino, fecha=None):
         cambios.append("GML genérico (no INSPIRE; p. ej. «Guardar como» GML de QGIS) → INSPIRE CadastralParcels 4.0: se "
                        "toman la geometría y los campos localId, namespace, label y nationalCadastralReference")
         cambios += previos
+    epsg, geometrias, nota = a_src_admitido(lectura)
+    if epsg is None:
+        return False, version, cambios, [Incidencia(ERROR, 'SRC-NO-ADMITIDO', nota)]
+    if nota:
+        cambios.append(nota)
     quitados = ajenos(lectura.datos) if version != GENERICO else []
     if quitados:
         cambios.append("Se quitan datos que no son del esquema INSPIRE (la Sede rechaza el fichero si los lleva): "
                        + ", ".join(quitados[:MAX_AJENOS]) + (f"… ({len(quitados)})" if len(quitados) > MAX_AJENOS else ''))
-    for e in lectura.elementos:
+    for e, geometria in zip(lectura.elementos, geometrias):
         namespace = NAMESPACES.get(e.namespace)
         if namespace is None and version == GENERICO and not e.namespace and refcat.es_rc_exacta(e.local_id):
             namespace = gp.SDGC
@@ -221,12 +275,12 @@ def convertir(ruta, destino, fecha=None):
         elif namespace is None:
             namespace = gp.LOCAL
             cambios.append(f"{e.local_id}: namespace «{e.namespace or 'vacío'}» escrito como ES.LOCAL.CP (parcela nueva)")
-        parcelas.append(gp.ParcelaGML(e.local_id, namespace, e.geometria, e.label, e.referencia))
+        parcelas.append(gp.ParcelaGML(e.local_id, namespace, geometria, e.label, e.referencia))
     original = fecha_original(lectura.texto)
     if original is None:
         original = fecha or datetime.datetime.now().replace(second=0, microsecond=0)
         cambios.append(f"Fecha (beginLifespanVersion): el original no la tiene; se pone {original:%d/%m/%Y %H:%M}")
-    ok, escritura = gp.escribir(destino, parcelas, lectura.epsg, original, origenes=(ruta,))
+    ok, escritura = gp.escribir(destino, parcelas, epsg, original, origenes=(ruta,))
     incidencias += escritura
     if not ok:
         return False, version, cambios, incidencias

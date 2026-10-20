@@ -348,8 +348,15 @@ def descargar(rc, colindantes=True, construcciones=True, epsg=None, ahora=None):
 
     pedido = epsg or EPSG_INICIAL
     parcela, errores = consultar_wfs(url_parcela(descarga.rc, pedido), f"la parcela {descarga.rc}")
-    if errores or parcela is None or not parcela.elementos:
-        descarga.incidencias += errores or [Incidencia(ERROR, 'WFS-VACIO', f"No se ha encontrado la parcela {descarga.rc}")]
+    no_existe = any(i.codigo == 'WFS-EXCEPCION' and 'no se ha encontrado' in i.mensaje.lower() for i in errores)
+    if no_existe or (not errores and (parcela is None or not parcela.elementos)):
+        #El servicio decía «La parcela X: No se ha encontrado la parcela X para el huso 25830» (batería de casos,
+        #19/10/2026): el huso confunde, lo que importa es que esa referencia no está
+        descarga.incidencias.append(Incidencia(ERROR, 'WFS-VACIO', f"No se ha encontrado la parcela {descarga.rc} en el "
+                                                                  "Catastro: compruebe la referencia"))
+        return descarga
+    if errores:
+        descarga.incidencias += errores
         return descarga
     if epsg is None:  #Huso de la parcela según su posición; si no es el 30, se vuelve a pedir en el suyo
         propio = geo.epsg_recomendado(parcela.elementos[0].geometria, QgsCoordinateReferenceSystem(f'EPSG:{pedido}'))

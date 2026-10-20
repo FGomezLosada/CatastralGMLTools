@@ -33,6 +33,7 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from ..core import alteraciones as alt
+from ..core import validador
 from ..core import capa_parcelas as cp
 from ..core import geometria as geo
 from ..core import gml_lector as gl
@@ -231,14 +232,25 @@ class PestanaParcela(QWidget):
             QTimer.singleShot(0, self.comprobar_capa)
 
     def comprobar_capa(self):
-        """Si los campos no son de la capa que muestra el combo, se rehace todo como al elegirla."""
+        """
+        Si los campos no son de la capa que muestra el combo, se rehace todo como al elegirla. Si es porque la capa en
+        uso se ha quitado del proyecto, se dice: el combo pasa solo a otra capa y, sin aviso, «Crear GML» haría el de esa
+        (batería de casos, 19/10/2026).
+        """
         if sip.isdeleted(self):
             return
         if self.campoId.layer() is not self.capa():
+            anterior = getattr(self, 'nombre_capa', '')
             self.cambiar_capa()
+            if anterior:
+                actual = self.capa()
+                self.dock.notify(f"La capa «{anterior}» se ha quitado del proyecto"
+                                 + (f": ahora está elegida «{actual.name()}». Compruebe la tabla antes de crear el GML"
+                                    if actual is not None else ""), Qgis.MessageLevel.Warning, 0)
 
     def cambiar_capa(self, *args):
         capa = self.capa()
+        self.nombre_capa = capa.name() if capa is not None else ''
         self.manuales, self.antes_union, self.matriz_fid = {}, None, None  #Lo escrito y la unión eran de la otra capa
         self.seguir_seleccion(capa)
         self.actualizar_unir()
@@ -775,6 +787,10 @@ class PestanaParcela(QWidget):
         if ok:  #Los avisos del asistente de alteraciones no impiden crear el GML, pero se recuerdan
             self.mostrar_alteracion()
             problemas += [i.mensaje for i in getattr(self, 'incidencias_alteracion', []) if i.nivel == AVISO]
+            #Y los que vería Validar en el fichero (p. ej. más de 30 parcelas: la Sede no lo tramita sola; batería de
+            #casos, 19/10/2026: se creaba sin decirlo)
+            problemas += [i.mensaje for i in validador.validar(ruta).avisos
+                          if not any(i.mensaje in p for p in problemas)]
         if not ok:
             errores = [str(i) for i in incidencias if i.nivel == ERROR]
             texto = (f"No se ha creado el GML: {errores[0]}" if len(errores) == 1 else

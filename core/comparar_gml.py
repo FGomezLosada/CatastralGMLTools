@@ -32,7 +32,7 @@ from qgis.core import (
 )
 
 from . import gml_lector as gl
-from .geometria import epsg_recomendado
+from .geometria import epsg_recomendado, girar_ejes, orden_lat_lon
 from .ficheros import escribir_texto
 from .info import AVISO_LEGAL, NOMBRE, version
 
@@ -124,9 +124,7 @@ def _geografico(epsg):
 
 
 def _girar_ejes(geometria):
-    nueva = QgsGeometry(geometria)
-    nueva.get().swapXy()
-    return nueva
+    return girar_ejes(geometria)
 
 
 def _familia(elemento):
@@ -145,8 +143,7 @@ def _copias(lectura):
 
 def _orden_lat_lon(elementos):
     """En geográficas: ¿el primer número es la latitud de España (26°-44,5°) y el segundo la longitud (−19°-5°)?"""
-    centro = QgsGeometry.collectGeometry([e.geometria for e in elementos]).boundingBox().center()
-    return 26.0 <= centro.x() <= 44.5 and -19.0 <= centro.y() <= 5.0
+    return orden_lat_lon([e.geometria for e in elementos])
 
 
 def src_de_trabajo(epsg_a, epsg_b, elementos_a, elementos_b):

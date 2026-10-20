@@ -18,6 +18,7 @@ from qgis.PyQt.QtWidgets import (
     QAbstractSpinBox,
     QApplication,
     QComboBox,
+    QFormLayout,
     QFrame,
     QLineEdit,
     QScrollArea,
@@ -55,6 +56,24 @@ def proteger(raiz):
             widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus)  #Clic o tabulador para darle el foco; la rueda sola, no
             widget.installEventFilter(_FILTRO)
             widget.setProperty('cgt_rueda', True)
+    return raiz
+
+
+def estrechar(raiz):
+    """
+    Que el panel quepa estrecho (batería del panel): las listas desplegables no fijan su ancho con la opción más larga (un
+    nombre de capa o de campo largo lo ensanchaba); se muestran recortadas y al abrirlas la lista sale con su ancho. Y en
+    los formularios, la etiqueta pasa encima del campo cuando no cabe al lado.
+    """
+    for combo in raiz.findChildren(QComboBox):
+        combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        combo.setMinimumContentsLength(12)
+        #QComboBox guarda el ancho mínimo ya calculado y no lo rehace al cambiar la política: un StyleChange lo borra
+        QApplication.sendEvent(combo, QEvent(QEvent.Type.StyleChange))
+        combo.updateGeometry()
+    #En un panel estrecho, la etiqueta de cada campo pasa encima de él en lugar de empujar el ancho
+    for formulario in raiz.findChildren(QFormLayout):
+        formulario.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
     return raiz
 
 

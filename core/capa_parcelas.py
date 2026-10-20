@@ -275,6 +275,12 @@ def unir_seleccionadas(capa, campo_id=''):
     if rendijas > 1e-6:
         incidencias.append(Incidencia(INFO, 'UNION-RENDIJAS', f"Se han cerrado rendijas de digitalización entre las parcelas "
                                                               f"({rendijas:.4f} m²)"))
+    patios = len(union.asPolygon()[1:]) if not union.isMultipart() and union.asPolygon() else 0
+    propios = sum(len(p[1:]) for g in geometrias for p in (g.asMultiPolygon() if g.isMultipart() else [g.asPolygon()]))
+    if patios > propios:
+        incidencias.append(Incidencia(AVISO, 'UNION-PATIO', "Las parcelas rodean un hueco que no es de ninguna de ellas (un "
+                                                            "patio u otra parcela): la unida lo conserva como hueco. Si es "
+                                                            "suyo, selecciónelo también antes de unir"))
     if rellenado:
         incidencias.append(Incidencia(AVISO, 'UNION-RELLENO', f"Las parcelas no encajaban: se han rellenado {rellenado:.2f} m² "
                                                               "de huecos o cuñas entre ellas. Compruebe en el mapa que la "

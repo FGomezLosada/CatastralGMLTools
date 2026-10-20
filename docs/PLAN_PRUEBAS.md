@@ -36,16 +36,16 @@ Cada batería recorre las categorías que le apliquen:
 |---|---|---|
 | Utilidades «5. Comparar dos GML» | `comparar_casos_test.py` (29 casos) | ✅ 19/10/2026 |
 | Validar: lectura del GML y comprobaciones | `validar_casos_test.py` (38 ficheros + «Reparar» + pestaña) | ✅ 19/10/2026: faltaba avisar de vértices repetidos seguidos (ANILLO-REPETIDO, ahora reparable) |
-| Validar: comparación con el Catastro | `comparacion_casos_test.py` | ⏳ |
-| Parcela: crear GML desde una capa y asistente de alteraciones | `parcela_casos_test.py` | ⏳ |
-| Parcela: dividir y unir seleccionadas | `division_casos_test.py` | ⏳ |
-| Edificio: GML de construcciones (ICUC) | `edificio_casos_test.py` | ⏳ |
-| Descargar: por referencia y en el mapa | `descargar_casos_test.py` | ⏳ |
-| Utilidades «1. Unir GML» | `unir_casos_test.py` | ⏳ |
-| Utilidades «2. Convertir a 4.0 o reparar» | `conversor_casos_test.py` | ⏳ |
-| Utilidades «3. Informe de superficies» | `superficies_casos_test.py` | ⏳ |
-| Utilidades «4. Ajustar a la cartografía catastral» | `ajuste_casos_test.py` | ⏳ |
-| Panel: avisos, pestañas, cerrar y recargar | `panel_casos_test.py` | ⏳ |
+| Validar: comparación con el Catastro | `comparacion_casos_test.py` (44 casos) | ✅ 19/10/2026: una RC inexistente en un GML de edificio decía «no se ha podido comparar»; si la red caía a mitad, una referencia se daba por inexistente; con geometría inválida, GEOS fallaba por dentro |
+| Parcela: crear GML desde una capa y asistente de alteraciones | `parcela_casos_test.py` (25 capas + interacción) | ✅ 19/10/2026: quitar la capa en uso pasaba a otra sin avisar; mensajes de astilla y de elemento sin geometría que no se entendían; más de 30 parcelas sin aviso al crear |
+| Parcela: dividir y unir seleccionadas | `division_casos_test.py` (9 formas × modos × valores × lados: 1404 divisiones; unión con rendijas, huecos y patios) | ✅ 19/10/2026 |
+| Edificio: GML de construcciones (ICUC) | `edificio_casos_test.py` (20 capas + sin referencia) | ✅ 19/10/2026 |
+| Descargar: por referencia y en el mapa | `descargar_casos_test.py` (22 casos + pestaña) | ✅ 19/10/2026: una RC inexistente decía «…no se ha encontrado la parcela X para el huso 25830» (el huso confundía) |
+| Utilidades «1. Unir GML» | `unir_casos_test.py` | ✅ |
+| Utilidades «2. Convertir a 4.0 o reparar» | `conversor_casos_test.py` | ✅ |
+| Utilidades «3. Informe de superficies» | `superficies_casos_test.py` | ✅ |
+| Utilidades «4. Ajustar a la cartografía catastral» | `ajuste_casos_test.py` | ✅ |
+| Panel: avisos, pestañas, cerrar y recargar | `panel_casos_test.py` | ✅ |
 
 Las pruebas que ya hay (`*_test.py`) cubren el uso normal y los fallos encontrados hasta ahora; las baterías añaden
 los casos de la sección 2 que falten.

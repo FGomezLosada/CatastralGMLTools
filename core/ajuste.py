@@ -201,6 +201,7 @@ def evaluar(t, pares, metodo=CONOCIDOS):
 ESCALA_ANOMALA = 500e-6  #Más de 0,5 m por km de diferencia de escala: no es un desplazamiento de la cartografía
 GIRO_ANOMALO = 0.5       #Grados
 REPARTO_MINIMO = 0.25    #Los puntos deben abarcar al menos esta fracción del tamaño del GML (y 5 m)
+DESPLAZAMIENTO_ANOMALO = 100.0  #m: un desfase de la cartografía catastral es de metros, no de cientos de metros
 
 
 def avisos(ajuste, pares, tamano=0.0):
@@ -217,6 +218,15 @@ def avisos(ajuste, pares, tamano=0.0):
         if reparto < necesario:
             textos.append(f"Los puntos están muy juntos ({reparto:.2f} m entre los más alejados): el giro y la escala no "
                           f"son fiables. Tome puntos en extremos opuestos del levantamiento (al menos {necesario:.0f} m)")
+    if pares:
+        #En el centro de los puntos (CX y CY no sirven: con giro, son grandes aunque el desplazamiento sea pequeño)
+        x0, y0 = sum(p.x for p in pares) / len(pares), sum(p.y for p in pares) / len(pares)
+        x1, y1 = t.aplicar(x0, y0)
+        desplazamiento = math.hypot(x1 - x0, y1 - y0)
+        if desplazamiento > DESPLAZAMIENTO_ANOMALO:
+            textos.append(f"Desplazamiento de {desplazamiento:.0f} m: es mucho para un desfase de la cartografía. Compruebe "
+                          "que los puntos del levantamiento y los del Catastro están en el mismo sistema de referencia "
+                          "(el mismo huso) y en ese orden (X Y del levantamiento, luego X′ Y′ del Catastro)")
     if not t.es_traslacion():
         giro, escala, _, _ = t.descripcion()
         if abs(escala - 1) > ESCALA_ANOMALA:

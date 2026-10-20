@@ -21,6 +21,7 @@ from qgis.core import QgsApplication, QgsBlockingNetworkRequest
 from qgis.PyQt.QtCore import QUrl
 from qgis.PyQt.QtNetwork import QNetworkRequest
 
+from . import gml_lector as gl
 from .incidencias import AVISO, ERROR, INFO, Incidencia
 
 ESQUEMA_PARCELA = {
@@ -184,7 +185,7 @@ def _validar(datos, version):
     try:
         documento = etree.fromstring(datos, etree.XMLParser(resolve_entities=False, no_network=True))
     except etree.XMLSyntaxError as e:
-        return [Incidencia(ERROR, 'XML-MAL-FORMADO', f"El fichero no es un XML bien formado: {e}")]
+        return [Incidencia(ERROR, 'XML-MAL-FORMADO', gl.motivo_xml(e, datos))]
     if esquema.validate(documento):
         return [Incidencia(INFO, 'XSD-VALIDO', "Cumple el esquema XSD público de INSPIRE (la Sede comprueba además otras reglas: vea los errores de arriba, si los hay)")]
     errores = list(esquema.error_log)

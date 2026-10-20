@@ -22,6 +22,7 @@ license   : GNU GPL v2 or later
 import datetime
 import math
 import os
+import re
 from dataclasses import dataclass, field
 from html import escape
 
@@ -43,6 +44,7 @@ MINIMO_LINDERO = 0.10  #m: tramos más cortos no son un lindero propio: van con 
 SOLAPE = 1.0           #m²: una catastral que se solapa más con la parcela no es colindante (es la de origen)
 RUMBOS = ('N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO')
 SIN_PARCELA = "Suelo sin parcela catastral (vía pública u otro dominio)"
+HUECO = "Hueco {n} de la parcela (patio u otro suelo que no es de ella)"
 UMBRALES = ((5.0, "art. 201.3.b: rectificación de superficie sin expediente si la diferencia no excede del 5 %"),
             (10.0, "art. 9.b: correspondencia de la representación gráfica si las diferencias de cabida no exceden del "
                    "10 %; art. 201.3.a: sin expediente hasta el 10 % con certificación catastral descriptiva y gráfica "
@@ -95,29 +97,46 @@ def rumbo_normal(a, b, horario):
 
 def linderos(parcela, otras, catastrales):
     """
-    Linderos de una parcela (QgsGeometry), lado a lado del contorno exterior: cada tramo se asigna a la primera que lo
+    Linderos de una parcela (QgsGeometry), lado a lado del contorno exterior y de los huecos: cada tramo se asigna a la primera que lo
     toque (a menos de TOCA) de las otras parcelas del GML [(id, geometría)] y de las catastrales colindantes
     [(rc, geometría)] (las que se solapan con la parcela son las de origen y no cuentan); lo que no toca a ninguna es
     suelo sin parcela. Si catastrales es None (sin consultar el Catastro), ese resto no se asigna. Los restos de menos
     de MINIMO_LINDERO (esquinas, redondeos) van con el tramo de al lado, para que los linderos sumen el perímetro (prueba a
     mano del 16/10/2026: se perdían 8 cm de un lado corto). El rumbo de cada tramo es la normal exterior de su lado (el
-    lado norte de un rectángulo linda «al N»). Se suman por colindante y rumbo.
+    lado norte de un rectángulo linda «al N»; el de un hueco, hacia el hueco). Se suman por colindante y rumbo.
     """
-    anillo = (parcela.asMultiPolygon()[0][0] if parcela.isMultipart() else parcela.asPolygon()[0])
-    puntos = [(p.x(), p.y()) for p in anillo]
-    doble_area = sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in zip(puntos, puntos[1:]))
-    horario = doble_area < 0
+    poligono = parcela.asMultiPolygon()[0] if parcela.isMultipart() else parcela.asPolygon()
     candidatos = [(i, g.buffer(TOCA, 4), 'gml') for i, g in otras]
     for rc, g in catastrales or []:
         if g.intersection(parcela).area() <= SOLAPE:
             candidatos.append((rc, g.buffer(TOCA, 4), 'catastral'))
     suma = {}
-    ultima = None      #Clave del último tramo asignado (los restos de centímetros van con él)
-    pendiente = 0.0    #Restos antes del primer tramo asignado: van con el último (el anillo es cerrado)
 
     def sumar(clave, longitud):
         suma[clave] = suma.get(clave, 0.0) + longitud
 
+    #El contorno exterior y el de cada hueco (patio): el perímetro de la parcela incluye los huecos, y los linderos deben
+    #sumarlo. En un hueco la parcela queda fuera del anillo: el lado da hacia dentro de él (hacia el patio)
+    for n, anillo in enumerate(poligono):
+        puntos = [(p.x(), p.y()) for p in anillo]
+        doble_area = sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in zip(puntos, puntos[1:]))
+        horario = (doble_area < 0) if n == 0 else (doble_area >= 0)
+        if n == 0:
+            _linderos_anillo(puntos, horario, candidatos, catastrales is not None, sumar)
+        else:  #Lo que no es otra parcela es el propio hueco: se sabe aunque no se consulte el Catastro
+            _linderos_anillo(puntos, horario, candidatos, True, sumar, (HUECO.format(n=n), 'hueco'))
+    orden = {r: n for n, r in enumerate(RUMBOS)}
+    resultado = [Lindero(ident, tipo, longitud, hacia) for (ident, tipo, hacia), longitud in suma.items()]
+    return sorted(resultado, key=lambda li: (orden[li.rumbo], -li.longitud))
+
+
+def _linderos_anillo(puntos, horario, candidatos, consultado, sumar, sin=(SIN_PARCELA, 'sin parcela')):
+    """
+    Linderos de un anillo, lado a lado (ver linderos): sumar(clave, longitud) con clave (colindante, tipo, rumbo). sin: a
+    quién va lo que no toca a ninguna parcela (el suelo sin parcela, o el propio hueco en un anillo interior).
+    """
+    ultima = None      #Clave del último tramo asignado (los restos de centímetros van con él)
+    pendiente = 0.0    #Restos antes del primer tramo asignado: van con el último (el anillo es cerrado)
     for a, b in zip(puntos, puntos[1:]):
         lado = QgsGeometry.fromPolylineXY([QgsPointXY(*a), QgsPointXY(*b)])
         largo = lado.length()
@@ -145,13 +164,13 @@ def linderos(parcela, otras, catastrales):
             libre = libre.difference(zona)
         resto = 0.0 if libre.isEmpty() else libre.length()
         if resto >= MINIMO_LINDERO:
-            if catastrales is not None:
-                mayor = (resto, (SIN_PARCELA, 'sin parcela', hacia))
+            if consultado:
+                mayor = (resto, (*sin, hacia))
                 sumar(mayor[1], resto)
             else:
                 ultima = None  #Sin consultar el Catastro, el resto no se asigna (ni sus centímetros)
                 continue
-        elif resto > 1e-6 and catastrales is not None:
+        elif resto > 1e-6 and consultado:
             #Centímetros sueltos (esquinas, redondeos): con el tramo de al lado, para que los linderos sumen el perímetro
             destino = mayor[1] if mayor is not None else ultima
             if destino is None:
@@ -162,9 +181,6 @@ def linderos(parcela, otras, catastrales):
             ultima = mayor[1]
     if pendiente and ultima is not None:
         sumar(ultima, pendiente)
-    orden = {r: n for n, r in enumerate(RUMBOS)}
-    resultado = [Lindero(ident, tipo, longitud, hacia) for (ident, tipo, hacia), longitud in suma.items()]
-    return sorted(resultado, key=lambda li: (orden[li.rumbo], -li.longitud))
 
 
 def fichas(lectura, catastrales=None):
@@ -210,6 +226,38 @@ def _linderos(ficha, consultado):
                f'<td class="num">{_num(sum(li.longitud for li in ficha.linderos))}</td></tr></tfoot>')
     return ('<table><thead><tr><th>Hacia</th><th>Linda con</th><th></th><th>Longitud (m)</th></tr></thead><tbody>'
             + ''.join(filas) + '</tbody>' + pie + '</table>')
+
+
+def leer_cabida(texto):
+    """
+    Cabida escrita por el usuario, en m²: None si está vacía; ValueError si no es un número positivo. Admite «1250,5»,
+    «1250.5», «1.250» y «1 250,5» (millares a la española), «1,250.5» y la unidad («620,5 m²»). Con un solo punto seguido
+    de tres cifras («1.250») es un millar, como se escribe en las escrituras, no 1,25 m².
+    """
+    limpio = re.sub(r'\s|m²|m2', '', (texto or '').strip(), flags=re.IGNORECASE)
+    if not limpio:
+        return None
+    if not re.fullmatch(r'[\d.,]+', limpio):
+        raise ValueError(texto)
+    comas, puntos = limpio.count(','), limpio.count('.')
+    if comas and puntos:
+        decimal = ',' if limpio.rfind(',') > limpio.rfind('.') else '.'
+        millar = '.' if decimal == ',' else ','
+        if limpio.count(decimal) > 1:
+            raise ValueError(texto)
+        limpio = limpio.replace(millar, '').replace(decimal, '.')
+    elif comas:
+        if comas > 1:
+            raise ValueError(texto)
+        limpio = limpio.replace(',', '.')
+    elif puntos and re.fullmatch(r'\d{1,3}(\.\d{3})+', limpio):
+        limpio = limpio.replace('.', '')
+    elif puntos > 1:
+        raise ValueError(texto)
+    valor = float(limpio)
+    if valor <= 0:
+        raise ValueError(texto)
+    return valor
 
 
 def comparar_cabida(total, inscrita):

@@ -184,10 +184,13 @@ class PestanaUtilidades(QWidget):
         self.autor.setToolTip("Se escribe en la cabecera del informe y se recuerda para la próxima vez")
         formulario.addRow("Autor", self.autor)
         caja.addLayout(formulario)
-        self.colindantes = QCheckBox("Linderos con las parcelas catastrales (necesita internet)", pagina)
+        self.colindantes = QCheckBox("Linderos con el Catastro (con internet)", pagina)
+        self.colindantes.setToolTip("Consulta las parcelas catastrales de alrededor para decir con quién linda cada lado "
+                                    "(datos públicos de la Dirección General del Catastro); sin internet, el informe sale "
+                                    "con los linderos entre las parcelas del GML")
         self.colindantes.setChecked(True)
         caja.addWidget(self.colindantes)
-        self.ortofoto = QCheckBox("Ortofoto PNOA en el croquis general (necesita internet)", pagina)
+        self.ortofoto = QCheckBox("Ortofoto PNOA en el croquis (con internet)", pagina)
         self.ortofoto.setToolTip("El croquis general va sobre la ortofoto del Instituto Geográfico Nacional; los croquis de "
                                  "cada parcela, con los vértices numerados, van sin ella para que se lean bien impresos")
         self.ortofoto.setChecked(True)
@@ -372,15 +375,7 @@ class PestanaUtilidades(QWidget):
 
     def cabida_inscrita(self):
         """La cabida escrita en m² (admite coma decimal y puntos de millar), None si está vacía; ValueError si no vale."""
-        texto = self.cabida.text().strip().replace(' ', '')
-        if not texto:
-            return None
-        if ',' in texto:
-            texto = texto.replace('.', '').replace(',', '.')
-        valor = float(texto)
-        if valor <= 0:
-            raise ValueError
-        return valor
+        return su.leer_cabida(self.cabida.text())
 
     def crear_informe(self, *args, segundo_plano=True):
         """Lee el GML y, si se piden los linderos con el Catastro, consulta las colindantes en segundo plano."""
@@ -393,6 +388,11 @@ class PestanaUtilidades(QWidget):
             return None
         QgsSettings().setValue(CLAVE_AUTOR, self.autor.text().strip())
         lectura = gl.leer(ruta)
+        errores = [i for i in lectura.incidencias if i.nivel == ERROR]
+        if errores or not lectura.elementos:  #Borrado o cambiado después de elegirlo
+            self.dock.warn(errores[0].mensaje if errores else "El GML no tiene parcelas")
+            self.origen_sup_cambiado()
+            return None
         colindantes, ortofoto = self.colindantes.isChecked(), self.ortofoto.isChecked()
         if not (colindantes or ortofoto):
             return self.informe_listo(ruta, lectura, None, [], b'')

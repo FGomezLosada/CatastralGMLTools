@@ -174,7 +174,7 @@ def comprobar_parcelas(parcelas, epsg):
     geometrias = [r.geometria() if r is not None else None for r in recintos]
     for i, j, area, anchura in geo.solapes(geometrias):
         incidencias.append(Incidencia(ERROR, 'SOLAPE', f"Se superpone con {parcelas[j].local_id} ({area:.2f} m², hasta "
-                                                       f"{anchura * 100:.0f} cm de ancho)", parcelas[i].local_id or f"fila {i + 1}"))
+                                                       f"{geo.anchura_texto(anchura)} de ancho)", parcelas[i].local_id or f"fila {i + 1}"))
     if len([g for g in geometrias if g is not None]) > 1 and not hay_errores(incidencias):
         hueco = geo.huecos([g for g in geometrias if g is not None])
         if hueco > 0:
