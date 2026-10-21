@@ -275,10 +275,50 @@ def motivo_invalida(geometria):
     motivo = next((m for clave, m in MOTIVOS_GEOS if clave in texto), '')
     if not motivo:
         return ''
+    sitio = None
     if errores[0].hasWhere():
-        p = errores[0].where()
-        motivo += f" cerca de X {p.x():.2f}, Y {p.y():.2f}"
+        sitio = (errores[0].where().x(), errores[0].where().y())
+    elif 'corta' in motivo:  #Algunos QGIS no dan el sitio (prueba a mano del 20/10/2026): se busca el cruce
+        sitio = punto_cruce(geometria)
+    if sitio is not None:
+        motivo += f" cerca de X {sitio[0]:.2f}, Y {sitio[1]:.2f}"
     return f": {motivo}"
+
+
+def punto_cruce(geometria, maximo=3000):
+    """
+    Primer punto en que se cruzan dos lados no contiguos de un anillo de la geometría (x, y), o None. Por fuerza bruta:
+    solo con anillos de hasta maximo vértices (un contorno de parcela).
+    """
+    poligonos = geometria.asMultiPolygon() if geometria.isMultipart() else [geometria.asPolygon()]
+    for poligono in poligonos:
+        for anillo in poligono:
+            puntos = [(p.x(), p.y()) for p in anillo]
+            if len(puntos) > maximo:
+                continue
+            lados = list(zip(puntos, puntos[1:]))
+            n = len(lados)
+            for i in range(n):
+                for j in range(i + 2, n):
+                    if i == 0 and j == n - 1:
+                        continue  #El primero y el último comparten el vértice de cierre
+                    cruce = _cruce(*lados[i], *lados[j])
+                    if cruce is not None:
+                        return cruce
+    return None
+
+
+def _cruce(a, b, c, d):
+    """Punto de cruce de los segmentos ab y cd, o None (paralelos o sin cruzarse)."""
+    (x1, y1), (x2, y2), (x3, y3), (x4, y4) = a, b, c, d
+    den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    if abs(den) < 1e-12:
+        return None
+    t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den
+    u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den
+    if 0 <= t <= 1 and 0 <= u <= 1:
+        return x1 + t * (x2 - x1), y1 + t * (y2 - y1)
+    return None
 
 
 def anchura_texto(anchura):

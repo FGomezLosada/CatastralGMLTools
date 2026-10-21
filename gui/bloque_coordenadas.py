@@ -14,11 +14,17 @@ from qgis.core import (
     QgsCoordinateReferenceSystem,
     QgsFeature,
     QgsGeometry,
+    QgsPalLayerSettings,
+    QgsTextBufferSettings,
+    QgsTextFormat,
+    QgsPointXY,
     QgsProject,
     QgsVectorLayer,
+    QgsVectorLayerSimpleLabeling,
 )
 from qgis.gui import QgsFileWidget
 from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import QComboBox, QFormLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from ..core import coordenadas as co
@@ -38,6 +44,7 @@ class BloqueCoordenadas(QWidget):
         self.pestana = pestana
         self.lectura = None
         self.capa_creada = None
+        self.capa_puntos_creada = None
         self.construir()
         self.fichero.fileChanged.connect(self.actualizar)
         self.huso.currentIndexChanged.connect(self.actualizar)
@@ -69,8 +76,9 @@ class BloqueCoordenadas(QWidget):
         caja.addWidget(self.estado)
         botones = QHBoxLayout()
         botones.addStretch(1)
-        self.crearBoton = QPushButton(QgsApplication.getThemeIcon(ICONO), "Crear capa", self)
-        self.crearBoton.setToolTip("Pone las parcelas en una capa del proyecto y abre la pestaña Parcela con ella")
+        self.crearBoton = QPushButton(QgsApplication.getThemeIcon(ICONO), "Crear capas", self)
+        self.crearBoton.setToolTip("Pone en el proyecto, en un grupo, las parcelas y todos los puntos del fichero (con el "
+                                   "nombre, la Z y el código de cada uno), y abre la pestaña Parcela con las parcelas")
         botones.addWidget(self.crearBoton)
         caja.addLayout(botones)
         caja.addStretch(1)
@@ -107,7 +115,9 @@ class BloqueCoordenadas(QWidget):
             texto = co.decodificar(datos)
         lectura = co.leer(texto)
         crs = QgsCoordinateReferenceSystem(f'EPSG:{self.epsg()}')
-        geometrias = [p.geometria for p in lectura.parcelas if p.geometria is not None]
+        #El huso, con las parcelas buenas: una con una coordenada mal escrita lo falsearía (prueba a mano del 20/10/2026)
+        geometrias = [p.geometria for p in lectura.parcelas
+                      if p.geometria is not None and not any(i.nivel == ERROR for i in p.incidencias)]
         if geometrias:
             aviso = geo.aviso_huso(QgsGeometry.unaryUnion(geometrias), crs, self.epsg())
             if aviso is not None:
@@ -133,7 +143,8 @@ class BloqueCoordenadas(QWidget):
             saltadas = ', '.join(map(str, self.lectura.saltadas[:10])) + ('…' if len(self.lectura.saltadas) > 10 else '')
             lineas.append(f"<span style='color:#495057'>Líneas sin coordenadas, saltadas: {saltadas}</span>")
         self.estado.setText("<small>" + "<br>".join(lineas) + "</small>")
-        self.crearBoton.setEnabled(bool(self.validas()))
+        self.crearBoton.setEnabled(self.con_puntos())
+        self.crearBoton.setText("Crear capas" if self.validas() or not self.con_puntos() else "Ver los puntos en el mapa")
 
     def validas(self):
         """Parcelas que se pueden poner en la capa (con geometría y sin errores)."""
@@ -142,31 +153,43 @@ class BloqueCoordenadas(QWidget):
         return [p for p in self.lectura.parcelas
                 if p.geometria is not None and not any(i.nivel == ERROR for i in p.incidencias)]
 
+    def con_puntos(self):
+        """¿Hay puntos que se puedan poner en el mapa? (no si el fichero no se lee o las coordenadas son grados)"""
+        return (self.lectura is not None and any(p.puntos for p in self.lectura.parcelas)
+                and not any(i.nivel == ERROR for i in self.lectura.incidencias))
+
     def crear(self, *args):
-        """La capa con las parcelas, en el proyecto; la pestaña Parcela pasa a trabajar con ella."""
+        """
+        Un grupo con dos capas: las parcelas (las que se han podido formar; la pestaña Parcela pasa a trabajar con ellas)
+        y todos los puntos del fichero con sus datos (nombre del vértice, X, Y, Z, código, línea), para no perder nada de
+        lo que trae el levantamiento (prueba a mano del 20/10/2026) y para ver dónde está lo que falla. Sin parcelas
+        buenas, solo los puntos.
+        """
         dock = self.pestana.dock
         dock.messageBar.clearWidgets()
         self.actualizar()
-        validas = self.validas()
-        if not validas:
-            dock.warn("No hay parcelas que crear: revise los avisos de la utilidad")
+        if not self.con_puntos():
+            dock.warn("No hay puntos que poner en el mapa: revise los avisos de la utilidad")
             return None
+        validas = self.validas()
         ruta = self.fichero.filePath().strip()
         nombre = os.path.splitext(os.path.basename(ruta))[0]
-        #Los campos en la dirección de la capa: vale igual en QGIS 3 y 4 (sin QVariant ni QMetaType)
-        capa = QgsVectorLayer(f"Polygon?crs=EPSG:{self.epsg()}&field=localId:string(100)&field=puntos:integer", nombre,
-                              'memory')
-        proveedor = capa.dataProvider()
-        entidades = []
-        for parcela in validas:
-            entidad = QgsFeature(capa.fields())
-            entidad.setGeometry(QgsGeometry(parcela.geometria))
-            entidad.setAttributes([parcela.identificador, len(parcela.puntos)])
-            entidades.append(entidad)
-        proveedor.addFeatures(entidades)
-        capa.updateExtents()
-        QgsProject.instance().addMapLayer(capa)
-        self.capa_creada = capa
+        proyecto = QgsProject.instance()
+        grupo = proyecto.layerTreeRoot().insertGroup(0, nombre)
+        puntos = self.capa_puntos(f"{nombre} · puntos", validas)
+        proyecto.addMapLayer(puntos, False)
+        grupo.addLayer(puntos)
+        capa = None
+        if validas:
+            capa = self.capa_parcelas(nombre, validas, os.path.basename(ruta))
+            proyecto.addMapLayer(capa, False)
+            grupo.addLayer(capa)
+        self.capa_creada, self.capa_puntos_creada = capa, puntos
+        n_puntos = sum(len(p.puntos) for p in self.lectura.parcelas)
+        if capa is None:
+            dock.warn(f"Ninguna parcela del fichero se ha podido formar: en el mapa están sus {n_puntos} puntos "
+                      f"(capa «{puntos.name()}», con el nombre de cada vértice) para ver qué falla")
+            return None
         descartadas = len(self.lectura.parcelas) - len(validas)
         dock.parcela_descargada(capa)  #La pestaña Parcela trabaja con ella (como con una parcela descargada)
         dock.tabWidget.setCurrentWidget(dock.tabParcela)
@@ -174,9 +197,57 @@ class BloqueCoordenadas(QWidget):
                   for i in self.lectura.incidencias + [i for p in validas for i in p.incidencias] if i.nivel == AVISO]
         if descartadas:
             avisos.insert(0, f"{descartadas} parcela{'s' if descartadas > 1 else ''} del fichero no se "
-                             f"{'han' if descartadas > 1 else 'ha'} podido formar (vea la utilidad)")
-        dock.success(f"Capa «{nombre}»: {len(validas)} parcela{'s' if len(validas) != 1 else ''} desde coordenadas",
-                     [], detalles=avisos,
+                             f"{'han' if descartadas > 1 else 'ha'} podido formar (vea la utilidad; sus puntos están "
+                             "en la capa de puntos)")
+        dock.success(f"Capa «{nombre}»: {len(validas)} parcela{'s' if len(validas) != 1 else ''} desde coordenadas, y "
+                     f"sus {n_puntos} puntos con sus datos", [], detalles=avisos,
                      notas=["Elija en la tabla el identificador y el namespace de cada una (y la alteración) y cree el GML",
-                            "La capa es temporal: si quiere conservarla, guárdela desde el panel de Capas"])
+                            "Las capas son temporales: si quiere conservarlas, guárdelas desde el panel de Capas"])
+        return capa
+
+    def capa_parcelas(self, nombre, validas, fichero):
+        #Los campos en la dirección de la capa: vale igual en QGIS 3 y 4 (sin QVariant ni QMetaType)
+        capa = QgsVectorLayer(f"Polygon?crs=EPSG:{self.epsg()}&field=localId:string(100)&field=puntos:integer"
+                              "&field=vertices:string(254)&field=fichero:string(254)", nombre, 'memory')
+        entidades = []
+        for parcela in validas:
+            entidad = QgsFeature(capa.fields())
+            entidad.setGeometry(QgsGeometry(parcela.geometria))
+            nombres = '-'.join(p.nombre for p in parcela.puntos if p.nombre)
+            entidad.setAttributes([parcela.identificador, len(parcela.puntos),
+                                   nombres if len(nombres) <= 254 else nombres[:253] + '…', fichero])
+            entidades.append(entidad)
+        capa.dataProvider().addFeatures(entidades)
+        capa.updateExtents()
+        return capa
+
+    def capa_puntos(self, nombre, validas):
+        """Todos los puntos del fichero, con lo que traía cada línea, y si su parcela se ha formado."""
+        capa = QgsVectorLayer(f"Point?crs=EPSG:{self.epsg()}&field=parcela:string(100)&field=orden:integer"
+                              "&field=nombre:string(100)&field=x:double&field=y:double&field=z:double"
+                              "&field=codigo:string(254)&field=linea:integer&field=estado:string(30)", nombre, 'memory')
+        buenas = {id(p) for p in validas}
+        entidades = []
+        for parcela in self.lectura.parcelas:
+            estado = 'parcela formada' if id(parcela) in buenas else 'parcela no formada'
+            for orden, punto in enumerate(parcela.puntos, start=1):
+                entidad = QgsFeature(capa.fields())
+                entidad.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(punto.x, punto.y)))
+                entidad.setAttributes([parcela.identificador, orden, punto.nombre, punto.x, punto.y, punto.z,
+                                       punto.codigo[:254], punto.linea, estado])
+                entidades.append(entidad)
+        capa.dataProvider().addFeatures(entidades)
+        capa.updateExtents()
+        etiquetas = QgsPalLayerSettings()
+        etiquetas.fieldName = "if(length(\"nombre\") > 0, \"nombre\", to_string(\"orden\"))"  #Sin nombre, su orden
+        etiquetas.isExpression = True
+        formato = QgsTextFormat()  #Con halo blanco: se lee sobre el relleno de las parcelas y sobre la ortofoto
+        halo = QgsTextBufferSettings()
+        halo.setEnabled(True)
+        halo.setSize(1.0)
+        halo.setColor(QColor('white'))
+        formato.setBuffer(halo)
+        etiquetas.setFormat(formato)
+        capa.setLabeling(QgsVectorLayerSimpleLabeling(etiquetas))
+        capa.setLabelsEnabled(True)
         return capa

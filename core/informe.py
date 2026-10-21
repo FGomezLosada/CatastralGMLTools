@@ -44,13 +44,15 @@ def _validas(elementos):
     return [e for e in elementos if e.geometria is not None and not e.geometria.isNull() and not e.geometria.isEmpty()]
 
 
-def vista_croquis(elementos, ancho=640, alto=420, margen=24, foco=None):
+def vista_croquis(elementos, ancho=640, alto=420, margen=24, foco=None, encuadre=None):
     """
     Rectángulo del terreno (QgsRectangle, en el SRC de las geometrías) que ocupa el croquis entero: sirve para pedir la
     ortofoto exactamente de ese encuadre. Con foco, el croquis se centra en ese recinto con un margen alrededor para ver
     sus colindantes. None si no hay geometrías.
     """
-    if foco is not None:
+    if encuadre is not None:  #Una zona concreta (p. ej. el detalle de un tramo), sin atenuar ningún recinto
+        caja = QgsRectangle(encuadre)
+    elif foco is not None:
         caja = QgsRectangle(foco.geometria.boundingBox())
         caja.grow(max(caja.width(), caja.height(), 1.0) * 0.12)
     else:
@@ -67,7 +69,7 @@ def vista_croquis(elementos, ancho=640, alto=420, margen=24, foco=None):
 
 
 def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=None, vecinas=(), fondo=None,
-                atribucion=''):
+                atribucion='', encuadre=None):
     """
     Croquis de los recintos (SVG en línea), con el identificador de cada uno, la flecha del norte y una barra de escala.
       - vertices: numera los vértices del contorno exterior (de foco, o de todos) como la tabla de coordenadas, por fuera
@@ -76,9 +78,10 @@ def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=
       - vecinas: parcelas de alrededor (las catastrales colindantes), en gris con su referencia.
       - fondo: imagen JPEG o PNG (bytes) del encuadre exacto de vista_croquis(), debajo de todo (la ortofoto), con
         atribucion al pie.
+      - encuadre: rectángulo del terreno que se muestra (un detalle), sin atenuar ningún recinto.
     """
     validas = _validas(elementos)
-    vista = vista_croquis(validas, ancho, alto, margen, foco)
+    vista = vista_croquis(validas, ancho, alto, margen, foco, encuadre)
     if vista is None:
         return ''
     escala = ancho / vista.width()
@@ -96,7 +99,7 @@ def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=
                         for poligono in poligonos for anillo in poligono if anillo), poligonos
 
     def etiqueta(geometria, texto, clase='etiqueta', estilo=''):
-        dentro = geometria.intersection(QgsGeometry.fromRect(vista)) if foco is not None else geometria
+        dentro = geometria.intersection(QgsGeometry.fromRect(vista)) if foco is not None or encuadre is not None else geometria
         interior = dentro.pointOnSurface() if not dentro.isEmpty() else QgsGeometry()
         if interior.isNull() or interior.isEmpty():  #Anillo degenerado o fuera del encuadre: sin etiqueta, sin fallar (AU-08)
             return ''

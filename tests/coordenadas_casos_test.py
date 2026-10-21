@@ -126,6 +126,8 @@ caso("varias líneas en blanco seguidas no crean parcelas vacías", lee(lineas(R
 # 3. Lo que no forma parcela: lo dice
 caso("grados (latitud, longitud)", no_forma("36.7541 -3.8757\n36.7543 -3.8757\n36.7543 -3.8755\n36.7541 -3.8755", ['COORD-GRADOS']))
 caso("los puntos no van en orden (el contorno se cruza)", no_forma(lineas([R[0], R[2], R[1], R[3]]), ['COORD-CRUZA']))
+caso("el cruce se dice en su sitio (también si QGIS no lo da)", lambda: (lambda m: (
+    'cerca de X 421510.00, Y 4070515.00' in m, m))(co.leer(lineas([R[0], R[2], R[1], R[3]])).parcelas[0].incidencias[0].mensaje))
 caso("dos puntos", no_forma(lineas(R[:2]), ['COORD-POCOS']))
 caso("puntos alineados", no_forma(lineas([(X0, Y0), (X0 + 10, Y0 + 10), (X0 + 20, Y0 + 20)]), ['COORD-ALINEADOS']))
 caso("fichero sin coordenadas", no_forma("Esto es una nota\nsin números", ['COORD-SIN-PUNTOS']))
@@ -186,7 +188,7 @@ def utilidad():
     pu.utilidades.setCurrentIndex(5)
     bloque = pu.coordenadas
     #Arrastrar el fichero sobre la casilla, como en QGIS
-    ruta = guardar('levantamiento.txt', lineas(R) + "\n\n" + lineas(R2))
+    ruta = guardar('levantamiento.txt', lineas(R, "V{n} {x:.2f} {y:.2f} 101.5 LINDE") + "\n\n" + lineas(R2))
     mime = QMimeData()
     mime.setUrls([QUrl.fromLocalFile(ruta)])
     casilla = bloque.fichero.lineEdit()
@@ -203,6 +205,14 @@ def utilidad():
     pt = dw.pestanaParcela
     en_parcela = (capa is not None and capa.featureCount() == 2 and pt.capa() is capa
                   and dw.tabWidget.currentWidget() is dw.tabParcela and 'desde coordenadas' in barra(dw))
+    #Los puntos, con todo lo que traía el fichero, en el mismo grupo (prueba a mano del 20/10/2026: se perdían)
+    puntos = bloque.capa_puntos_creada
+    grupo = QgsProject.instance().layerTreeRoot().findGroup('levantamiento')
+    filas = [f.attributes() for f in puntos.getFeatures()] if puntos is not None else []
+    en_grupo = {n.layer().name() for n in grupo.findLayers()} if grupo is not None else set()
+    con_datos = (puntos is not None and en_grupo == {capa.name(), puntos.name()} and len(filas) == 8
+                 and filas[0][:3] == ['Parcela_1', 1, 'V1'] and filas[0][5] == 101.5 and filas[0][6] == 'LINDE'
+                 and filas[0][8] == 'parcela formada' and next(capa.getFeatures())['vertices'] == 'V1-V2-V3-V4')
     destino = os.path.join(carpeta, 'levantamiento.gml')
     pt.destino.setFilePath(destino)
     pt.crear_gml()
@@ -224,14 +234,26 @@ def utilidad():
     bloque.fichero.setFilePath(guardar('mixto.txt', lineas(R) + "\n\n" + lineas(R2[:2])))
     dw.messageBar.clearWidgets()
     mixta = bloque.crear()
-    mixto = mixta is not None and mixta.featureCount() == 1 and 'no se ha podido formar' in barra(dw)
+    mixto = (mixta is not None and mixta.featureCount() == 1 and 'no se ha podido formar' in barra(dw)
+             and bloque.capa_puntos_creada.featureCount() == 6
+             and {f['estado'] for f in bloque.capa_puntos_creada.getFeatures()} == {'parcela formada', 'parcela no formada'})
+    #Ninguna parcela buena: solo los puntos, para ver qué falla
+    bloque.fichero.setFilePath(guardar('cruzado.txt', lineas([R[0], R[2], R[1], R[3]])))
+    solo_puntos_boton = bloque.crearBoton.isEnabled() and bloque.crearBoton.text() == "Ver los puntos en el mapa"
+    dw.messageBar.clearWidgets()
+    solo = (bloque.crear() is None and bloque.capa_puntos_creada is not None
+            and bloque.capa_puntos_creada.featureCount() == 4 and 'Ninguna parcela' in barra(dw)
+            and 'cerca de X' in bloque.estado.text())
     dw.deleteLater()
     QgsProject.instance().removeAllMapLayers()
-    ok = arrastrado and resumen and en_parcela and gml and binario and no_existe and grados and huso and mixto
-    return ok, (arrastrado, resumen, en_parcela, gml, binario, no_existe, grados, huso, mixto, texto_huso[:300])
+    ok = (arrastrado and resumen and en_parcela and con_datos and gml and binario and no_existe and grados and huso and mixto
+          and solo_puntos_boton and solo)
+    return ok, (arrastrado, resumen, en_parcela, con_datos, gml, binario, no_existe, grados, huso, mixto, solo_puntos_boton,
+                solo, filas[:2], texto_huso[:200])
 
 
-caso("utilidad: arrastrar, crear la capa, GML válido desde Parcela, binario, inexistente, grados, huso y mixto", utilidad)
+caso("utilidad: arrastrar, crear las capas (parcelas y puntos con sus datos), GML válido, binario, inexistente, grados, "
+     "huso, mixto y solo puntos", utilidad)
 
 for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
