@@ -42,8 +42,10 @@ MAX_PUNTOS = 5000  #Por parcela: más es otra cosa (una nube de puntos)
 class Punto:
     x: float
     y: float
-    nombre: str = ''
+    nombre: str = ''   #Nombre o número del vértice, como viene en el fichero
     linea: int = 0
+    z: float = None    #Si la línea la trae (el número que sigue a X Y)
+    codigo: str = ''   #Lo que la línea trae detrás de las coordenadas (código de campo, descripción…)
 
 
 @dataclass
@@ -102,9 +104,10 @@ def campos(linea):
 
 def interpretar(partes):
     """
-    (nombre, x, y) de los campos de una línea, o None si no tiene dos coordenadas. Las coordenadas son los dos primeros
-    números de metros (de 1000 o más); lo que va delante es el nombre o número del punto, y lo de detrás (Z, código), se
-    ignora. Si no hay números de metros (grados), los dos primeros números, o los dos siguientes a un número de punto.
+    (campos de delante, x, y, z, código) de los campos de una línea, o None si no tiene dos coordenadas. Las coordenadas
+    son los dos primeros números de metros (de 1000 o más); lo de delante es el nombre o número del punto (y, si la hay,
+    la parcela); detrás, la Z (el número siguiente) y un código o descripción (el resto). Si no hay números de metros
+    (grados), los dos primeros números, o los dos siguientes a un número de punto.
     """
     valores = [numero(p) for p in partes]
     indices = [k for k, v in enumerate(valores) if v is not None]
@@ -117,8 +120,11 @@ def interpretar(partes):
         i, j = indices[1], indices[2]  #Número de punto delante
     else:
         i, j = indices[0], indices[1]
-    delante = [p for p in partes[:i] if p.strip()]
-    return (delante[0] if delante else ''), valores[i], valores[j]
+    delante = [p.strip() for p in partes[:i] if p.strip()]
+    detras = [p.strip() for p in partes[j + 1:] if p.strip()]
+    z = numero(detras[0]) if detras and numero(detras[0]) is not None else None
+    codigo = ' '.join(detras[1:] if z is not None else detras)
+    return delante, valores[i], valores[j], z, codigo
 
 
 def leer(texto, columna_parcela=None):
@@ -146,7 +152,7 @@ def leer(texto, columna_parcela=None):
         if punto is None:
             resultado.saltadas.append(n)
             continue
-        filas.append((n, punto[0], punto[1], punto[2]))
+        filas.append((n, punto[0][0] if punto[0] else '', punto[1], punto[2], punto))
     puntos = [f for f in filas if f is not None]
     if not puntos:
         resultado.incidencias.append(Incidencia(ERROR, 'COORD-SIN-PUNTOS', "El fichero no tiene líneas con coordenadas "
@@ -155,7 +161,7 @@ def leer(texto, columna_parcela=None):
 
     #¿La primera columna dice a qué parcela va cada punto? (p. ej. «P1;421500;4070500»): pocos valores distintos, que se
     #repiten en filas seguidas; no si son números de punto (todos distintos)
-    nombres = [f[1] for f in puntos]
+    nombres = [f[1] for f in puntos]  #Primer campo de delante de cada punto
     if columna_parcela is None:
         distintos = len(set(nombres))
         columna_parcela = bool(nombres[0]) and 1 < distintos < len(nombres) and distintos <= len(nombres) // 3 \
@@ -185,8 +191,12 @@ def leer(texto, columna_parcela=None):
         while identificador in usados:
             identificador = f'{identificador}_{k}'
         usados.add(identificador)
-        resultado.parcelas.append(ParcelaPuntos(identificador, [Punto(x, y, nombre_p if not columna_parcela else '', n)
-                                                                for n, nombre_p, x, y in filas_grupo]))
+        puntos_parcela = []
+        for n, _primero, x, y, (delante, _x, _y, z, codigo) in filas_grupo:
+            #El nombre del vértice: el primer campo de delante; con columna de parcela, el siguiente (P1;V1;X;Y)
+            nombre_vertice = (delante[1] if len(delante) > 1 else '') if columna_parcela else (delante[0] if delante else '')
+            puntos_parcela.append(Punto(x, y, nombre_vertice, n, z, codigo))
+        resultado.parcelas.append(ParcelaPuntos(identificador, puntos_parcela))
     _revisar_conjunto(resultado)
     if not any(i.codigo == 'COORD-GRADOS' for i in resultado.incidencias):  #En grados no se forma nada: no son metros
         for parcela in resultado.parcelas:
@@ -258,10 +268,12 @@ def formar(parcela):
                                                                          "superficie", parcela.identificador))
         return
     if not geometria.isGeosValid():
-        motivo = geo.motivo_invalida(geometria)
-        parcela.incidencias.append(Incidencia(ERROR, 'COORD-CRUZA', "El contorno se cruza consigo mismo" + (
-            motivo.replace(': el contorno se corta a sí mismo', '') if motivo else '') + ": los puntos tienen que ir "
-            "en el orden del contorno (uno detrás de otro, sin saltar al otro lado)", parcela.identificador))
+        cruce = geo.punto_cruce(geometria)
+        donde = f" cerca de X {cruce[0]:.2f}, Y {cruce[1]:.2f}" if cruce else ''
+        parcela.incidencias.append(Incidencia(ERROR, 'COORD-CRUZA', f"El contorno se cruza consigo mismo{donde}: los "
+                                                                     "puntos tienen que ir en el orden del contorno (uno "
+                                                                     "detrás de otro, sin saltar al otro lado)",
+                                              parcela.identificador))
         parcela.geometria = geometria  #Para verla en el mapa
         return
     lejano = geo.vertice_lejano([[(p.x(), p.y()) for p in limpios + [limpios[0]]]])

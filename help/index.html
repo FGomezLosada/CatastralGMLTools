@@ -42,7 +42,8 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
   <tr><td>Validar</td><td>Abre un GML, lo comprueba como la Sede, lo compara con el Catastro y guarda un informe.</td></tr>
   <tr><td>Utilidades</td><td>Une varios GML de parcela en uno (multiparcela), convierte un GML del esquema 3.0 al 4.0
       (o repara uno 4.0), hace el informe de superficies y coordenadas, ajusta un levantamiento a la cartografía
-      catastral desplazada o girada y compara dos GML.</td></tr>
+      catastral desplazada o girada, compara dos GML, crea parcelas desde un fichero de coordenadas y simula la
+      identidad gráfica con el Catastro.</td></tr>
 </table>
 
 <p>La pestaña <strong>Utilidades</strong> es una lista numerada: pulse el nombre de una para abrirla (al pasar el ratón se
@@ -334,10 +335,35 @@ formatos habituales:</p>
 primero al final. La utilidad dice cuántas parcelas salen y su superficie, y lo que no se puede formar: coordenadas en
 grados (la Sede pide UTM en metros), un contorno que se cruza (los puntos no van en orden), menos de tres puntos,
 puntos alineados, una coordenada que no es de España (mal escrita: dice la línea) o un huso que no corresponde a la
-zona. Si las coordenadas vienen en el orden Y X, se leen bien y se avisa. Con <strong>Crear capa</strong>, las
-parcelas van a una capa del proyecto y se abre la pestaña <strong>Parcela</strong> con ella, donde se elige el
-identificador, el namespace y la alteración de cada una y se crea el GML como con cualquier otra capa. La capa es
-temporal: si quiere conservarla, guárdela desde el panel de Capas.</p>
+zona. Si las coordenadas vienen en el orden Y X, se leen bien y se avisa. Con <strong>Crear capas</strong> se
+añade al proyecto un grupo con el nombre del fichero y dos capas: las <strong>parcelas</strong> (con la lista de sus
+vértices) y <strong>todos los puntos</strong> del fichero con lo que traía cada línea —nombre del vértice, X, Y, Z,
+código, número de línea y si su parcela se ha podido formar—, etiquetados con su nombre. Se abre la pestaña
+<strong>Parcela</strong> con las parcelas, donde se elige el identificador, el namespace y la alteración de cada una y se
+crea el GML como con cualquier otra capa. Si ninguna parcela se puede formar, el botón pasa a ser <strong>Ver los puntos
+en el mapa</strong>, para ver dónde está lo que falla. Las capas son temporales: si quiere conservarlas, guárdelas
+desde el panel de Capas.</p>
+
+<h2>Identidad gráfica con el Catastro (simulación)</h2>
+<p>En <strong>Utilidades › 7. Identidad gráfica con el Catastro</strong> elija (o arrastre) el GML de parcela del
+levantamiento y pulse <strong>Comprobar</strong>: se piden al Catastro las parcelas de alrededor (necesita internet) y se
+simula el criterio de identidad gráfica del anexo II de la Resolución de 23 de septiembre de 2020 de la Subsecretaría
+(BOE-A-2020-12111) entre la representación gráfica alternativa y la parcela catastral:</p>
+<ul>
+  <li>la línea exterior del GML tiene que quedar dentro de un margen de <strong>±0,50 m</strong> del perímetro catastral
+      si la parcela está en cartografía urbana, o de <strong>±2,00 m</strong> si está en cartografía rústica (el margen
+      depende de la cartografía, no de la naturaleza del inmueble; se deduce de la referencia y se puede elegir a mano);</li>
+  <li>y la superficie no puede diferir más de un <strong>5 %</strong> de la catastral.</li>
+</ul>
+<p>La utilidad dice si se cumpliría, cuánto se separa el tramo que más se aleja y dónde, la diferencia de superficie y,
+si todo el contorno está desplazado, el desplazamiento que lo metería en el margen (la cartografía desplazada o girada
+se corrige antes, con «4. Ajustar a la cartografía catastral»). Si el GML abarca varias parcelas o tiene varios recintos
+no es una relación 1:1 y lo avisa: el certificado de identidad solo se da 1:1. El informe HTML (botón
+<strong>Abrir informe</strong>) lleva el resultado, un croquis general y otro ampliado en el tramo que más se separa;
+<strong>Ver en el mapa</strong> añade un grupo con el margen (azul), la parcela catastral (gris), el GML (naranja) y lo
+que queda fuera (rojo). Los huecos (patios) no cuentan para el contorno.</p>
+<p><strong>Es una simulación, no oficial</strong>: el resultado válido es el del servicio «Identidad de parcela» y el
+informe de validación gráfica de la Sede Electrónica del Catastro. Datos de la Dirección General del Catastro.</p>
 
 <h2>Unir varios GML (multiparcela)</h2>
 <p>En la pestaña <strong>Utilidades › 1. Unir GML</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse
