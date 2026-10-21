@@ -1,8 +1,8 @@
 """
-Batería de casos de Utilidades «7. Identidad gráfica con el Catastro (simulación)» (AU-58; plan de pruebas,
+Batería de casos de la simulación de identidad gráfica (AU-58), que sale en la comparación con el Catastro de Validar (plan de pruebas,
 docs/PLAN_PRUEBAS.md). El criterio del anexo II de la Resolución de 2020: contorno del GML dentro de ±0,50 m (cartografía
 urbana) o ±2,00 m (rústica) del perímetro catastral, y diferencia de superficie no mayor del 5 %. Casos justo dentro y
-justo fuera de cada límite, urbana y rústica, varias parcelas, GML en grados, de edificios, roto, sin red, y la utilidad.
+justo fuera de cada límite, urbana y rústica, varias parcelas, GML en grados, de edificios, roto, sin red, y en Validar.
 El Catastro está simulado (tests/simulador_catastro.py).
 
 Uso: tools\\probar.bat (o tools\\run_tests.py identidad_casos_test.py)
@@ -19,10 +19,12 @@ import traceback
 
 import qgis.utils
 from qgis.core import Qgis, QgsCoordinateReferenceSystem, QgsGeometry, QgsProject
-from qgis.PyQt.QtWidgets import QLabel, QMessageBox
+from qgis.PyQt.QtWidgets import QMessageBox
 
 import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa: E402
+from catastral_gml_tools.core import comparacion as cmp  # noqa: E402
 from catastral_gml_tools.core import geometria as geo  # noqa: E402
+from catastral_gml_tools.core import gml_lector as gl  # noqa: E402
 from catastral_gml_tools.core import gml_parcela as gp  # noqa: E402
 from catastral_gml_tools.core import identidad as idg  # noqa: E402
 from catastral_gml_tools.core import servicios  # noqa: E402
@@ -186,57 +188,41 @@ def sin_red():
 caso("sin internet: lo dice", sin_red)
 
 
-def informe():
-    s = idg.comprobar_gml(gml('informe', [rect(X0 + 0.7, Y0, 20, 30)]))
-    texto = idg.html(s)
-    return ('No cumpliría' in texto and texto.count('<svg') == 2 and 'Detalle del tramo' in texto and 'Simulación no oficial' in texto
-            and 'BOE-A-2020-12111' in texto and '&lt;' not in texto.split('<body>')[1][:50]), texto[:200]
+# 4. En la comparación con el Catastro de Validar (ahí se ve; no es una utilidad aparte)
+def en_comparacion():
+    def linea(nombre, recintos):
+        c = cmp.comparar(gl.leer(gml(nombre, recintos)))
+        return ' '.join(i.mensaje for i in c.incidencias if i.codigo == 'CMP-IDENTIDAD')
+    bien = linea('cmp_bien', [rect(X0 + 0.3, Y0, 20, 30)])
+    mal = linea('cmp_mal', [rect(X0 + 0.7, Y0, 20, 30)])
+    igual = linea('cmp_igual', [RC])
+    segregacion = linea('cmp_seg', [rect(X0, Y0, 10, 30), rect(X0 + 10, Y0, 10, 30)])
+    ok = (bien.startswith('Identidad gráfica') and 'Cumpliría' in bien and '±0,50 m' in bien
+          and 'No cumpliría' in mal and 'cerca de X' in mal and 'desplazamiento' in mal
+          and igual == '' and segregacion == '')
+    return ok, (bien[:200], mal[:300], igual[:100], segregacion[:100])
 
 
-caso("informe HTML: veredicto, croquis general y detalle del tramo, aviso de simulación y la norma", informe)
+caso("Validar, comparación: 0,3 m cumpliría, 0,7 m no (dónde y el desplazamiento); igual o segregación, sin la línea",
+     en_comparacion)
 
 
-# 5. La utilidad
-def barra(dw):
-    return ' '.join([i.text() for i in dw.messageBar.items()] + [e.text() for i in dw.messageBar.items()
-                                                                  for e in i.findChildren(QLabel)])
-
-
-def utilidad():
+def pestana_validar():
     dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
-    pu = dw.pestanaUtilidades
-    pu.utilidades.setCurrentIndex(6)
-    bloque = pu.identidad
-    sin_fichero = not bloque.comprobarBoton.isEnabled()
-    pu.soltar([gml('panel', [rect(X0 + 0.7, Y0, 20, 30)])])
-    dw.messageBar.clearWidgets()
-    informe_ruta = bloque.comprobar(segundo_plano=False)
-    negativo = (informe_ruta is not None and os.path.isfile(informe_ruta) and 'No cumpliría' in bloque.resultado.text()
-                and 'No cumpliría' in barra(dw))
-    capas = bloque.ver_en_mapa()
-    mapa = capas is not None and len(capas) == 4 and capas[0].name() == "Fuera del margen"
-    #Otra vez: el grupo anterior se sustituye, no se acumula
-    bloque.ver_en_mapa()
-    grupos = [g for g in QgsProject.instance().layerTreeRoot().findGroups(True) if g.customProperty(idg.__name__) or
-              g.name().startswith('Identidad gráfica')]
-    un_grupo = len(grupos) == 1
-    #Positivo
-    bloque.fichero.setFilePath(gml('panel_bien', [rect(X0 + 0.2, Y0, 20, 30)]))
-    dw.messageBar.clearWidgets()
-    bloque.comprobar(segundo_plano=False)
-    positivo = 'Cumpliría' in bloque.resultado.text() and 'Simulación no oficial' in barra(dw)
-    #En segundo plano y se cierra el plugin a mitad: se cancela sin fallar
-    bloque.comprobar()
+    pv = dw.pestanaValidar
+    pv.fichero.setFilePath(gml('validar', [rect(X0 + 0.7, Y0, 20, 30)]))
+    pv.esquema_comprobado([])
+    pv.comparar_catastro(segundo_plano=False)
+    textos = [pv.lista.item(k).text() for k in range(pv.lista.count())]
     dw.cleanup()
-    cerrado = bloque.tarea is None
     dw.deleteLater()
     QgsProject.instance().removeAllMapLayers()
-    QgsProject.instance().layerTreeRoot().removeAllChildren()
-    ok = sin_fichero and negativo and mapa and un_grupo and positivo and cerrado
-    return ok, (sin_fichero, negativo, mapa, un_grupo, positivo, cerrado, bloque.resultado.text()[:300])
+    utilidades = [dw.pestanaUtilidades.utilidades.itemText(k) for k in range(dw.pestanaUtilidades.utilidades.count())]
+    ok = any('No cumpliría' in t for t in textos) and not any('Identidad' in u for u in utilidades)
+    return ok, (textos[-3:], utilidades)
 
 
-caso("utilidad: sin fichero, soltar, negativo con informe, ver en el mapa (sin acumular), positivo y cerrar a mitad", utilidad)
+caso("pestaña Validar: la línea de identidad sale en la lista, y no hay utilidad aparte", pestana_validar)
 
 servicios.pedir = original
 for _n, _f in _originales.items():

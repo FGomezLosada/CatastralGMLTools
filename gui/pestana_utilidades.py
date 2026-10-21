@@ -4,7 +4,7 @@ reparar» (core/conversor.py): un GML de parcela del esquema 3.0 al 4.0, o un 4.
 reescribirlo; «Informe de superficies y coordenadas» (core/superficies.py): superficies, linderos y coordenadas de cada
 parcela de un GML, en HTML; «Ajustar a la cartografía catastral» (core/ajuste.py, gui/bloque_ajuste.py); y «Comparar
 dos GML» (core/comparar_gml.py, gui/bloque_comparar.py); «Parcela desde coordenadas» (core/coordenadas.py,
-gui/bloque_coordenadas.py); e «Identidad gráfica con el Catastro» (core/identidad.py, gui/bloque_identidad.py).
+gui/bloque_coordenadas.py). La simulación de identidad gráfica está en la comparación de Validar.
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
@@ -47,8 +47,6 @@ from .bloque_comparar import BloqueComparar
 from .bloque_coordenadas import EXTENSIONES as EXTENSIONES_COORDENADAS
 from .bloque_coordenadas import ICONO as ICONO_COORDENADAS
 from .bloque_coordenadas import BloqueCoordenadas
-from .bloque_identidad import ICONO as ICONO_IDENTIDAD
-from .bloque_identidad import BloqueIdentidad
 from .pestana_validar import PestanaValidar
 
 
@@ -104,11 +102,6 @@ class PestanaUtilidades(QWidget):
                  "Las parcelas de un fichero de puntos (TXT o CSV del levantamiento: X Y, o nombre X Y), en una capa que se "
                  "abre en la pestaña Parcela para crear el GML. Varias parcelas: separadas por una línea en blanco o un "
                  "título, o con una columna con el identificador de cada una."),
-                (self.pagina_identidad(), "Identidad gráfica con el Catastro (simulación)", ICONO_IDENTIDAD,
-                 "¿El GML del levantamiento y la parcela catastral cumplen el criterio de identidad gráfica (contorno dentro "
-                 "de ±0,50 m en cartografía urbana o ±2,00 m en rústica, y no más del 5 % de diferencia de superficie)? "
-                 "Simulación no oficial, como ayuda antes de ir al notario o al registro: el certificado válido es el de "
-                 "la Sede."),
         ), start=1):
             indice = self.utilidades.addItem(widget, QgsApplication.getThemeIcon(icono), f"{numero}. {titulo}")
             self.utilidades.setItemToolTip(indice, ayuda)
@@ -119,10 +112,6 @@ class PestanaUtilidades(QWidget):
     def pagina_coordenadas(self):
         self.coordenadas = BloqueCoordenadas(self, self)
         return self.coordenadas
-
-    def pagina_identidad(self):
-        self.identidad = BloqueIdentidad(self, self)
-        return self.identidad
 
     def pagina_comparar(self):
         self.comparador = BloqueComparar(self, self)
@@ -292,9 +281,6 @@ class PestanaUtilidades(QWidget):
             return
         if self.utilidades.currentIndex() == 5:
             self.coordenadas.soltar(rutas)
-            return
-        if self.utilidades.currentIndex() == 6:
-            self.identidad.soltar(rutas)
             return
         casilla = {1: self.origenConv, 2: self.origenSup, 3: self.ajuste.origenAj}.get(self.utilidades.currentIndex())
         if casilla is None:
@@ -472,7 +458,6 @@ class PestanaUtilidades(QWidget):
         """Al cerrar o recargar el plugin: la consulta en curso se corta y el ajuste suelta el mapa."""
         self.ajuste.soltar()
         self.comparador.cancelar_tareas()
-        self.identidad.cancelar_tareas()
         if self.tarea_sup is not None and not sip.isdeleted(self.tarea_sup):
             with contextlib.suppress(RuntimeError):
                 self.tarea_sup.cancel()

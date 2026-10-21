@@ -42,8 +42,7 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
   <tr><td>Validar</td><td>Abre un GML, lo comprueba como la Sede, lo compara con el Catastro y guarda un informe.</td></tr>
   <tr><td>Utilidades</td><td>Une varios GML de parcela en uno (multiparcela), convierte un GML del esquema 3.0 al 4.0
       (o repara uno 4.0), hace el informe de superficies y coordenadas, ajusta un levantamiento a la cartografía
-      catastral desplazada o girada, compara dos GML, crea parcelas desde un fichero de coordenadas y simula la
-      identidad gráfica con el Catastro.</td></tr>
+      catastral desplazada o girada, compara dos GML y crea parcelas desde un fichero de coordenadas.</td></tr>
 </table>
 
 <p>La pestaña <strong>Utilidades</strong> es una lista numerada: pulse el nombre de una para abrirla (al pasar el ratón se
@@ -125,6 +124,16 @@ calle) y si las referencias catastrales existen. Con los datos no protegidos de 
 bienes de características especiales (BICE) y de la urbana en diseminado. Si no hay ninguna parcela catastral debajo y la zona
 parece de Navarra o del País Vasco, lo dice: allí el catastro es propio. En el mapa se añade el grupo
 «Comparación» con las parcelas catastrales afectadas y las diferencias: en rojo lo que sobra y en azul lo que falta.</p>
+<p><strong>Identidad gráfica (simulación).</strong> Si el GML es una sola parcela y no es igual a la catastral, la
+comparación añade una línea con el criterio de identidad gráfica del anexo II de la Resolución de 23 de septiembre de 2020
+(BOE-A-2020-12111): el contorno del GML dentro de ±0,50 m del perímetro catastral en cartografía urbana o de ±2,00 m en
+rústica (según la cartografía de la parcela, no su naturaleza), y una diferencia de superficie de como mucho el 5 %. Dice
+cuánto se separa el contorno, la diferencia de superficie y si cumpliría; si no, dónde sale del margen y, si todo el
+contorno está desplazado, el desplazamiento que lo metería. Son dos preguntas distintas: las comprobaciones de arriba son
+las del informe de validación gráfica (±1 cm, para cambiar la cartografía), y la identidad dice si el levantamiento y la
+parcela catastral pueden considerarse la misma finca (para el notario o el registro puede bastar entonces la
+certificación catastral). Por eso un levantamiento a 30 cm del Catastro puede «afectar en parte» a la vecina y, a la vez,
+cumplir la identidad. Es una simulación no oficial: el resultado válido es el de la Sede («Identidad de parcela»).</p>
 <p>El botón <strong>Informe</strong> guarda junto al GML un informe en HTML (<code>nombre_informe.html</code>) con el resultado,
 las incidencias, un croquis y las coordenadas de cada recinto, y lo abre en el navegador; se puede imprimir o adjuntar.</p>
 <p>La tabla muestra
@@ -343,27 +352,6 @@ código, número de línea y si su parcela se ha podido formar—, etiquetados c
 crea el GML como con cualquier otra capa. Si ninguna parcela se puede formar, el botón pasa a ser <strong>Ver los puntos
 en el mapa</strong>, para ver dónde está lo que falla. Las capas son temporales: si quiere conservarlas, guárdelas
 desde el panel de Capas.</p>
-
-<h2>Identidad gráfica con el Catastro (simulación)</h2>
-<p>En <strong>Utilidades › 7. Identidad gráfica con el Catastro</strong> elija (o arrastre) el GML de parcela del
-levantamiento y pulse <strong>Comprobar</strong>: se piden al Catastro las parcelas de alrededor (necesita internet) y se
-simula el criterio de identidad gráfica del anexo II de la Resolución de 23 de septiembre de 2020 de la Subsecretaría
-(BOE-A-2020-12111) entre la representación gráfica alternativa y la parcela catastral:</p>
-<ul>
-  <li>la línea exterior del GML tiene que quedar dentro de un margen de <strong>±0,50 m</strong> del perímetro catastral
-      si la parcela está en cartografía urbana, o de <strong>±2,00 m</strong> si está en cartografía rústica (el margen
-      depende de la cartografía, no de la naturaleza del inmueble; se deduce de la referencia y se puede elegir a mano);</li>
-  <li>y la superficie no puede diferir más de un <strong>5 %</strong> de la catastral.</li>
-</ul>
-<p>La utilidad dice si se cumpliría, cuánto se separa el tramo que más se aleja y dónde, la diferencia de superficie y,
-si todo el contorno está desplazado, el desplazamiento que lo metería en el margen (la cartografía desplazada o girada
-se corrige antes, con «4. Ajustar a la cartografía catastral»). Si el GML abarca varias parcelas o tiene varios recintos
-no es una relación 1:1 y lo avisa: el certificado de identidad solo se da 1:1. El informe HTML (botón
-<strong>Abrir informe</strong>) lleva el resultado, un croquis general y otro ampliado en el tramo que más se separa;
-<strong>Ver en el mapa</strong> añade un grupo con el margen (azul), la parcela catastral (gris), el GML (naranja) y lo
-que queda fuera (rojo). Los huecos (patios) no cuentan para el contorno.</p>
-<p><strong>Es una simulación, no oficial</strong>: el resultado válido es el del servicio «Identidad de parcela» y el
-informe de validación gráfica de la Sede Electrónica del Catastro. Datos de la Dirección General del Catastro.</p>
 
 <h2>Unir varios GML (multiparcela)</h2>
 <p>En la pestaña <strong>Utilidades › 1. Unir GML</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse

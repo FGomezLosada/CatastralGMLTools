@@ -198,10 +198,14 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
     # ------------------------------------------------------------------ Avisos dentro del panel
 
     def setup_messages(self):
-        """Barra de avisos del propio panel, debajo de las pestañas (siempre a la vista)."""
+        """
+        Barra de avisos del propio panel, encima de las pestañas, como la de QGIS sobre el mapa. Antes iba debajo y, con
+        el panel más alto que la pantalla (la barra de tareas de Windows encima), el «GML creado» no se veía (prueba a
+        mano del 21/10/2026).
+        """
         self.messageBar = QgsMessageBar(self.dockWidgetContents)
         self.messageBar.setSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
-        self.mainLayout.insertWidget(self.mainLayout.indexOf(self.sourceLabel), self.messageBar)
+        self.mainLayout.insertWidget(self.mainLayout.indexOf(self.tabWidget), self.messageBar)
 
     def notify(self, message, level=Qgis.MessageLevel.Info, duration=8):
         """
