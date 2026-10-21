@@ -44,13 +44,15 @@ def _validas(elementos):
     return [e for e in elementos if e.geometria is not None and not e.geometria.isNull() and not e.geometria.isEmpty()]
 
 
-def vista_croquis(elementos, ancho=640, alto=420, margen=24, foco=None):
+def vista_croquis(elementos, ancho=640, alto=420, margen=24, foco=None, encuadre=None):
     """
     Rectángulo del terreno (QgsRectangle, en el SRC de las geometrías) que ocupa el croquis entero: sirve para pedir la
     ortofoto exactamente de ese encuadre. Con foco, el croquis se centra en ese recinto con un margen alrededor para ver
     sus colindantes. None si no hay geometrías.
     """
-    if foco is not None:
+    if encuadre is not None:  #Una zona concreta (el detalle de un tramo), sin atenuar ningún recinto
+        caja = QgsRectangle(encuadre)
+    elif foco is not None:
         caja = QgsRectangle(foco.geometria.boundingBox())
         caja.grow(max(caja.width(), caja.height(), 1.0) * 0.12)
     else:
@@ -67,7 +69,7 @@ def vista_croquis(elementos, ancho=640, alto=420, margen=24, foco=None):
 
 
 def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=None, vecinas=(), fondo=None,
-                atribucion=''):
+                atribucion='', encuadre=None):
     """
     Croquis de los recintos (SVG en línea), con el identificador de cada uno, la flecha del norte y una barra de escala.
       - vertices: numera los vértices del contorno exterior (de foco, o de todos) como la tabla de coordenadas, por fuera
@@ -76,9 +78,10 @@ def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=
       - vecinas: parcelas de alrededor (las catastrales colindantes), en gris con su referencia.
       - fondo: imagen JPEG o PNG (bytes) del encuadre exacto de vista_croquis(), debajo de todo (la ortofoto), con
         atribucion al pie.
+      - encuadre: rectángulo del terreno que se muestra (un detalle), sin atenuar ningún recinto.
     """
     validas = _validas(elementos)
-    vista = vista_croquis(validas, ancho, alto, margen, foco)
+    vista = vista_croquis(validas, ancho, alto, margen, foco, encuadre)
     if vista is None:
         return ''
     escala = ancho / vista.width()
@@ -96,7 +99,7 @@ def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=
                         for poligono in poligonos for anillo in poligono if anillo), poligonos
 
     def etiqueta(geometria, texto, clase='etiqueta', estilo=''):
-        dentro = geometria.intersection(QgsGeometry.fromRect(vista)) if foco is not None else geometria
+        dentro = geometria.intersection(QgsGeometry.fromRect(vista)) if foco is not None or encuadre is not None else geometria
         interior = dentro.pointOnSurface() if not dentro.isEmpty() else QgsGeometry()
         if interior.isNull() or interior.isEmpty():  #Anillo degenerado o fuera del encuadre: sin etiqueta, sin fallar (AU-08)
             return ''
@@ -237,10 +240,51 @@ def coordenadas_html(elemento):
             + ''.join(filas) + '</tbody></table>')
 
 
-def html(informe, ahora=None, consulta=None):
+def seccion_identidad(r):
+    """
+    Sección de la simulación de identidad gráfica (AU-58): veredicto, medidas y dos croquis, el general y otro ampliado en
+    el tramo que más se separa (en el general, con parcelas de decenas de metros, unos centímetros no se ven). Margen en
+    azul, parcela catastral en gris discontinuo, GML en naranja y lo que queda fuera del margen en rojo.
+    """
+    if r is None or r.referencia is None:
+        return ''
+    from types import SimpleNamespace
+
+    from . import identidad as idg
+    elementos = [SimpleNamespace(geometria=r.banda, local_id='', color='#4dabf7'),
+                 SimpleNamespace(geometria=r.referencia, local_id=', '.join(r.catastrales), color='#495057',
+                                 discontinua=True),
+                 SimpleNamespace(geometria=r.rgga, local_id='', color='#e8590c')]
+    if r.tramos:
+        fuera = idg.exterior(r.rgga).difference(r.banda).buffer(max(0.04, r.margen * 0.12), 4)
+        elementos.append(SimpleNamespace(geometria=fuera, local_id='', color='#c92a2a'))
+    color = '#2b8a3e' if r.cumple else '#c92a2a'
+    lineas = ''.join(f'<li>{escape(x)}</li>' for x in idg.resumen(r)[1:])
+    partes = ['<h2>Identidad gráfica (simulación)</h2>',
+              f'<div class="resultado" style="border-color:{color}"><b style="color:{color}">'
+              f'{escape(idg.veredicto(r))}</b> · {escape(idg.resumen(r)[0])}</div>',
+              f'<ul>{lineas}</ul>',
+              '<p class="meta">Criterio del anexo II de la Resolución conjunta DGSJFP-DGC de 23/09/2020 (BOE-A-2020-12111): '
+              'la línea exterior del GML dentro de ±0,50 m del perímetro catastral en cartografía urbana o ±2,00 m en '
+              'rústica, y una diferencia de superficie de como mucho el 5 %. En azul, el margen; en gris, la parcela '
+              'catastral; en naranja, el GML; en rojo, lo que queda fuera del margen. <b>Simulación no oficial</b>: el '
+              'resultado válido es el de la Sede Electrónica del Catastro (Identidad de parcela).</p>',
+              croquis_svg(elementos, alto=440)]
+    if r.tramos:
+        t = r.tramos[0]
+        lado = max(8 * r.margen, 3 * t.distancia, 4.0)
+        partes.append(f'<p class="meta">Detalle del tramo que más se separa ({idg._m(t.distancia)} m, cerca de X '
+                      f'{t.x:.2f}, Y {t.y:.2f}):</p>')
+        partes.append(croquis_svg(elementos, alto=360,
+                                  encuadre=QgsRectangle(t.x - lado, t.y - lado, t.x + lado, t.y + lado)))
+    return '\n'.join(partes) + '\n'
+
+
+def html(informe, ahora=None, consulta=None, identidad=None):
     """
     Texto HTML del informe de comprobación. consulta: fecha y hora en que se compararon los datos con los de la Dirección
-    General del Catastro (None si no se ha comparado).
+    General del Catastro (None si no se ha comparado). identidad: core.identidad.Resultado de la comparación, para la
+    sección de la simulación de identidad gráfica.
     """
     ahora = ahora or datetime.datetime.now()
     lectura = informe.lectura
@@ -329,7 +373,7 @@ informe de validación gráfica ni al ICUC de la Sede Electrónica del Catastro.
 
 <h2>Croquis</h2>
 {croquis_svg(lectura.elementos)}
-
+{seccion_identidad(identidad)}
 <h2>Coordenadas</h2>
 <p class="meta">Coordenadas UTM en metros{f' (EPSG:{lectura.epsg})' if lectura.epsg else ''}, tal como están en el fichero.</p>
 {detalle or '<p>Sin geometrías.</p>'}
@@ -341,10 +385,10 @@ informe de validación gráfica ni al ICUC de la Sede Electrónica del Catastro.
 """
 
 
-def escribir(informe, ruta=None, consulta=None):
+def escribir(informe, ruta=None, consulta=None, identidad=None):
     """Escribe el informe HTML (por defecto junto al GML) y devuelve su ruta; lanza OSError si no se puede escribir."""
     ruta = ruta or ruta_por_defecto(informe.ruta)
-    problema = escribir_texto(ruta, html(informe, consulta=consulta), 'utf-8')
+    problema = escribir_texto(ruta, html(informe, consulta=consulta, identidad=identidad), 'utf-8')
     if problema is not None:
         raise OSError(problema.mensaje)
     return ruta

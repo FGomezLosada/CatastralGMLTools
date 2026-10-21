@@ -214,15 +214,29 @@ def pestana_validar():
     pv.esquema_comprobado([])
     pv.comparar_catastro(segundo_plano=False)
     textos = [pv.lista.item(k).text() for k in range(pv.lista.count())]
+    ruta = pv.crear_informe()
+    with open(ruta, encoding='utf-8') as f:
+        informe = f.read()
+    seccion = informe.split('<h2>Identidad gráfica (simulación)</h2>')[-1]
+    en_informe = ('No cumpliría' in seccion and seccion.count('<svg') == 2 and 'Detalle del tramo' in seccion
+                  and 'Simulación no oficial' in seccion and 'BOE-A-2020-12111' in seccion)
+    #Igual al Catastro: sin la sección (no hace falta)
+    pv.fichero.setFilePath(gml('validar_igual', [RC]))
+    pv.esquema_comprobado([])
+    pv.comparar_catastro(segundo_plano=False)
+    with open(pv.crear_informe(), encoding='utf-8') as f:
+        sin_seccion = 'Identidad gráfica (simulación)' not in f.read()
     dw.cleanup()
     dw.deleteLater()
     QgsProject.instance().removeAllMapLayers()
     utilidades = [dw.pestanaUtilidades.utilidades.itemText(k) for k in range(dw.pestanaUtilidades.utilidades.count())]
-    ok = any('No cumpliría' in t for t in textos) and not any('Identidad' in u for u in utilidades)
-    return ok, (textos[-3:], utilidades)
+    ok = (any('No cumpliría' in t for t in textos) and not any('Identidad' in u for u in utilidades) and en_informe
+          and sin_seccion)
+    return ok, (textos[-3:], utilidades, en_informe, sin_seccion, seccion[:300])
 
 
-caso("pestaña Validar: la línea de identidad sale en la lista, y no hay utilidad aparte", pestana_validar)
+caso("pestaña Validar: la línea en la lista, la sección con croquis y detalle en el informe (no si es igual), sin utilidad aparte",
+     pestana_validar)
 
 servicios.pedir = original
 for _n, _f in _originales.items():

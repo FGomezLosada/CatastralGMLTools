@@ -310,7 +310,7 @@ class PestanaDescargar(QWidget):
             self.dock.success(f"Descargada la parcela {descarga.rc} de Navarra", [("Acercar", self.acercar)],
                               detalles=avisos)
         else:
-            self.dock.success(f"Descargada la parcela {descarga.rc}: ya está elegida en las pestañas Parcela y Edificio",
+            self.dock.success(f"Descargada la parcela {descarga.rc}",
                               [("Acercar", self.acercar), ("Ir a Parcela", self.ir_a_parcela),
                                ("Ir a Edificio", self.ir_a_edificio)], detalles=avisos)
         self.acercar()

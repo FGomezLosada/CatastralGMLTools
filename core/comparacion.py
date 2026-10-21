@@ -54,6 +54,7 @@ class Comparacion:
     epsg: object = None
     edificio: bool = False                            #Comparación de un GML de edificio con su parcela (ICUC)
     fecha: object = field(default_factory=datetime.datetime.now)  #Cuándo se consultaron los datos de la DGC
+    identidad: object = None                          #core.identidad.Resultado (1 parcela frente a la suya), o None
 
     @property
     def comparada(self):
@@ -321,6 +322,7 @@ def comparar(lectura):
         try:
             simulada = identidad.comprobar([propuestas[0].geometria], [(e.local_id, e.geometria) for e in afectadas])
             mensaje = identidad.mensaje_validar(simulada) if simulada.uno_a_uno else None
+            c.identidad = simulada if mensaje else None
         except Exception:  # noqa: BLE001 — es una ayuda: nunca impide la comparación
             mensaje = None
         if mensaje:
