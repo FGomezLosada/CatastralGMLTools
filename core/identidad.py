@@ -14,7 +14,8 @@ naturaleza de la parcela» (ayuda de la Sede). Con giros o desplazamientos de la
 después se aplica el criterio (Resolución de 29/03/2021): aquí se puede aplicar una transformación (core/ajuste.py).
 El certificado solo se emite con una parcela aportada frente a una catastral (1:1).
 
-Sin interfaz (la usa la utilidad «7.» de Utilidades).
+Sin interfaz: la usa la comparación con el Catastro de Validar (core/comparacion.py) cuando el GML es una parcela
+frente a una catastral y no es igual a ella.
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
@@ -208,7 +209,7 @@ def desplazamiento_que_cumple(rgga, perimetro, margen, iteraciones=15):
     return None
 
 
-# ------------------------------------------------------------------ Desde un fichero, resumen e informe
+# ------------------------------------------------------------------ Desde un fichero y resumen
 
 @dataclass
 class Simulacion:
@@ -291,80 +292,25 @@ def veredicto(r):
     return "No cumpliría el criterio de identidad gráfica"
 
 
-def html(simulacion, ahora=None):
-    """Informe HTML de la simulación, con un croquis: margen en azul, parcela catastral en gris, GML en naranja y lo que
-    queda fuera del margen en rojo."""
-    import datetime
-    import os
-    from html import escape
-    from types import SimpleNamespace
-
-    from .info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, version
-    from .informe import croquis_svg
-    ahora = ahora or datetime.datetime.now()
-    r = simulacion.resultado
-    nombre = os.path.basename(simulacion.ruta)
-    croquis = ''
-    if r is not None and r.referencia is not None:
-        elementos = [SimpleNamespace(geometria=r.banda, local_id='', color='#4dabf7'),
-                     SimpleNamespace(geometria=r.referencia, local_id=', '.join(r.catastrales), color='#495057',
-                                     discontinua=True),
-                     SimpleNamespace(geometria=r.rgga, local_id='', color='#e8590c')]
-        if r.tramos:
-            fuera = exterior(r.rgga).difference(r.banda).buffer(max(r.margen / 8, 0.05), 4)
-            elementos.append(SimpleNamespace(geometria=fuera, local_id='', color='#c92a2a'))
-        croquis = croquis_svg(elementos, alto=440)
-        if r.tramos:  #Detalle del tramo que más se separa: en el croquis general, con parcelas de decenas de metros, no se ve
-            from qgis.core import QgsRectangle
-            t = r.tramos[0]
-            lado = max(8 * r.margen, 3 * t.distancia, 4.0)
-            detalle = croquis_svg(elementos, alto=360, encuadre=QgsRectangle(t.x - lado, t.y - lado, t.x + lado, t.y + lado))
-            croquis += (f'<p class="meta">Detalle del tramo que más se separa ({_m(t.distancia)} m, cerca de X {t.x:.2f}, '
-                        f'Y {t.y:.2f}):</p>' + detalle)
-    lineas = resumen(r) if r is not None else [i.mensaje for i in simulacion.errores]
-    titulo = veredicto(r) if r is not None else "No se ha podido comprobar"
-    color = '#2b8a3e' if r is not None and r.cumple else '#c92a2a'
-    return f"""<!DOCTYPE html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Identidad gráfica (simulación) · {escape(nombre)}</title>
-<style>
-  :root {{ --fondo:#ffffff; --texto:#1d2327; --suave:#f1f3f5; --linea:#dee2e6; --acento:#1f6f78; }}
-  @media (prefers-color-scheme: dark) {{ :root {{ --fondo:#15191b; --texto:#e6eaeb; --suave:#1e2426; --linea:#343a40; }} }}
-  body {{ font-family:"Segoe UI",Arial,sans-serif; max-width:900px; margin:0 auto; padding:16px; background:var(--fondo);
-         color:var(--texto); line-height:1.45; }}
-  h1 {{ color:var(--acento); font-size:1.4em; margin:0 0 4px; }} h2 {{ font-size:1.15em; }}
-  .meta {{ opacity:.8; font-size:.92em; }} .aviso-legal {{ font-size:.88em; opacity:.85; }}
-  .croquis {{ display:block; width:100%; max-width:760px; margin:8px auto; background:var(--suave); border-radius:6px; }}
-  .etiqueta {{ font-size:12px; fill:var(--texto); paint-order:stroke; stroke:var(--fondo); stroke-width:3px; }}
-  footer {{ margin-top:28px; font-size:.85em; opacity:.75; border-top:1px solid var(--linea); padding-top:8px; }}
-</style></head><body>
-<h1>Identidad gráfica con la parcela catastral (simulación)</h1>
-<p class="aviso-legal"><b>Simulación no oficial</b>: el informe válido es el Certificado de Identidad Gráfica de la Sede
-Electrónica del Catastro. ⚠ {escape(AVISO_LEGAL)}</p>
-<div class="meta">{escape(nombre)} · EPSG:{simulacion.epsg or '—'} · {ahora:%d/%m/%Y %H:%M}</div>
-<h2 style="color:{color}">{escape(titulo)}</h2>
-<ul>{''.join(f'<li>{escape(x)}</li>' for x in lineas)}</ul>
-{croquis}
-<p class="meta">En azul, el margen de tolerancia alrededor del perímetro catastral (gris discontinuo); en naranja, el GML;
-en rojo, lo que queda fuera del margen. Criterio: {escape(FUENTE)}: el contorno exterior del GML dentro del margen
-(±0,50 m en cartografía urbana, ±2,00 m en rústica) y la diferencia de superficie no mayor del 5 % de la catastral.
-Parcelas catastrales: datos públicos de la {escape(FUENTE_DGC)} consultados el {ahora:%d/%m/%Y a las %H:%M}.</p>
-<footer>Generado con {escape(NOMBRE)} {escape(version())} (herramienta no oficial, GPL-2.0-or-later) a partir de
-<code>{escape(simulacion.ruta)}</code>.</footer>
-</body></html>
-"""
-
-
-def ruta_informe(ruta_gml):
-    import os
-    base, _ = os.path.splitext(ruta_gml)
-    return f"{base}_identidad.html"
-
-
-def escribir(simulacion, ruta=None):
-    from .ficheros import escribir_texto
-    ruta = ruta or ruta_informe(simulacion.ruta)
-    problema = escribir_texto(ruta, html(simulacion), 'utf-8')
-    if problema is not None:
-        raise OSError(problema.mensaje)
-    return ruta
+def mensaje_validar(r):
+    """
+    Una línea para la comparación de Validar (una parcela del GML frente a una catastral, distinta de ella): si las
+    diferencias caben en el margen de identidad gráfica. Con identidad, para el notario o el registro puede bastar la
+    certificación catastral descriptiva y gráfica, sin representación alternativa.
+    """
+    if not r.catastrales:
+        return None
+    texto = (f"Identidad gráfica (simulación según el anexo II de la Resolución de 23/09/2020): margen ±{_m(r.margen)} m "
+             f"(cartografía {r.cartografia}); el contorno se separa hasta {_m(r.separacion)} m del catastral y la "
+             f"superficie difiere un {_m(r.diferencia)} % (máximo {DIFERENCIA_SUPERFICIE:.0f} %). ")
+    if r.cumple:
+        return texto + ("Cumpliría: si el levantamiento solo confirma la parcela catastral, para el notario o el registro "
+                        "puede bastar la certificación catastral. Compruébelo en la Sede (Identidad de parcela)")
+    motivos = [f"el contorno sale del margen cerca de X {r.tramos[0].x:.2f}, Y {r.tramos[0].y:.2f}"] if r.tramos else []
+    if not r.dentro_superficie:
+        motivos.append(f"la superficie difiere más del {DIFERENCIA_SUPERFICIE:.0f} %")
+    pista = ""
+    if r.desplazamiento is not None:
+        pista = (f"; con un desplazamiento de {_m(r.desplazamiento[0])} m en X y {_m(r.desplazamiento[1])} m en Y "
+                 "entraría (si la cartografía catastral está desplazada, Utilidades «4. Ajustar»)")
+    return texto + "No cumpliría: " + " y ".join(motivos) + pista

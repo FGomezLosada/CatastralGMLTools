@@ -314,6 +314,17 @@ def comparar(lectura):
     c.operacion = texto
     c.incidencias.append(Incidencia(nivel, 'CMP-OPERACION', f"NPO {c.npo} (parcelas catastrales afectadas) · NPP {c.npp} "
                                                             f"(parcelas del GML) → {texto}"))
+    if c.npp == 1 and not todo_igual:
+        #¿Cabe en el margen de identidad gráfica con la parcela catastral que es la suya (AU-58)? Un levantamiento a
+        #30 cm del Catastro «afecta» a la vecina (NPO 2, ±1 cm), pero puede ser la misma finca a efectos de identidad
+        from . import identidad
+        try:
+            simulada = identidad.comprobar([propuestas[0].geometria], [(e.local_id, e.geometria) for e in afectadas])
+            mensaje = identidad.mensaje_validar(simulada) if simulada.uno_a_uno else None
+        except Exception:  # noqa: BLE001 — es una ayuda: nunca impide la comparación
+            mensaje = None
+        if mensaje:
+            c.incidencias.append(Incidencia(INFO, 'CMP-IDENTIDAD', mensaje))
     if len(grupos) > 1:  #Varias operaciones en un GML (p. ej. una multiparcela de dos segregaciones): se dice cada una
         partes = []
         for k, (parte, indices) in enumerate(grupos, start=1):

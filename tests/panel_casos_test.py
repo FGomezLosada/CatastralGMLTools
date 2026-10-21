@@ -212,6 +212,20 @@ def exito():
 caso("mensaje final con < & y un botón que funciona", exito)
 
 
+def arriba():
+    """El aviso va encima de las pestañas: con el panel más alto que la pantalla, abajo no se veía (21/10/2026)."""
+    dw.messageBar.clearWidgets()
+    dw.tabWidget.setCurrentWidget(dw.tabParcela)
+    dw.success("GML creado: prueba.gml")
+    dw.mainLayout.activate()
+    QgsApplication.processEvents()
+    lugar = dw.mainLayout.indexOf(dw.messageBar), dw.mainLayout.indexOf(dw.tabWidget)
+    return lugar[0] < lugar[1] and dw.messageBar.geometry().bottom() < dw.tabWidget.geometry().top() + 5, lugar
+
+
+caso("el aviso final sale encima de las pestañas (siempre a la vista)", arriba)
+
+
 # 3. Pestañas y proyecto que cambian por debajo
 def orden():
     titulos = [dw.tabWidget.tabText(i).replace('&', '') for i in range(dw.tabWidget.count())]
