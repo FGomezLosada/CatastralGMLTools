@@ -394,7 +394,8 @@ class PestanaValidar(QWidget):
         if self.informe is None or not self.informe.lectura.elementos:
             return None
         try:
-            ruta = informe_html.escribir(self.informe, consulta=self.comparacion.fecha if self.comparacion else None)
+            ruta = informe_html.escribir(self.informe, consulta=self.comparacion.fecha if self.comparacion else None,
+                                         identidad=self.comparacion.identidad if self.comparacion else None)
         except Exception as e:  #E/S o un fichero muy anómalo: se avisa en la barra, nunca una ventana de error (AU-07, AU-08)
             self.dock.warn(f"No se ha podido guardar el informe: {e}")
             return None
