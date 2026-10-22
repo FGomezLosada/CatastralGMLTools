@@ -15,7 +15,7 @@ from qgis.core import Qgis, QgsGeometry
 
 from catastral_gml_tools.core import gml_parcela as gp
 from catastral_gml_tools.core import validador as va
-from catastral_gml_tools.core.incidencias import AVISO, ERROR, codigos
+from catastral_gml_tools.core.incidencias import AVISO, ERROR, INFO, Incidencia, codigos
 from catastral_gml_tools.core.info import RAIZ
 
 X0, Y0 = 421500.0, 4070500.0
@@ -53,6 +53,10 @@ base = gml([gp.ParcelaGML('1907401VK4810H', gp.SDGC, rect(X0, Y0, 20, 30)),
 informe = va.validar(base)
 limpio = not informe.errores and not informe.avisos and va.resumen(informe).startswith('Sin errores')
 estados = [informe.estado('1907401VK4810H'), informe.estado('Nueva_1')] == ['correcta', 'correcta']
+#Sin comparar no dice «listo para la Sede» (la comparación puede dar errores); comparado sin errores, sí
+sin_comparar = 'falta «Comparar con el Catastro»' in va.resumen(informe)
+informe.incidencias.append(Incidencia(INFO, 'CMP-OPERACION', 'NPO 1 · NPP 2 → Segregación'))
+comparado = va.resumen(informe) == "Sin errores: listo para validarlo en la Sede"
 
 #Primer posList de la primera parcela (exterior): '421500.00 4070500.00 421500.00 4070530.00 …'
 casos = {
@@ -135,6 +139,8 @@ edificio_ok = not edificio.errores
 checks = {
     "el escritor rechaza parcelas solapadas (AU-11)": escritor_solape,
     "GML correcto: sin errores ni avisos y todas las parcelas correctas": limpio and estados,
+    "sin comparar: «falta Comparar con el Catastro»; comparado sin errores: «listo para validarlo en la Sede»":
+        sin_comparar and comparado,
     "niveles de error y aviso, y error atribuido a su parcela": niveles,
     "GML de edificio sintético: sin errores": edificio_ok,
 }

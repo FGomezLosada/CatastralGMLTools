@@ -271,6 +271,19 @@ def comparar_cabida(total, inscrita):
     return diferencia, porcentaje, [texto for limite, texto in UMBRALES if porcentaje <= limite]
 
 
+def _leyenda_parcela(parcelas, foco, vecinas):
+    """Leyenda del croquis de una parcela: ella (su color), las demás del GML (tenues) y las catastrales de alrededor."""
+    from .informe import PALETA_CROQUIS, leyenda
+    indice = next(i for i, e in enumerate(parcelas) if e is foco)
+    color = getattr(foco, 'color', None) or PALETA_CROQUIS[indice % len(PALETA_CROQUIS)]
+    entradas = [(f"Parcela {foco.local_id}, con sus vértices numerados como en la tabla de coordenadas", color, 'relleno')]
+    if len(parcelas) > 1:
+        entradas.append(("Otras parcelas del GML (más claras, cada una con su color)", '#868e96', 'tenue'))
+    if vecinas:
+        entradas.append(("Parcelas catastrales de alrededor, con su referencia", '#868e96', 'gris'))
+    return leyenda(entradas)
+
+
 def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta=None, vecinas=(), ortofoto=b''):
     """
     Texto HTML del informe. consulta: fecha de la consulta de las colindantes al Catastro (None si no se consultó);
@@ -278,7 +291,7 @@ def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta
     imagen del encuadre del croquis general (vista_croquis), que va debajo de las parcelas.
     """
     ahora = ahora or datetime.datetime.now()
-    from .informe import croquis_svg  #Mismo croquis que el informe de comprobación
+    from .informe import croquis_svg, leyenda_recintos  #Mismo croquis que el informe de comprobación
     parcelas = [e for e in lectura.elementos if not e.geometria.isNull() and not e.geometria.isEmpty()]
     #Las catastrales de origen (las que ocupa el GML) no se dibujan: taparían el contorno nuevo
     vecinas = [v for v in vecinas if all(v.geometria.intersection(p.geometria).area() <= SOLAPE for p in parcelas)]
@@ -306,6 +319,7 @@ def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta
         f'<p>Superficie UTM <b>{_num(f.area_utm)} m²</b> · elipsoide {_num(f.area_elipsoide)} m² · perímetro '
         f'{_num(f.perimetro)} m</p>'
         f'{croquis_svg(parcelas, alto=360, vertices=True, foco=p, vecinas=vecinas)}'
+        f'{_leyenda_parcela(parcelas, p, vecinas)}'
         f'<h4>Linderos</h4>{_linderos(f, consulta is not None)}'
         f'<h4>Coordenadas</h4>{_coordenadas(f)}</section>' for f, p in zip(lista, parcelas))
     return f"""<!DOCTYPE html>
@@ -355,6 +369,7 @@ m²). La del elipsoide GRS80 es la del terreno sin relieve; en terreno inclinado
 {bloque_cabida}
 <h2>Croquis</h2>
 {croquis_svg(parcelas, fondo=ortofoto, atribucion=ATRIBUCION_PNOA)}
+{leyenda_recintos(parcelas)}
 <p class="meta">{'Sobre la ortofoto PNOA del Instituto Geográfico Nacional (CC BY 4.0, scne.es), que puede no coincidir al centímetro con la cartografía catastral. ' if ortofoto else ''}Cada parcela tiene abajo su croquis con los vértices numerados y, en gris, las parcelas catastrales de alrededor.</p>
 
 <h2>Parcelas</h2>

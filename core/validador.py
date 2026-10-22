@@ -298,6 +298,10 @@ def resumen(informe):
     if not informe.lectura.elementos:
         return "No se ha podido leer el fichero"
     if n_err == 0 and n_av == 0:
+        #Sin comparar, solo se ha revisado el fichero: «listo» engañaba si luego la comparación daba errores (prueba a
+        #mano del 22/10/2026: un vértice 70 cm fuera salía «listo» y, al comparar, con 2 errores)
+        if not any(i.codigo.startswith('CMP-') for i in informe.incidencias):
+            return "Sin errores en el fichero: falta «Comparar con el Catastro»"
         return "Sin errores: listo para validarlo en la Sede"
     partes = []
     if n_err:

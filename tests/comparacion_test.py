@@ -211,8 +211,10 @@ pv.comparar_catastro(segundo_plano=False)
 grupo = raiz.findGroup('Comparación parcial')
 textos = ' | '.join(item.text() for item in dw.messageBar.items())
 interfaz = (interfaz and grupo is not None
-            and [n.name() for n in grupo.children()] == ['Defecto: parcela catastral sin cubrir',
-                                                          'Catastro vigente (parcelas afectadas)']
+            #Una parcela frente a la suya: delante, el margen de identidad gráfica (y lo que sale de él, si sale)
+            and [n.name() for n in grupo.children() if not n.name().startswith('Identidad gráfica')]
+            == ['Defecto: parcela catastral sin cubrir', 'Catastro vigente (parcelas afectadas)']
+            and grupo.children()[0].name().startswith('Identidad gráfica')
             and 'error' in textos and '1 error' in pv.estado.text()
             and any(i.codigo == 'CMP-PARCIAL' for i in pv.informe.incidencias))
 #Sin errores pero con avisos (GML igual al Catastro): la barra en naranja, no en verde con ✔ (prueba a mano del 15/10)

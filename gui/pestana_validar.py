@@ -657,7 +657,8 @@ def cargar_comparacion(comparacion, ruta, iface=None):
     """
     Grupo «Comparación <fichero>» con las parcelas catastrales afectadas (gris, con su número) y, si las hay, las
     diferencias con el GML: exceso (suelo del GML fuera de ellas, rojo) y defecto (suelo de ellas que el GML deja
-    fuera, azul). Si ya existía, se sustituye.
+    fuera, azul). Con la simulación de identidad gráfica (AU-58), también el margen (azul claro) y lo que sale de él
+    (rojo), como en el informe. Si ya existía, se sustituye.
     """
     quitar_vistas_anteriores(ruta)
     proyecto = QgsProject.instance()
@@ -670,6 +671,15 @@ def cargar_comparacion(comparacion, ruta, iface=None):
     grupo = raiz.insertGroup(0, nombre)
     grupo.setCustomProperty(PROPIEDAD_GML, ruta)  #Se quita al abrir otro GML (quitar_vistas_anteriores)
     capas = []
+    r = getattr(comparacion, 'identidad', None)
+    if r is not None and r.banda is not None:
+        from ..core import identidad as idg
+        if r.tramos:
+            fuera = idg.exterior(r.rgga).difference(r.banda).buffer(max(0.04, r.margen * 0.1), 4)
+            capas.append(estilos.capa_zona(fuera, comparacion.epsg, "Identidad gráfica: fuera del margen", '#c92a2a',
+                                           200, 0.6))
+        margen = f"{r.margen:.2f}".replace('.', ',')
+        capas.append(estilos.capa_zona(r.banda, comparacion.epsg, f"Identidad gráfica: margen ±{margen} m", '#4dabf7'))
     exceso = "Fuera de la parcela catastral" if comparacion.edificio else "Exceso: fuera de las parcelas catastrales"
     for geometria, titulo, color in ((comparacion.exceso, exceso, '#e03131'),
                                      (comparacion.defecto, "Defecto: parcela catastral sin cubrir", '#1971c2')):
