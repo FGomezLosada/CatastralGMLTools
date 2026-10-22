@@ -80,6 +80,23 @@ def aplicar(capa, colores=None, campo_etiqueta='localId'):
     return capa
 
 
+def capa_zona(geometria, epsg, nombre, color, alfa=60, ancho=0.4):
+    """Capa de memoria con una zona de relleno liso semitransparente (el margen de identidad o lo que queda fuera)."""
+    capa = QgsVectorLayer(f"MultiPolygon?crs=EPSG:{epsg or 25830}", nombre, 'memory')
+    entidad = QgsFeature(capa.fields())
+    g = QgsGeometry(geometria)
+    g.convertToMultiType()
+    entidad.setGeometry(g)
+    capa.dataProvider().addFeatures([entidad])
+    capa.updateExtents()
+    capa.setCrs(QgsCoordinateReferenceSystem(f'EPSG:{epsg or 25830}'))
+    c = QColor(color)
+    capa.setRenderer(QgsSingleSymbolRenderer(QgsFillSymbol.createSimple({
+        'color': f'{c.red()},{c.green()},{c.blue()},{alfa}', 'outline_color': color, 'outline_width': str(ancho),
+        'outline_width_unit': 'MM'})))
+    return capa
+
+
 def capa_diferencia(geometria, epsg, nombre, color):
     """Capa de memoria con una diferencia de superficie (exceso o defecto), rayada y con su superficie en m²."""
     capa = QgsVectorLayer(f"MultiPolygon?crs=EPSG:{epsg or 25830}&field=superficie:double", nombre, 'memory')

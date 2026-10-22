@@ -167,6 +167,43 @@ def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=
     return ''.join(partes)
 
 
+MAX_LEYENDA = 8  #Recintos en la leyenda; con más, «y N más» (los colores se repiten)
+
+
+def leyenda(entradas):
+    """
+    Leyenda bajo un croquis: [(texto, color, estilo)], estilo 'relleno' (recinto), 'discontinua' (contorno a trazos sin
+    relleno), 'zona' (relleno liso, el margen), 'gris' (parcelas catastrales de alrededor) o 'tenue'. Estilos en línea:
+    vale en cualquier informe.
+    """
+    muestras = {  #Borde y relleno (opacidad en hexadecimal) como en el croquis; con CSS, sin otro <svg> en el informe
+        'relleno': '2px solid {c}; background:{c}26', 'discontinua': '2px dashed {c}; background:transparent',
+        'zona': '1px solid {c}; background:{c}59', 'gris': '1px solid {c}; background:transparent',
+        'tenue': '1px solid {c}; background:{c}10',
+    }
+    partes = []
+    for texto, color, estilo in entradas:
+        muestra = (f'<span style="display:inline-block;width:18px;height:10px;border:'
+                   f'{muestras.get(estilo, muestras["relleno"]).format(c=color)}"></span>' if color else '')
+        partes.append('<span style="display:inline-flex;align-items:center;gap:6px;margin:2px 14px 2px 0">'
+                      f'{muestra}{escape(texto)}</span>')
+    return ('<div class="leyenda" style="max-width:760px;margin:6px auto 14px;font-size:.88em;display:flex;'
+            'flex-wrap:wrap">' + ''.join(partes) + '</div>')
+
+
+def leyenda_recintos(elementos, texto=''):
+    """Leyenda de los recintos de un croquis, con el mismo color que croquis_svg da a cada uno."""
+    validas = _validas(elementos)
+    entradas = [(f"{texto or (getattr(e, 'tipo', '') or 'recinto').capitalize() + ' '}{e.local_id}".strip(),
+                 getattr(e, 'color', None) or PALETA_CROQUIS[i % len(PALETA_CROQUIS)],
+                 'discontinua' if getattr(e, 'discontinua', False) else 'relleno')
+                for i, e in enumerate(validas[:MAX_LEYENDA])]
+    if len(validas) > MAX_LEYENDA:
+        entradas.append((f"… y {len(validas) - MAX_LEYENDA} más (los colores se repiten; cada uno lleva su "
+                         "identificador)", None, None))
+    return leyenda(entradas)
+
+
 def _giro_etiqueta(geometria, texto, escala, ancho_letra=7.0):
     """
     Grados (SVG, horario) para escribir el identificador a lo largo de un recinto estrecho en el que no cabe en
@@ -266,17 +303,24 @@ def seccion_identidad(r):
               f'<ul>{lineas}</ul>',
               '<p class="meta">Criterio del anexo II de la Resolución conjunta DGSJFP-DGC de 23/09/2020 (BOE-A-2020-12111): '
               'la línea exterior del GML dentro de ±0,50 m del perímetro catastral en cartografía urbana o ±2,00 m en '
-              'rústica, y una diferencia de superficie de como mucho el 5 %. En azul, el margen; en gris, la parcela '
-              'catastral; en naranja, el GML; en rojo, lo que queda fuera del margen. <b>Simulación no oficial</b>: el '
+              'rústica, y una diferencia de superficie de como mucho el 5 %. <b>Simulación no oficial</b>: el '
               'resultado válido es el de la Sede Electrónica del Catastro (Identidad de parcela).</p>',
               croquis_svg(elementos, alto=440)]
+    margen = f"{r.margen:.2f}".replace('.', ',')
+    entradas = [(f"Margen de ±{margen} m alrededor del perímetro catastral", '#4dabf7', 'zona'),
+                (f"Parcela catastral {', '.join(r.catastrales)}", '#495057', 'discontinua'),
+                ("GML (representación gráfica alternativa)", '#e8590c', 'relleno')]
+    if r.tramos:
+        entradas.append(("Contorno del GML fuera del margen", '#c92a2a', 'zona'))
+    partes.append(leyenda(entradas))
     if r.tramos:
         t = r.tramos[0]
-        lado = max(8 * r.margen, 3 * t.distancia, 4.0)
+        lado = max(4 * r.margen, 3 * t.distancia, 1.5)  #Unos 4 m de lado en urbana: se ven los centímetros
         partes.append(f'<p class="meta">Detalle del tramo que más se separa ({idg._m(t.distancia)} m, cerca de X '
                       f'{t.x:.2f}, Y {t.y:.2f}):</p>')
         partes.append(croquis_svg(elementos, alto=360,
                                   encuadre=QgsRectangle(t.x - lado, t.y - lado, t.x + lado, t.y + lado)))
+        partes.append(leyenda(entradas))
     return '\n'.join(partes) + '\n'
 
 
@@ -373,6 +417,7 @@ informe de validación gráfica ni al ICUC de la Sede Electrónica del Catastro.
 
 <h2>Croquis</h2>
 {croquis_svg(lectura.elementos)}
+{leyenda_recintos(lectura.elementos)}
 {seccion_identidad(identidad)}
 <h2>Coordenadas</h2>
 <p class="meta">Coordenadas UTM en metros{f' (EPSG:{lectura.epsg})' if lectura.epsg else ''}, tal como están en el fichero.</p>

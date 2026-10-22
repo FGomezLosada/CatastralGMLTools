@@ -541,7 +541,7 @@ class _Dibujo:
 
 
 def html(c, ahora=None):
-    from .informe import croquis_svg
+    from .informe import croquis_svg, leyenda
     ahora = ahora or datetime.datetime.now()
     nombre_a, nombre_b = os.path.basename(c.ruta_a), os.path.basename(c.ruta_b)
     cambia = " class='cambia'"
@@ -563,7 +563,9 @@ def html(c, ahora=None):
         tabla_v = ''.join(f"<tr><td>{n}</td><td class='num'>{x:.2f}</td><td class='num'>{y:.2f}</td>"
                           f"<td class='num'>{_num(d * 100, 1)}</td><td>{rumbo(dx, dy) if d > 1e-6 else ''}</td></tr>"
                           for n, x, y, d, dx, dy in movidos[:MAX_VERTICES_TABLA])
-        croquis = croquis_svg([_Dibujo(p.a, '#e8590c'), _Dibujo(p.b, '#1971c2', True, etiqueta=False)], alto=320)
+        croquis = (croquis_svg([_Dibujo(p.a, '#e8590c'), _Dibujo(p.b, '#1971c2', True, etiqueta=False)], alto=320)
+                   + leyenda([(f"Primero: {nombre_a}", '#e8590c', 'relleno'),
+                              (f"Segundo: {nombre_b}", '#1971c2', 'discontinua')]))
         secciones.append(
             f"<section><h3>{escape(p.nombre)} <span class='meta'>· {escape(p.veredicto())}"
             f"{' · emparejados por la geometría' if p.por == 'geometría' else ''}</span></h3>"

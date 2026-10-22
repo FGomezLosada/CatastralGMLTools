@@ -148,7 +148,7 @@ Veredictos: **OK** · **FALLA** (error del plugin: excepción, dato mal leído o
 | FIC-11 | SRC mezclados | Error SRC-MEZCLADOS | Igual | OK |
 | FIC-12 | `gml:pos` | Lo lee, sin errores | Válido en XSD | OK |
 | FIC-13 | `gml:coordinates` | Lo lee, sin errores | Formato DGC: posList | OK (lectura) |
-| FIC-14 | 3D con `srsDimension="3"` | **«Sin errores: listo para validarlo en la Sede»** | La DGC exige 2D | NDA |
+| FIC-14 | 3D con `srsDimension="3"` | **«Sin errores: listo para validarlo en la Sede»** (hoy, sin comparar: «Sin errores en el fichero: falta «Comparar con el Catastro»») | La DGC exige 2D | NDA |
 | FIC-15 | 3D con srsDimension heredado de `gml:Surface` | **Lo lee como 2D**: geometría basura y errores que confunden | Leer la dimensión heredada o avisar | FALLA |
 | FIC-16..18 | Mal formado, vacío, sin parcelas | Error claro | Igual | OK |
 | FIC-19 | Sin xmlns:xlink | Error XLINK | Igual (E-11) | OK |

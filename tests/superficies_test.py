@@ -130,7 +130,8 @@ interfaz = (mal and hecho == su.ruta_por_defecto(ruta) and 'Informe de superfici
             and '1907402VK4810H' in contenido and '620,50 m²' in contenido and 'F. G. L.' in contenido
             and QgsSettings().value(pu_module.CLAVE_AUTOR, '') == 'F. G. L.')
 #Croquis general sobre la ortofoto (con su atribución) y uno por parcela, sin ortofoto, con las catastrales en gris
-croquis_ui = (contenido.count('<svg') == 3 and contenido.count('<image') == 1 and 'data:image/jpeg;base64,' in contenido
+croquis_ui = (contenido.count('<svg') == 3 and contenido.count('class="leyenda"') == 3
+              and 'Parcelas catastrales de alrededor' in contenido and contenido.count('<image') == 1 and 'data:image/jpeg;base64,' in contenido
               and 'PNOA cedido por © Instituto Geográfico Nacional' in contenido and 'stroke="#868e96"' in contenido
               and any('ign.es/wms-inspire/pnoa-ma' in u and 'CRS=EPSG:25830' in u for u in sim.peticiones))
 #La ortofoto no responde: el informe sale igual, sin ella, y se dice

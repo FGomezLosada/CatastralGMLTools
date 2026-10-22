@@ -323,7 +323,9 @@ def geometria_invalida():
         re.search(r'<gml:posList[^>]*>([^<]*)<', texto(A)).group(1),
         ' '.join(f'{x:.2f} {y:.2f}' for x, y in pajarita + [pajarita[0]])))
     c = cg.comparar(A, ruta)
-    return not c.errores and len(c.parejas) >= 1 and bool(cg.html(c))
+    informe = cg.html(c)
+    return (not c.errores and len(c.parejas) >= 1 and 'class="leyenda"' in informe and 'Primero: ' in informe
+            and 'Segundo: ' in informe)
 
 
 def sin_geometria():
