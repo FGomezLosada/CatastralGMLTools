@@ -20,6 +20,10 @@ jobs:
           python-version: '3.12'
       - name: Generar el ZIP del plugin
         run: python tools/package.py
+      - name: Escaneo de seguridad del ZIP (Bandit y detect-secrets, como plugins.qgis.org)
+        run: |
+          pip install bandit detect-secrets flake8
+          python tools/escanear.py
       - name: Novedades de esta versión (del changelog de metadata.txt)
         run: |
           python - << 'PY'

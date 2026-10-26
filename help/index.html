@@ -400,6 +400,19 @@ de la Riqueza Territorial; «Servicio proporcionado por el Gobierno de Navarra»
 propio: el GML de la Sede Electrónica de la Dirección General del Catastro no sirve allí, por eso el plugin no lo genera con esas
 capas.</p>
 
+<h2>País Vasco</h2>
+<p>Álava/Araba, Gipuzkoa y Bizkaia también tienen catastros propios, de sus diputaciones forales. En la pestaña
+<strong>Descargar</strong>, pulse <strong>Elegir en el mapa</strong> y haga clic en la parcela: se descarga (con sus colindantes,
+su entorno y las construcciones que caen dentro de ella) del servicio WFS INSPIRE de su diputación, en EPSG:25830, solo para
+verla. También se puede escribir su identificador: en Bizkaia como <code>48.020.1619.01003</code>, en Gipuzkoa como
+<code>069-8296630-28223</code> y, en cualquiera de los tres, con el namespace delante (<code>ES.AFA.CP.59600921</code>, que es
+lo que escribe el clic). Como en Navarra, el GML de la Sede de la Dirección General del Catastro no sirve allí y el plugin no lo
+genera con esas capas: las alteraciones se tramitan ante cada diputación.</p>
+<p>Fuentes y licencias (van en los metadatos de cada capa): Arabako Foru Aldundia / Diputación Foral de Álava (CC BY 4.0);
+Gipuzkoako Foru Aldundia / Diputación Foral de Gipuzkoa (CC BY-SA 3.0 ES; según la Diputación, estos datos no tienen categoría
+de cartografía oficial y no sirven para ningún certificado); Bizkaiko Foru Aldundia - Diputación Foral de Bizkaia (CC BY 3.0
+ES).</p>
+
 <h2>Antes de presentar el GML</h2>
 <p>Algunas cosas que el plugin no puede comprobar y que conviene tener presentes (no es asesoramiento jurídico: ante la
 duda, consulte con la notaría, el Registro o el Catastro):</p>
@@ -430,7 +443,7 @@ duda, consulte con la notaría, el Registro o el Catastro):</p>
 <h2>Ámbito territorial</h2>
 <p>El plugin trabaja con el territorio gestionado por la Dirección General del Catastro. Navarra y los territorios
 forales del País Vasco (Álava/Araba, Gipuzkoa y Bizkaia) tienen catastros propios, con sus propios servicios y
-procedimientos: el plugin los detecta y lo indica.</p>
+procedimientos: el plugin los detecta y lo indica, y descarga sus parcelas de sus servicios INSPIRE solo para verlas.</p>
 
 <h2>Datos</h2>
 <p>Los datos descargados proceden de los servicios públicos de la <strong>Dirección General del Catastro</strong> y se

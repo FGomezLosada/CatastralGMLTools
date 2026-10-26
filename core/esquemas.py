@@ -53,7 +53,7 @@ def carpeta_cache():
 
 def _fichero_cache(url):
     nombre = url.rstrip('/').rsplit('/', 1)[-1] or 'esquema.xsd'
-    return os.path.join(carpeta_cache(), hashlib.sha1(url.encode('utf-8')).hexdigest()[:12] + '_' + nombre)
+    return os.path.join(carpeta_cache(), hashlib.sha1(url.encode('utf-8'), usedforsecurity=False).hexdigest()[:12] + '_' + nombre)
 
 
 XS_SCHEMA = '{http://www.w3.org/2001/XMLSchema}schema'

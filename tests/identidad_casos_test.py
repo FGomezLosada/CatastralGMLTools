@@ -222,7 +222,7 @@ def pestana_validar():
     seccion = informe.split('<h2>Identidad gráfica (simulación)</h2>')[-1]
     en_informe = ('No cumpliría' in seccion and seccion.count('<svg') == 2 and 'Detalle del tramo' in seccion
                   and 'Simulación no oficial' in seccion and 'BOE-A-2020-12111' in seccion
-                  and seccion.count('class="leyenda"') == 2 and 'Margen de ±0,50 m alrededor' in seccion
+                  and seccion.count('class="leyenda-croquis"') == 2 and 'Margen de ±0,50 m alrededor' in seccion
                   and 'Contorno del GML fuera del margen' in seccion)
     #Igual al Catastro: sin la sección (no hace falta)
     pv.fichero.setFilePath(gml('validar_igual', [RC]))

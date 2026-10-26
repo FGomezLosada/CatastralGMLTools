@@ -607,7 +607,6 @@ def html(c, ahora=None):
   table.coord {{ width:auto; min-width:420px; }}
   .croquis {{ display:block; width:100%; max-width:760px; margin:8px auto; background:var(--suave); border-radius:6px; }}
   .etiqueta {{ font-size:12px; fill:var(--texto); paint-order:stroke; stroke:var(--fondo); stroke-width:3px; }}
-  .leyenda span {{ display:inline-block; width:22px; height:0; border-top:3px solid; vertical-align:middle; margin:0 4px 0 12px; }}
   section {{ page-break-inside:avoid; }}
   footer {{ margin-top:32px; font-size:.85em; opacity:.75; border-top:1px solid var(--linea); padding-top:8px; }}
 </style>
@@ -623,9 +622,8 @@ def html(c, ahora=None):
 <table><thead><tr><th>Recinto</th><th>Resultado</th><th>Sup. primero m²</th><th>Sup. segundo m²</th>
 <th>Separación máx. cm</th></tr></thead><tbody>{''.join(filas)}</tbody></table>
 <h2>Detalle</h2>
-<p class="leyenda meta"><span style="border-color:#e8590c"></span>primero <span style="border-color:#1971c2;border-top-style:dashed"></span>segundo
-(coordenadas UTM del primero; la separación de los contornos es la distancia de Hausdorff). Las diferencias de
-centímetros no se aprecian en el croquis: están en las tablas.</p>
+<p class="meta">Coordenadas UTM del primero; la separación de los contornos es la distancia de Hausdorff. Las diferencias
+de centímetros no se aprecian en el croquis: están en las tablas.</p>
 {''.join(secciones) or '<p>No hay recintos en los dos ficheros.</p>'}
 <footer>Generado con {escape(NOMBRE)} {escape(version())} (herramienta no oficial, GPL-2.0-or-later) a partir de
 <code>{escape(c.ruta_a)}</code> y <code>{escape(c.ruta_b)}</code>.</footer>
@@ -640,4 +638,3 @@ def escribir(c, ruta=None, ahora=None):
     if problema is not None:
         raise OSError(problema.mensaje)
     return ruta
-

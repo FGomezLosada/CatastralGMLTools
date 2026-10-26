@@ -28,7 +28,7 @@ QGIS 3.34 o posterior, incluido QGIS 4 (Qt6). Sin dependencias externas.
 El panel se abre desde el botón de la barra de herramientas o desde *Vectorial → Catastral GML Tools*.
 
 ### Ámbito territorial
-Territorio gestionado por la Dirección General del Catastro. Navarra y los territorios forales del País Vasco (Álava/Araba, Gipuzkoa y Bizkaia) tienen catastros propios: el plugin los detecta y lo indica.
+Territorio gestionado por la Dirección General del Catastro. Navarra y los territorios forales del País Vasco (Álava/Araba, Gipuzkoa y Bizkaia) tienen catastros propios: el plugin los detecta y lo indica, y descarga sus parcelas de sus servicios INSPIRE solo para verlas (el GML de la Sede de la DGC no sirve allí).
 
 ### Datos
 Los datos descargados proceden de los servicios públicos de la **Dirección General del Catastro**, que se cita como fuente junto con la fecha de descarga. El plugin no usa datos protegidos (titulares ni valores catastrales) y no incluye datos del Catastro.

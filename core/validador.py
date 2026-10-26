@@ -309,4 +309,3 @@ def resumen(informe):
     if n_av:
         partes.append(f"{n_av} aviso{'s' if n_av != 1 else ''}")
     return ' y '.join(partes)
-

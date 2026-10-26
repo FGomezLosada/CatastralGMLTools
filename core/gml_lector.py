@@ -12,7 +12,8 @@ license   : GNU GPL v2 or later
 import io
 import os
 import re
-import xml.etree.ElementTree as ET
+#Siempre a través de xml_fromstring/xml_iterparse (sin DOCTYPE) (Bandit B405)
+import xml.etree.ElementTree as ET  # nosec B405
 from dataclasses import dataclass, field
 
 from qgis.core import (
@@ -289,7 +290,7 @@ def leer_partes(datos):
     plantas. Solo se usan para completar las plantas de los edificios descargados; nunca lanza excepciones.
     """
     try:
-        raiz = ET.fromstring(datos)
+        raiz = xml_fromstring(datos)
     except (ET.ParseError, LookupError, ValueError):  #LookupError: encoding desconocido
         return []
     return [_leer_construccion(e) for e in raiz.iter() if nombre_local(e.tag) == 'BuildingPart']
@@ -306,7 +307,7 @@ def _espacios_raiz(datos):
     """Espacios de nombres declarados en la etiqueta raíz (según el parser)."""
     espacios = set()
     try:
-        for evento, valor in ET.iterparse(io.BytesIO(datos), events=('start-ns', 'start')):
+        for evento, valor in xml_iterparse(io.BytesIO(datos), datos, ('start-ns', 'start')):
             if evento == 'start':
                 break
             espacios.add(valor[1])
@@ -400,6 +401,39 @@ PATRONES_EXPAT = (
 )
 
 
+#Un GML no lleva DOCTYPE: con él se declaran entidades (la «bomba» de miles de millones de risas, entidades externas).
+#Se rechaza antes de leer con ElementTree, que las expandiría; es lo que hace defusedxml, sin depender de él (no viene
+#con QGIS). También en UTF-16. Auditoría AU-60 (Bandit B314/B405 del escaneo del repositorio de QGIS)
+DOCTYPE = re.compile(rb'<!DOCTYPE|<\x00!\x00D\x00O\x00C\x00T\x00Y\x00P\x00E\x00|\x00<\x00!\x00D\x00O\x00C\x00T\x00Y\x00P\x00E')
+CABEZA_DTD = 1_000_000  #El DOCTYPE va antes del elemento raíz: basta con mirar el principio
+
+
+class XMLConDTDError(ValueError):
+    """El XML declara un DOCTYPE (y con él, posibles entidades): no se lee."""
+
+
+def comprobar_sin_dtd(datos):
+    if isinstance(datos, str):
+        datos = datos.encode('utf-8', 'replace')
+    if DOCTYPE.search(datos[:CABEZA_DTD]):
+        raise XMLConDTDError("El fichero declara un DOCTYPE (<!DOCTYPE …>), que un GML no lleva y que puede definir entidades "
+                        "peligrosas: no se lee. Quite esa declaración o pida el GML de nuevo")
+
+
+def xml_fromstring(datos):
+    """ET.fromstring sin DOCTYPE (lanza XMLConDTDError, un ValueError, si lo trae)."""
+    comprobar_sin_dtd(datos)
+    #Sin DOCTYPE no hay entidades que expandir (comprobar_sin_dtd) (Bandit B314)
+    return ET.fromstring(datos)  # nosec B314
+
+
+def xml_iterparse(fuente, datos, events):
+    """ET.iterparse sin DOCTYPE; datos: el contenido (o su principio) para comprobarlo."""
+    comprobar_sin_dtd(datos)
+    #Comprobado sin DOCTYPE (Bandit B314)
+    return ET.iterparse(fuente, events=events)  # nosec B314
+
+
 def motivo_xml(error, datos=b''):
     """
     «El fichero no es un XML bien formado …» en castellano: qué ha encontrado el lector XML, la línea y la columna, y el
@@ -409,6 +443,8 @@ def motivo_xml(error, datos=b''):
     datos = datos or b''
     if not datos.strip():
         return "El fichero está vacío"
+    if isinstance(error, XMLConDTDError):
+        return str(error)
     #Dónde: el primer punto en que el fichero deja de ser XML, que da expat (ElementTree) con exactitud
     linea = columna = None
     if isinstance(error, LookupError):
@@ -487,7 +523,7 @@ def leer_datos(datos):
     """Como leer(), pero a partir del contenido (p. ej. la respuesta de un servicio WFS del Catastro)."""
     resultado = ResultadoLectura()
     try:
-        raiz = ET.fromstring(datos)
+        raiz = xml_fromstring(datos)
     except (ET.ParseError, LookupError, ValueError) as e:  #LookupError: encoding="tf-8" (batería de XML rotos)
         motivo = motivo_xml(e, datos)
         numero = re.search(rb'<(/?)([A-Za-z_][\w.-]*:)?\d[\w.-]*', datos)
