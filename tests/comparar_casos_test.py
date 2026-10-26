@@ -324,7 +324,8 @@ def geometria_invalida():
         ' '.join(f'{x:.2f} {y:.2f}' for x, y in pajarita + [pajarita[0]])))
     c = cg.comparar(A, ruta)
     informe = cg.html(c)
-    return (not c.errores and len(c.parejas) >= 1 and 'class="leyenda"' in informe and 'Primero: ' in informe
+    return (not c.errores and len(c.parejas) >= 1 and informe.count('class="leyenda-croquis"') >= 1 and 'leyenda span' not in informe
+            and 'Primero: ' in informe
             and 'Segundo: ' in informe)
 
 

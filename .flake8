@@ -1,0 +1,6 @@
+# Configuración de flake8 para el escaneo del repositorio de QGIS (informativo). Va en la raíz del ZIP, junto a
+# metadata.txt. El estilo del proyecto es el de ruff (pyproject.toml): líneas de hasta 130 caracteres con comentarios
+# en línea pegados al código («x = 1  #Comentario»), que flake8 marcaría como E262/E265.
+[flake8]
+max-line-length = 130
+extend-ignore = E501, E262, E265, E127, E128

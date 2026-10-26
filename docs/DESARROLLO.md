@@ -146,6 +146,7 @@ Decisiones técnicas:
 - `tests/data/`: GML de ejemplo **propios y sintéticos** (válidos e inválidos: anillo abierto, orientación invertida, `count` erróneo, multiparte, esquema 3.0, SRC no admitido, ids repetidos…). Nada copiado de terceros ni descargado del Catastro.
 - Las pruebas de red (WFS) se marcan aparte y se pueden saltar sin conexión.
 - Si QGIS está abierto con el complemento MCP, se lanzan pruebas también desde ahí.
+- `tools/escanear.py`: el escaneo de seguridad del repositorio de QGIS (Bandit y detect-secrets bloquean; flake8, informativo) sobre el ZIP que se publica; también comprueba que no van binarios, scripts ni ficheros ocultos. Lo lanza la Action de publicación antes de crear la Release.
 - En mi espacio de trabajo (Linux) las pruebas se lanzan además con **QGIS 3.34** (la versión mínima), sin ventana. QGIS 4 solo se prueba en tu PC.
 
 ---

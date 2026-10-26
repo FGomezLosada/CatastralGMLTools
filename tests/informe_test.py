@@ -77,7 +77,7 @@ contenido = contenido and 'Dirección General del Catastro consultados el 14/10/
 croquis = ('<svg' in texto and texto.count('fill-rule="evenodd"') == 2 and '>N</text>' in texto  #Recintos, norte y escala
            and ' m</text>' in texto
            #Con leyenda: cada recinto con su color (el usuario no sabía qué era cada color, 22/10/2026)
-           and 'class="leyenda"' in texto and 'Parcela 1907401VK4810H' in texto.split('class="leyenda"')[1])
+           and 'class="leyenda-croquis"' in texto and 'Parcela 1907401VK4810H' in texto.split('class="leyenda-croquis"')[1])
 coordenadas = ('Hueco 1 · 4 vértices' in texto and 'Exterior · 4 vértices' in texto and '421500.00' in texto
                and texto.count('<details>') == 2)
 autocontenido = not analisis.externos and 'table' in analisis.etiquetas and texto.strip().endswith('</html>')

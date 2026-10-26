@@ -199,6 +199,27 @@ def largo():
 caso("aviso con 20 detalles: se ven los primeros y «… y N más»", largo)
 
 
+def aviso_largo():
+    """Un aviso de una línea larga en un panel estrecho se lee entero, sin barra de desplazamiento (26/10/2026)."""
+    dw.messageBar.clearWidgets()
+    dw.resize(360, 700)
+    dw.show()
+    dw.warn("La capa es de Gipuzkoa, que tiene catastro propio: el GML para la Sede Electrónica de la Dirección General "
+            "del Catastro no sirve para sus trámites. Consulte al catastro de Gipuzkoa.")
+    QgsApplication.processEvents()
+    cajas = [c for i in dw.messageBar.items() for c in i.findChildren(QTextBrowser)]
+    #Crece hasta que cabe el texto (o hasta el máximo: la letra de las pruebas sin ventana de Windows es mucho más ancha
+    #que la real, y ahí un texto de tres líneas ocupa siete)
+    tope = dock_module.ALTO_MAXIMO_AVISO
+    entero = bool(cajas) and all(c.height() > 45 and (c.height() >= c.document().size().height() + 2 * c.frameWidth()
+                                                      or c.height() == tope) for c in cajas)
+    dw.messageBar.clearWidgets()
+    return entero, [(c.height(), c.verticalScrollBar().isVisible(), c.document().size()) for c in cajas]
+
+
+caso("aviso largo de una línea en un panel estrecho: la caja crece con el texto", aviso_largo)
+
+
 def exito():
     dw.messageBar.clearWidgets()
     pulsado = []

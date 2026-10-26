@@ -26,7 +26,8 @@ license   : GNU GPL v2 or later
 import datetime
 import os
 import re
-import xml.etree.ElementTree as ET
+#Se lee con gml_lector.xml_fromstring (sin DOCTYPE) (Bandit B405)
+import xml.etree.ElementTree as ET  # nosec B405
 
 from qgis.core import QgsCoordinateReferenceSystem
 
@@ -79,7 +80,7 @@ def leer_generico(datos):
         avisos.append(f"El original no es XML válido: tiene etiquetas que empiezan por un número ({ejemplo}…>), algo que "
                       "hace «Guardar como» GML de QGIS con una capa cuyo nombre empieza por un número")
     try:
-        raiz = ET.fromstring(arreglado)
+        raiz = gl.xml_fromstring(arreglado)
     except (ET.ParseError, LookupError, ValueError):  #LookupError: encoding desconocido
         return None, []
     resultado = gl.ResultadoLectura(version=GENERICO, datos=arreglado, texto=gl._texto(arreglado), raiz=raiz.tag)
@@ -134,7 +135,7 @@ def generico(ruta):
 def ajenos(datos):
     """Nombres de los elementos de las parcelas que no son del esquema INSPIRE (ni de gml), sin repetir y en orden."""
     try:
-        raiz = ET.fromstring(datos)
+        raiz = gl.xml_fromstring(datos)
     except (ET.ParseError, LookupError, ValueError):  #LookupError: encoding desconocido
         return []
     vistos = []

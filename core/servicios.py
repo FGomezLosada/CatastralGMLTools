@@ -25,7 +25,8 @@ import json
 import re
 import threading
 import time
-import xml.etree.ElementTree as ET
+#Se lee con gml_lector.xml_fromstring (sin DOCTYPE) (Bandit B405)
+import xml.etree.ElementTree as ET  # nosec B405
 from dataclasses import dataclass, field
 from urllib.parse import quote, urlencode
 
@@ -45,7 +46,7 @@ from . import geometria as geo
 from . import gml_lector as gl
 from . import refcat
 from .incidencias import AVISO, ERROR, INFO, Incidencia, hay_errores
-from .info import FUENTE_DGC, FUENTE_NAVARRA
+from .info import FUENTE_DGC, FUENTE_NAVARRA, FUENTES_VASCAS
 
 WFS_CP = 'https://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx'
 WFS_BU = 'https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx'
@@ -63,6 +64,27 @@ CAJA_NAVARRA = (-2.55, 41.88, -0.70, 43.35)  #lon/lat aproximados: solo para no 
 CAJA_PAIS_VASCO = (-3.46, 42.46, -1.72, 43.46)  #lon/lat aproximados (también cogen bordes de Burgos, Cantabria y La Rioja)
 AVISO_NAVARRA = ("Parcela de Navarra (Registro de la Riqueza Territorial). El GML de la Sede Electrónica de la DGC no sirve "
                  "en Navarra: sus alteraciones se tramitan ante la Hacienda Foral de Navarra")
+#País Vasco (AU-59): servicios WFS INSPIRE de las tres diputaciones forales, solo para descargar y ver (el GML de la
+#Sede de la DGC no sirve allí). Comprobados el 22/10/2026 (GetCapabilities y GetFeature): todos admiten EPSG:25830, un
+#filtro por inspireId/localId y el rectángulo (bbox). Licencias y citas, en core/info.py (FUENTES_VASCAS)
+VASCOS = {
+    'Álava/Araba': {'cp': 'https://geo.araba.eus/WFS_INSPIRE_CP_V4', 'bu': 'https://geo.araba.eus/WFS_INSPIRE_BU_V4',
+                    'tipo_bu': 'bu-core2d:Building', 'ns': 'ES.AFA.CP', 'caja': (-3.29, 42.47, -2.22, 43.22)},
+    'Gipuzkoa': {'cp': 'https://b5m.gipuzkoa.eus/inspire/wfs/gipuzkoa_wfs_cp',
+                 'bu': 'https://b5m.gipuzkoa.eus/inspire/wfs/gipuzkoa_wfs_bu',
+                 'tipo_bu': 'bu-ext2d:Building', 'ns': 'ES.GFA.CP', 'caja': (-2.61, 42.89, -1.72, 43.41)},
+    'Bizkaia': {'cp': 'https://geo.bizkaia.eus/arcgisserverinspire/rest/services/Catastro/Annex1/MapServer/exts/'
+                      'InspireFeatureDownload/service',
+                'bu': 'https://geo.bizkaia.eus/arcgisserverinspire/rest/services/Catastro/Buildings/MapServer/exts/'
+                      'InspireFeatureDownload/service',
+                'tipo_bu': 'bu-core2d:Building', 'ns': 'ES.BFA.CP', 'caja': (-3.46, 42.98, -2.40, 43.46)},
+}
+EPSG_VASCO = 25830
+#Identificadores: con el namespace delante (ES.AFA.CP.59600921, el que da «Elegir en el mapa») o, sin él, los de
+#Bizkaia (48.020.1619.01003) y Gipuzkoa (069-8296630-28223), que no se confunden con otras referencias
+VASCO_CON_NS = re.compile(r'^ES\.(AFA|GFA|BFA)\.CP\.(\S+)$', re.IGNORECASE)
+VASCO_BIZKAIA = re.compile(r'^48\.\d{3}\.\d+\.\d+$')
+VASCO_GIPUZKOA = re.compile(r'^\d{3}-\d{7}-\d+$')  #No 201-4-112 (Navarra)
 DNPRC = 'https://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejero.svc/json/Consulta_DNPRC'
 #Usos de las parcelas de dominio público de rústica (9001-9999) según la DGC: VT y HG comprobados además en
 #Consulta_DNPRC el 07/10/2026. OT («otros») no se usa como prueba por sí solo: cuenta la numeración
@@ -138,6 +160,50 @@ def url_navarra_entorno(rectangulo):
 
 def url_navarra_edificios(rectangulo):
     return _wfs_navarra(WFS_NAVARRA_BU, 'BU:Building', bbox=_caja(rectangulo))
+
+
+def vasco(texto):
+    """(territorio, localId) si el texto es el identificador de una parcela de un catastro foral vasco; si no, None."""
+    limpio = (texto or '').strip()
+    con_ns = VASCO_CON_NS.match(limpio)
+    if con_ns:
+        sigla = con_ns.group(1).upper()
+        territorio = next(t for t, d in VASCOS.items() if d['ns'] == f'ES.{sigla}.CP')
+        return territorio, con_ns.group(2)
+    if VASCO_BIZKAIA.match(limpio):
+        return 'Bizkaia', limpio
+    if VASCO_GIPUZKOA.match(limpio):
+        return 'Gipuzkoa', limpio
+    return None
+
+
+def _wfs_vasco(base, tipo, **parametros):
+    consulta = {'SERVICE': 'WFS', 'VERSION': '2.0.0', 'REQUEST': 'GetFeature', 'TYPENAMES': tipo,
+                'SRSNAME': f'urn:ogc:def:crs:EPSG::{EPSG_VASCO}'}
+    consulta.update(parametros)
+    return base + '?' + urlencode(consulta, quote_via=quote)
+
+
+def url_vasco_parcela(territorio, local_id):
+    """Parcela de un catastro foral vasco por su inspireId/localId (filtro FES; los tres servicios lo admiten)."""
+    filtro = ('<fes:Filter xmlns:fes="http://www.opengis.net/fes/2.0" xmlns:cp="http://inspire.ec.europa.eu/schemas/cp/4.0" '
+              'xmlns:base="http://inspire.ec.europa.eu/schemas/base/3.3"><fes:PropertyIsEqualTo><fes:ValueReference>'
+              'cp:inspireId/base:Identifier/base:localId</fes:ValueReference>'
+              f'<fes:Literal>{html.escape(local_id)}</fes:Literal></fes:PropertyIsEqualTo></fes:Filter>')
+    return _wfs_vasco(VASCOS[territorio]['cp'], 'cp:CadastralParcel', FILTER=filtro)
+
+
+def _caja_vasca(rectangulo):
+    return ','.join(f'{v:.2f}' for v in (rectangulo.xMinimum(), rectangulo.yMinimum(), rectangulo.xMaximum(),
+                                          rectangulo.yMaximum())) + f',urn:ogc:def:crs:EPSG::{EPSG_VASCO}'
+
+
+def url_vasco_entorno(territorio, rectangulo):
+    return _wfs_vasco(VASCOS[territorio]['cp'], 'cp:CadastralParcel', BBOX=_caja_vasca(rectangulo))
+
+
+def url_vasco_edificios(territorio, rectangulo):
+    return _wfs_vasco(VASCOS[territorio]['bu'], VASCOS[territorio]['tipo_bu'], BBOX=_caja_vasca(rectangulo))
 
 
 WMS_PNOA = 'https://www.ign.es/wms-inspire/pnoa-ma'  #Ortofoto PNOA del IGN (CC BY 4.0, scne.es)
@@ -277,7 +343,7 @@ def excepcion_wfs(datos):
     if b'ExceptionReport' not in datos[:600]:
         return ''
     try:
-        raiz = ET.fromstring(datos)
+        raiz = gl.xml_fromstring(datos)
     except (ET.ParseError, LookupError, ValueError):  #LookupError: encoding desconocido
         return 'respuesta de error del servicio'
     textos = [(e.text or '').strip() for e in raiz.iter() if gl.nombre_local(e.tag) == 'ExceptionText']
@@ -304,6 +370,19 @@ def consultar_wfs(url, que):
     return resultado, [i for i in resultado.incidencias if i.nivel == ERROR]
 
 
+def consultar_foral(url, que):
+    """
+    Como consultar_wfs, para los servicios forales vascos: lo que el lector diría de un GML para la Sede (p. ej.
+    gml:Polygon en vez de MultiSurface) no es un error aquí, porque solo se descarga para ver. Solo cuentan la red, la
+    excepción del servicio y una respuesta que no es del WFS.
+    """
+    resultado, errores = consultar_wfs(url, que)
+    errores = [i for i in errores if i.codigo in ('RED', 'WFS-EXCEPCION', 'WFS-RESPUESTA')]
+    if resultado is not None:
+        resultado.incidencias = []
+    return resultado, errores
+
+
 # ------------------------------------------------------------------ Descarga de una parcela
 
 @dataclass
@@ -316,7 +395,7 @@ class Descarga:
     construcciones: object = None      #ResultadoLectura con edificios y otras construcciones juntos
     incidencias: list = field(default_factory=list)
     fecha: object = None               #datetime de la descarga
-    territorio: str = ''               #'' (Dirección General del Catastro) o 'Navarra'
+    territorio: str = ''               #'' (Dirección General del Catastro), 'Navarra' o un territorio vasco (VASCOS)
 
     @property
     def correcta(self):
@@ -325,7 +404,9 @@ class Descarga:
     def atribucion(self):
         """Cita de la fuente de los datos con la fecha de descarga."""
         fecha = f" · descargado el {self.fecha:%d/%m/%Y %H:%M}" if self.fecha else ''
-        return f"© {FUENTE_NAVARRA if self.territorio == 'Navarra' else FUENTE_DGC}{fecha}"
+        fuente = (FUENTE_NAVARRA if self.territorio == 'Navarra' else FUENTES_VASCAS[self.territorio]['cita']
+                  if self.territorio in FUENTES_VASCAS else FUENTE_DGC)
+        return f"© {fuente}{fecha}"
 
 
 def descargar(rc, colindantes=True, construcciones=True, epsg=None, ahora=None):
@@ -334,6 +415,8 @@ def descargar(rc, colindantes=True, construcciones=True, epsg=None, ahora=None):
     UTM que le corresponde (o en el EPSG indicado). Nunca lanza excepciones: los problemas van en descarga.incidencias.
     """
     descarga = Descarga(fecha=ahora or datetime.datetime.now())
+    if vasco(rc):  #Antes que refcat: «48.020.1619.01003» sin puntos parece una referencia rústica de 14 caracteres
+        return _descargar_vasco(descarga, *vasco(rc), colindantes, construcciones)
     comprobada = refcat.comprobar(rc)
     descarga.rc = comprobada.parcela or comprobada.rc
     if not comprobada.valida and refcat.navarra(rc):
@@ -448,6 +531,67 @@ def _descargar_navarra(descarga, ref9, colindantes, construcciones):
     descarga.incidencias.append(Incidencia(INFO, 'NAVARRA', AVISO_NAVARRA))
     _resumen(descarga, colindantes, construcciones)
     return descarga
+
+
+def _descargar_vasco(descarga, territorio, local_id, colindantes, construcciones):
+    """
+    Parcela de un catastro foral vasco (AU-59), solo para descargar y ver: la parcela por su identificador, el entorno
+    por rectángulo (colindantes por geometría, como en la DGC) y las construcciones que caen dentro de ella (sus
+    identificadores no siempre empiezan por el de la parcela). Siempre en EPSG:25830.
+    """
+    descarga.rc, descarga.territorio, descarga.epsg = local_id, territorio, EPSG_VASCO
+    que = f"la parcela {local_id} ({territorio})"
+    parcela, errores = consultar_foral(url_vasco_parcela(territorio, local_id), que)
+    if errores or parcela is None or not parcela.elementos:
+        descarga.incidencias += errores or [Incidencia(ERROR, 'WFS-VACIO', f"No se ha encontrado {que} en el catastro de "
+                                                                          f"la Diputación Foral: compruebe el identificador")]
+        return descarga
+    parcela.elementos = parcela.elementos[:1]
+    parcela.epsg = parcela.epsg or EPSG_VASCO
+    descarga.parcela = parcela
+    geometria = parcela.elementos[0].geometria
+    if colindantes:
+        caja = geometria.boundingBox()
+        caja.grow(MARGEN_ENTORNO)
+        todas, errores = consultar_foral(url_vasco_entorno(territorio, caja), "las parcelas del entorno")
+        descarga.incidencias += [Incidencia(AVISO, i.codigo, i.mensaje) for i in errores]
+        if todas is not None and not errores:
+            #Gipuzkoa repite cada parcela con varios identificadores (municipio-parcela-n, con recintos casi iguales):
+            #una sola por parcela, y fuera la propia. En los demás, fuera los recintos iguales a la parcela
+            propia = _clave_vasca(territorio, local_id)
+            unicas, vistas = [], {propia}
+            for e in todas.elementos:
+                clave = _clave_vasca(territorio, e.local_id)
+                if e.geometria.isEmpty() or clave in vistas or _misma(e.geometria, geometria):
+                    continue
+                vistas.add(clave)
+                unicas.append(e)
+            todas.elementos = unicas
+            _separar(descarga, todas, geometria)
+    if construcciones:
+        edificios, errores = consultar_foral(url_vasco_edificios(territorio, geometria.boundingBox()), "los edificios")
+        descarga.incidencias += [Incidencia(AVISO, i.codigo, i.mensaje) for i in errores]
+        if edificios is not None:
+            edificios.elementos = [e for e in edificios.elementos if not e.geometria.isEmpty()
+                                   and e.geometria.intersection(geometria).area() > 0.5 * e.geometria.area()]
+            edificios.epsg = edificios.epsg or EPSG_VASCO
+            descarga.construcciones = edificios
+    descarga.incidencias.append(Incidencia(INFO, 'FORAL-VASCO', FUENTES_VASCAS[territorio]['aviso']))
+    _resumen(descarga, colindantes, construcciones)
+    return descarga
+
+
+def _clave_vasca(territorio, local_id):
+    """La parcela de un identificador: en Gipuzkoa, «069-8296630» de «069-8296630-28223»; en los demás, el mismo."""
+    return '-'.join(local_id.split('-')[:2]) if territorio == 'Gipuzkoa' else local_id
+
+
+def _misma(a, b):
+    """Dos recintos iguales (salvo centímetros): la diferencia simétrica no llega a 0,1 m²."""
+    try:
+        return a.symDifference(b).area() < 0.1
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def _vecinas(descarga, geometria, epsg):
@@ -656,6 +800,13 @@ def rc_en_punto(x, y, epsg=EPSG_PUNTO):
         resultado.incidencias.append(Incidencia(ERROR, 'RCCOOR-RESPUESTA', "Respuesta no esperada del Catastro"))
         return resultado
     errores = respuesta.get('lerr') or []
+    if errores and epsg == EPSG_PUNTO and _en_pais_vasco(x, y):
+        encontrada = _vasco_en_punto(x, y)
+        if encontrada:  #El País Vasco no está en los servicios de la DGC: se pregunta a su diputación foral
+            territorio, local_id = encontrada
+            resultado.rc = f"{VASCOS[territorio]['ns']}.{local_id}"
+            resultado.direccion = f"{territorio} · parcela {local_id}"
+            return resultado
     if errores and epsg == EPSG_PUNTO and _en_navarra(x, y):
         ref9 = _navarra_en_punto(x, y)
         if ref9:  #Navarra no está en los servicios de la DGC: se pregunta al del Gobierno de Navarra
@@ -665,8 +816,12 @@ def rc_en_punto(x, y, epsg=EPSG_PUNTO):
             return resultado
     if errores:
         texto = '; '.join(str(e.get('des', '')).strip().capitalize() for e in errores if isinstance(e, dict))
+        foral = epsg == EPSG_PUNTO and (_en_pais_vasco(x, y) or _en_navarra(x, y))
+        #En la zona foral ya se ha preguntado a su catastro: «consulte su catastro foral» no tenía sentido
+        nota = ("Tampoco hay ninguna en el catastro foral de la zona: puede ser una calle u otro suelo sin parcela"
+                if foral else AVISO_FORAL)
         resultado.incidencias.append(Incidencia(ERROR, 'RCCOOR-SIN-PARCELA',
-                                                f"{texto or 'No hay parcela en ese punto'}. {AVISO_FORAL}"))
+                                                f"{texto or 'No hay parcela en ese punto'}. {nota}"))
         return resultado
     coordenadas = (respuesta.get('coordenadas') or {}).get('coord') or []
     if isinstance(coordenadas, dict):
@@ -721,3 +876,28 @@ def _navarra_en_punto(lon, lat):
     punto = QgsGeometry.fromPointXY(p)
     dentro = [e for e in todas.elementos if e.geometria.contains(punto)] or todas.elementos
     return dentro[0].local_id if dentro and refcat.navarra(dentro[0].local_id) else ''
+
+
+def _en_pais_vasco(lon, lat):
+    return CAJA_PAIS_VASCO[0] <= lon <= CAJA_PAIS_VASCO[2] and CAJA_PAIS_VASCO[1] <= lat <= CAJA_PAIS_VASCO[3]
+
+
+def _vasco_en_punto(lon, lat):
+    """(territorio, localId) de la parcela de un catastro foral vasco que contiene un punto en ETRS89 geográficas, o None."""
+    transformacion = QgsCoordinateTransform(QgsCoordinateReferenceSystem(f'EPSG:{EPSG_PUNTO}'),
+                                            QgsCoordinateReferenceSystem(f'EPSG:{EPSG_VASCO}'), QgsProject.instance())
+    p = transformacion.transform(QgsPointXY(lon, lat))
+    punto = QgsGeometry.fromPointXY(p)
+    for territorio, datos in VASCOS.items():  #Las cajas se solapan en los bordes: la que tenga una parcela en el punto
+        caja = datos['caja']
+        if not (caja[0] <= lon <= caja[2] and caja[1] <= lat <= caja[3]):
+            continue
+        todas, errores = consultar_foral(url_vasco_entorno(territorio, QgsRectangle(p.x() - 0.5, p.y() - 0.5, p.x() + 0.5,
+                                                                                    p.y() + 0.5)),
+                                       f"la parcela del punto ({territorio})")
+        if errores or todas is None:
+            continue
+        dentro = [e for e in todas.elementos if e.geometria.contains(punto)]
+        if dentro and dentro[0].local_id:
+            return territorio, dentro[0].local_id
+    return None

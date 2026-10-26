@@ -132,6 +132,14 @@ def pedir(url):
             "bi": {"idbi": {"cn": "RU"}, "dt": {"locs": {"lors": {"lorus": {"npa": "CAMINO" if camino else "PARAJE INVENTADO"}},
                                                          **via}},
                    "ldt": f"Polígono {int(rc[6:9])} Parcela {int(rc[9:14])} (ficticia)"}, "lspr": lspr}}}).encode('utf-8'), ''
+    if 'consulta_rccoor' in partes.path.lower() and _rccoor_vasco(float(q['coorx']), float(q['coory'])):
+        return json.dumps({"Consulta_RCCOORResult": {"control": {"cuerr": 1}, "lerr": [
+            {"cod": "16", "des": "PARA ESAS COORDENADAS NO HAY REFERENCIA DISPONIBLE"}]}}).encode('utf-8'), ''
+    for dominio, territorio in (('bizkaia.eus', 'Bizkaia'), ('gipuzkoa.eus', 'Gipuzkoa'), ('araba.eus', 'Álava/Araba')):
+        if dominio in partes.netloc:
+            if territorio in VASCO_CAIDO:
+                return b'', f'Host {partes.netloc} not found (simulado)'
+            return _vasco(territorio, q), ''
     if 'consulta_rccoor' in partes.path.lower():
         if -2.55 <= float(q['coorx']) <= -0.70 and 41.88 <= float(q['coory']) <= 43.35:  #Navarra: referencia de 9
             return json.dumps({"Consulta_RCCOORResult": {"control": {"cucoor": 1}, "coordenadas": {"coord": [
@@ -195,6 +203,79 @@ def _navarra(ruta, q):
         return _parcelas([gp.ParcelaGML(rid, gp.LOCAL, todas[rid])] if rid in todas else [], 25830)
     caja = QgsGeometry.fromRect(QgsRectangle(*[float(v) for v in q['bbox'].split(',')[:4]]))
     return _parcelas([gp.ParcelaGML(r, gp.LOCAL, g) for r, g in todas.items() if g.intersects(caja)], 25830)
+
+
+#País Vasco (AU-59): parcelas y edificios sintéticos con la estructura de los servicios forales reales (gml:Polygon,
+#inspireId/localId y namespace de cada diputación). Las coordenadas son de cada territorio; los datos, inventados
+VASCO_CENTROS = {'Bizkaia': (505500.0, 4790000.0), 'Gipuzkoa': (582500.0, 4796500.0), 'Álava/Araba': (526500.0, 4743500.0)}
+BIZKAIA, GIPUZKOA, ALAVA = '48.020.1619.01003', '069-8296630-1', '59600922'
+VASCO_CAIDO = set()  #Territorios cuyo servicio no responde (las pruebas lo cambian)
+CP_VASCO = ('<?xml version="1.0" encoding="UTF-8"?><wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" '
+            'xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:cp="http://inspire.ec.europa.eu/schemas/cp/4.0" '
+            'xmlns:base="http://inspire.ec.europa.eu/schemas/base/3.3" numberMatched="unknown" '
+            'numberReturned="{n}">{miembros}</wfs:FeatureCollection>')
+PARCELA_VASCA = ('<wfs:member><cp:CadastralParcel gml:id="p{k}"><cp:areaValue uom="m2">{area}</cp:areaValue><cp:geometry>'
+                 '<gml:Polygon gml:id="g{k}" srsName="http://www.opengis.net/def/crs/EPSG/0/25830" srsDimension="2">'
+                 '<gml:exterior><gml:LinearRing><gml:posList>{pos}</gml:posList></gml:LinearRing></gml:exterior>'
+                 '</gml:Polygon></cp:geometry><cp:inspireId><base:Identifier><base:localId>{id}</base:localId>'
+                 '<base:namespace>{ns}</base:namespace></base:Identifier></cp:inspireId><cp:label>{label}</cp:label>'
+                 '<cp:nationalCadastralReference>{label}</cp:nationalCadastralReference></cp:CadastralParcel></wfs:member>')
+BU_VASCO = ('<?xml version="1.0" encoding="UTF-8"?><wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" '
+            'xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:bu="http://inspire.ec.europa.eu/schemas/bu-core2d/4.0" '
+            'xmlns:bu-base="http://inspire.ec.europa.eu/schemas/bu-base/4.0" '
+            'xmlns:base="http://inspire.ec.europa.eu/schemas/base/3.3">{miembros}</wfs:FeatureCollection>')
+EDIFICIO_VASCO = ('<wfs:member><bu:Building gml:id="b{id}"><bu-base:inspireId><base:Identifier><base:localId>{id}</base:localId>'
+                  '<base:namespace>{ns}</base:namespace></base:Identifier></bu-base:inspireId>'
+                  '<bu-base:numberOfFloorsAboveGround>4</bu-base:numberOfFloorsAboveGround><bu:geometry2D><gml:Polygon '
+                  'srsName="http://www.opengis.net/def/crs/EPSG/0/25830"><gml:exterior><gml:LinearRing><gml:posList>'
+                  '{x0} {y0} {x0} {y1} {x1} {y1} {x1} {y0} {x0} {y0}</gml:posList></gml:LinearRing></gml:exterior>'
+                  '</gml:Polygon></bu:geometry2D></bu:Building></wfs:member>')
+
+
+def _todas_vascas(territorio):
+    """(localId, label, geometría): la parcela, dos vecinas y, en Gipuzkoa, cada parcela repetida con otro sufijo."""
+    x, y = VASCO_CENTROS[territorio]
+    if territorio == 'Bizkaia':
+        return [(BIZKAIA, BIZKAIA, rect(x, y, 20, 30)), ('48.020.1619.01004', '48.020.1619.01004', rect(x + 20, y, 20, 30)),
+                ('48.020.1619.01005', '48.020.1619.01005', rect(x + 40, y, 20, 30))]
+    if territorio == 'Gipuzkoa':
+        return [(GIPUZKOA, '8296630', rect(x, y, 20, 30)), ('069-8296630-2', '8296630', rect(x, y, 20, 30.004)),
+                ('069-8296631-1', '8296631', rect(x + 20, y, 20, 30)), ('069-8296631-2', '8296631', rect(x + 20, y, 20, 30.004)),
+                ('069-8296632-1', '8296632', rect(x + 40, y, 20, 30))]
+    return [(ALAVA, '922', rect(x, y, 20, 30)), ('59600923', '923', rect(x + 20, y, 20, 30)),
+            ('59600924', '924', rect(x + 40, y, 20, 30))]
+
+
+def _vasco(territorio, q):
+    """Servicio WFS foral simulado: parcela por localId (filtro FES), parcelas y edificios por rectángulo."""
+    ns = {'Bizkaia': 'ES.BFA', 'Gipuzkoa': 'ES.GFA', 'Álava/Araba': 'ES.AFA'}[territorio]
+    x, y = VASCO_CENTROS[territorio]
+    if 'Building' in q.get('typenames', ''):
+        caja = QgsRectangle(*[float(v) for v in q['bbox'].split(',')[:4]])
+        edificios = [('E1', x + 2, y + 2, x + 12, y + 12), ('E2', x + 25, y + 2, x + 35, y + 12)]
+        miembros = ''.join(EDIFICIO_VASCO.format(id=i, ns=f'{ns}.BU', x0=a, y0=b, x1=c, y1=d) for i, a, b, c, d in edificios
+                           if caja.intersects(QgsRectangle(a, b, c, d)))
+        return BU_VASCO.format(miembros=miembros).encode('utf-8')
+    todas = _todas_vascas(territorio)
+    if 'filter' in q:
+        buscada = q['filter'].split('<fes:Literal>')[1].split('</fes:Literal>')[0]
+        elegidas = [t for t in todas if t[0] == buscada]
+    else:
+        caja = QgsGeometry.fromRect(QgsRectangle(*[float(v) for v in q['bbox'].split(',')[:4]]))
+        elegidas = [t for t in todas if t[2].intersects(caja)]
+    miembros = ''.join(PARCELA_VASCA.format(k=k, area=f'{g.area():.2f}', id=i, label=etiqueta, ns=f'{ns}.CP',
+                                            pos=' '.join(f'{v.x():.2f} {v.y():.2f}' for v in g.asPolygon()[0]))
+                       for k, (i, etiqueta, g) in enumerate(elegidas))
+    return CP_VASCO.format(n=len(elegidas), miembros=miembros).encode('utf-8')
+
+
+def _rccoor_vasco(lon, lat):
+    """El clic en un territorio vasco simulado: el Catastro de la DGC no tiene parcela ahí (True)."""
+    from qgis.core import QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsPointXY, QgsProject
+    transformacion = QgsCoordinateTransform(QgsCoordinateReferenceSystem('EPSG:4258'),
+                                            QgsCoordinateReferenceSystem('EPSG:25830'), QgsProject.instance())
+    p = transformacion.transform(QgsPointXY(lon, lat))
+    return any(abs(p.x() - x) < 500 and abs(p.y() - y) < 500 for x, y in VASCO_CENTROS.values())
 
 
 def instalar():

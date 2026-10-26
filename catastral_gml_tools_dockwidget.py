@@ -15,9 +15,9 @@ import os
 from qgis.core import Qgis, QgsApplication
 from qgis.gui import QgsMessageBar
 from qgis.PyQt import QtWidgets, sip, uic
-from qgis.PyQt.QtCore import Qt, QUrl
+from qgis.PyQt.QtCore import QEvent, QObject, Qt, QUrl
 from qgis.PyQt.QtGui import QDesktopServices
-from qgis.PyQt.QtWidgets import QHBoxLayout, QLabel, QPushButton, QToolButton, QWidget
+from qgis.PyQt.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTextBrowser, QToolButton, QWidget
 
 from .core.ficheros import misma_ruta
 from .core.info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, ruta, version
@@ -43,6 +43,29 @@ AYUDA = ruta('help', 'index.html')
 
 MAX_AVISOS_MENSAJE = 3  #Avisos que se leen en el mensaje de resultado; el resto, al pasar el ratón
 MAX_NOTAS_MENSAJE = 2   #Notas (p. ej. cambios del conversor): un mensaje alto se comía el panel (prueba del 15/10)
+ALTO_MAXIMO_AVISO = 240  #px: un aviso de una línea larga crece hasta aquí (después, con su barra de desplazamiento)
+
+
+class AjusteAltura(QObject):
+    """
+    El texto de un aviso simple de QgsMessageBar va en un cuadro de 45 px fijos: en un panel estrecho, un aviso largo
+    quedaba cortado, con una barra de desplazamiento diminuta (prueba a mano del 26/10/2026, «La capa es de Gipuzkoa…»).
+    Ajusta la altura al texto cada vez que cambia el ancho.
+    """
+
+    def eventFilter(self, objeto, evento):
+        if evento.type() == QEvent.Type.Resize and isinstance(objeto, QTextBrowser):
+            ajustar_altura(objeto)
+        return False
+
+
+def ajustar_altura(caja):
+    documento = caja.document()
+    documento.setTextWidth(max(caja.viewport().width(), 50))
+    alto = int(documento.size().height()) + 2 * caja.frameWidth() + 4
+    caja.setFixedHeight(max(min(alto, ALTO_MAXIMO_AVISO), 24))
+
+
 
 class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
     def __init__(self, iface, parent=None):
@@ -221,6 +244,12 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         if not lineas:
             #La barra lo pinta como HTML: sin escapar, «(<ogr:2082108VF2628S…>)» salía «()» (batería del panel)
             self.messageBar.pushMessage('', html.escape(primera, quote=False), level, duration)
+            item = self.messageBar.currentItem()
+            if item is not None:
+                filtro = AjusteAltura(item)  #Con padre: vive lo que el aviso
+                for caja in item.findChildren(QTextBrowser):
+                    caja.installEventFilter(filtro)
+                    ajustar_altura(caja)
             return
         contenido = QWidget(self.messageBar)  #Con padre: si no, Python lo borraría al salir de aquí
         fila = QHBoxLayout(contenido)

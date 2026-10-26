@@ -20,7 +20,8 @@ license   : GNU GPL v2 or later
 import datetime
 import re
 from dataclasses import dataclass
-from xml.sax.saxutils import escape, quoteattr
+#Solo para escribir (escapar texto), no lee XML (Bandit B406)
+from xml.sax.saxutils import escape, quoteattr  # nosec B406
 
 from qgis.core import QgsGeometry
 

@@ -19,6 +19,27 @@ FUENTE_DGC = "Dirección General del Catastro"
 #Cita de los datos de Navarra (servicios INSPIRE del Gobierno de Navarra, licencia CC BY 4.0)
 FUENTE_NAVARRA = "Gobierno de Navarra – Registro de la Riqueza Territorial (CC BY 4.0)"
 
+#Catastros forales del País Vasco (AU-59): servicios WFS INSPIRE de sus diputaciones, solo para descargar y ver.
+#Licencias comprobadas el 22/10/2026 en sus páginas y metadatos oficiales
+FUENTES_VASCAS = {
+    'Álava/Araba': {
+        'cita': "Arabako Foru Aldundia / Diputación Foral de Álava (CC BY 4.0)",
+        'licencia': 'https://creativecommons.org/licenses/by/4.0/deed.es',
+        'aviso': "Parcela de Álava/Araba (catastro de la Diputación Foral de Álava). El GML de la Sede Electrónica de la "
+                 "DGC no sirve en Álava: sus alteraciones se tramitan ante la Diputación Foral"},
+    'Gipuzkoa': {
+        'cita': "Gipuzkoako Foru Aldundia / Diputación Foral de Gipuzkoa (CC BY-SA 3.0 ES)",
+        'licencia': 'https://creativecommons.org/licenses/by-sa/3.0/es/',
+        'aviso': "Parcela de Gipuzkoa (catastro de la Diputación Foral de Gipuzkoa). El GML de la Sede Electrónica de la "
+                 "DGC no sirve en Gipuzkoa: sus alteraciones se tramitan ante la Diputación Foral. Según la Diputación, "
+                 "estos datos no tienen categoría de cartografía oficial: no sirven para ningún certificado"},
+    'Bizkaia': {
+        'cita': "Bizkaiko Foru Aldundia - Diputación Foral de Bizkaia (CC BY 3.0 ES)",
+        'licencia': 'https://creativecommons.org/licenses/by/3.0/es/',
+        'aviso': "Parcela de Bizkaia (catastro de la Diputación Foral de Bizkaia). El GML de la Sede Electrónica de la "
+                 "DGC no sirve en Bizkaia: sus alteraciones se tramitan ante la Diputación Foral"},
+}
+
 #Territorios con catastro propio (códigos de provincia del INE). El resto lo gestiona la DGC.
 FORALES = {
     '31': 'Navarra',

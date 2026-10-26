@@ -123,6 +123,75 @@ caso("parcela rodeada de calles: sin colindantes, sin error", isla)
 caso("Navarra con el formato 201-4-112: su catastro", navarra)
 
 
+# País Vasco (AU-59): catastros de las diputaciones forales, solo para descargar y ver
+def vasca(rc, territorio, local_id, colindantes):
+    def prueba():
+        d = servicios.descargar(rc)
+        ids = [e.local_id for e in d.colindantes.elementos] if d.colindantes else []
+        edificios = [e.local_id for e in d.construcciones.elementos] if d.construcciones else []
+        ok = (d.correcta and d.territorio == territorio and d.rc == local_id and d.epsg == 25830
+              and sorted(ids) == sorted(colindantes) and edificios == ['E1']  #Solo el edificio que cae dentro
+              and any(i.codigo == 'FORAL-VASCO' and 'no sirve' in i.mensaje for i in d.incidencias)
+              and 'Diputación Foral' in d.atribucion() and 'CC BY' in d.atribucion()
+              and not any(i.nivel == ERROR for i in d.incidencias))  #Su gml:Polygon no es un error al solo ver
+        return ok, (resumen(d), ids, edificios, d.atribucion())
+    return prueba
+
+
+caso("Bizkaia (48.020.1619.01003): su diputación, colindantes y el edificio de dentro",
+     vasca(sim.BIZKAIA, 'Bizkaia', sim.BIZKAIA, ['48.020.1619.01004']))
+caso("Gipuzkoa (069-8296630-1): cada parcela una vez (el servicio las repite con otro sufijo)",
+     vasca(sim.GIPUZKOA, 'Gipuzkoa', sim.GIPUZKOA, ['069-8296631-1']))
+caso("Álava con el namespace (ES.AFA.CP.59600922)", vasca('ES.AFA.CP.' + sim.ALAVA, 'Álava/Araba', sim.ALAVA, ['59600923']))
+
+
+def vasca_no_existe():
+    d = servicios.descargar('48.020.1619.09999')
+    return not d.correcta and 'No se ha encontrado' in textos(d) and 'Diputación Foral' in textos(d), resumen(d)
+
+
+def vasca_caida():
+    sim.VASCO_CAIDO.add('Bizkaia')
+    try:
+        d = servicios.descargar(sim.BIZKAIA)
+    finally:
+        sim.VASCO_CAIDO.clear()
+    return not d.correcta and 'No se ha podido descargar' in textos(d), resumen(d)
+
+
+def formatos():
+    """Lo vasco no se confunde con la DGC ni con Navarra, ni al revés («48.020.1619.01003» sin puntos parece rústica)."""
+    vistos = {t: servicios.vasco(t) for t in ('48.020.1619.01003', ' 069-8296630-28223 ', 'es.bfa.cp.48.020.1619.01003',
+                                               RC, '201-4-112', '201040112', '48020A01900003', '59600922')}
+    esperado = {'48.020.1619.01003': ('Bizkaia', '48.020.1619.01003'),
+                ' 069-8296630-28223 ': ('Gipuzkoa', '069-8296630-28223'),
+                'es.bfa.cp.48.020.1619.01003': ('Bizkaia', '48.020.1619.01003'),
+                RC: None, '201-4-112': None, '201040112': None, '48020A01900003': None, '59600922': None}
+    return vistos == esperado, vistos
+
+
+def clic_vasco():
+    from qgis.core import QgsCoordinateReferenceSystem, QgsCoordinateTransform
+    transformacion = QgsCoordinateTransform(QgsCoordinateReferenceSystem('EPSG:25830'),
+                                            QgsCoordinateReferenceSystem('EPSG:4258'), QgsProject.instance())
+    x, y = sim.VASCO_CENTROS['Bizkaia']
+    dentro = transformacion.transform(QgsPointXY(x + 10, y + 15))
+    calle = transformacion.transform(QgsPointXY(x - 10, y - 10))  #Fuera de las parcelas sintéticas
+    r = servicios.rc_en_punto(dentro.x(), dentro.y())
+    d = servicios.descargar(r.rc) if r.rc else None
+    vacio = servicios.rc_en_punto(calle.x(), calle.y())
+    texto = ' '.join(i.mensaje for i in vacio.incidencias)
+    ok = (r.rc == 'ES.BFA.CP.' + sim.BIZKAIA and d is not None and d.correcta and not vacio.rc
+          and 'Tampoco hay ninguna en el catastro foral' in texto and 'consulte su catastro foral' not in texto)
+    return ok, (r.rc, r.direccion, d and resumen(d), texto)
+
+
+caso("País Vasco: un identificador que no existe lo dice", vasca_no_existe)
+caso("País Vasco: el servicio de la diputación no responde", vasca_caida)
+caso("formatos: Bizkaia, Gipuzkoa y con namespace; la DGC y Navarra siguen siendo suyas", formatos)
+caso("País Vasco: clic en el mapa (su diputación) y clic en la calle (lo dice sin mandar a otro sitio)", clic_vasco)
+
+
 # 2. El Catastro responde mal
 def sin_red():
     d = con(lambda url: (b'', 'Host ovc.catastro.meh.es not found (simulado)'))
@@ -207,6 +276,22 @@ def pestana():
     raiz.removeChildNode(grupo)
     capas = pes.descargar(segundo_plano=False)
     otra_vez = capas is not None and raiz.findGroup(f'Catastro {RC}') is not None
+    #País Vasco: se reconoce al escribir, se descarga solo para ver (sin pasar a Parcela) y Parcela no crea su GML
+    pes.rc.setText(sim.BIZKAIA)
+    reconocida = 'Bizkaia' in pes.comprobacion.text() and pes.descargarBoton.isEnabled()
+    dw.messageBar.clearWidgets()
+    vascas = pes.descargar(segundo_plano=False)
+    barra_vasca = ' '.join(e.text() for i in dw.messageBar.items() for e in i.findChildren(QLabel))
+    from catastral_gml_tools.gui.pestana_parcela import PROPIEDAD_TERRITORIO
+    marcada = vascas is not None and vascas['parcela'].customProperty(PROPIEDAD_TERRITORIO) == 'Bizkaia'
+    licencia = vascas is not None and 'creativecommons.org' in vascas['parcela'].metadata().abstract()
+    dw.pestanaParcela.capaCombo.setLayer(vascas['parcela'] if vascas else None)
+    dw.messageBar.clearWidgets()
+    dw.pestanaParcela.crear_gml()
+    sin_gml = 'catastro propio' in ' '.join([i.text() for i in dw.messageBar.items()]
+                                            + [e.text() for i in dw.messageBar.items() for e in i.findChildren(QLabel)])
+    vasco_ok = (reconocida and marcada and licencia and sin_gml and 'de Bizkaia' in barra_vasca
+                and 'Ir a Parcela' not in barra_vasca)
     #Sin internet desde la pestaña: aviso en el panel y el botón vuelve a estar disponible
     servicios.pedir = lambda url: (b'', 'Host not found (simulado)')
     dw.messageBar.clearWidgets()
@@ -227,11 +312,13 @@ def pestana():
     dw.deleteLater()
     proyecto.removeAllMapLayers()
     raiz.removeAllChildren()
-    ok = vacia_ok and mala_ok and otra_vez and sin_red_ok and mar and cerrada
-    return ok, (vacia_ok, mala_ok, otra_vez, sin_red_ok, mar, cerrada, barra[:200])
+    ok = vacia_ok and mala_ok and otra_vez and sin_red_ok and mar and cerrada and vasco_ok
+    return ok, (vacia_ok, mala_ok, otra_vez, sin_red_ok, mar, cerrada, vasco_ok, reconocida, marcada, licencia, sin_gml,
+                barra_vasca[:200], barra[:200])
 
 
-caso("pestaña: vacía, mal escrita, grupo borrado, sin red, clic en el mar y cerrar a mitad", pestana)
+caso("pestaña: vacía, mal escrita, grupo borrado, País Vasco solo para ver, sin red, clic en el mar y cerrar a mitad",
+     pestana)
 
 servicios.pedir = original
 for _n, _f in _originales.items():

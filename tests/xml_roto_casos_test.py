@@ -167,6 +167,40 @@ def coordenada():
 
 caso("coordenada mal tecleada (sin una cifra o sin el punto): dice qué vértice", coordenada)
 
+
+def doctype():
+    """
+    Un DOCTYPE con entidades (la «bomba» de miles de millones de risas, o una entidad externa que lee otro fichero) no se
+    lee: lo dice, rápido y sin expandir nada; en UTF-8 y en UTF-16, en Validar, el conversor y una respuesta de servicio
+    (AU-60, escaneo de seguridad del repositorio de QGIS).
+    """
+    from catastral_gml_tools.core import conversor, servicios
+    risas = (b'<?xml version="1.0"?>\n<!DOCTYPE r [<!ENTITY a "jajajajaja">'
+             + b''.join(b'<!ENTITY %s "&%s;&%s;&%s;&%s;&%s;&%s;&%s;&%s;&%s;&%s;">' % ((bytes([98 + k]),) + (bytes([97 + k]),) * 10)
+                        for k in range(9))
+             + b']>\n')
+    externa = b'<?xml version="1.0"?>\n<!DOCTYPE r [<!ENTITY x SYSTEM "file:///etc/passwd">]>\n'
+    vistos = []
+    inicio = time.time()
+    for nombre, cabeza, codificacion in (('risas', risas, 'utf-8'), ('externa', externa, 'utf-8'),
+                                          ('utf16', externa, 'utf-16')):
+        cuerpo = PARCELA.split(b'?>', 1)[1].replace(b'<gml:posList', b'<!-- &j; --><gml:posList', 1)
+        datos = cabeza + cuerpo.replace(b'1907401VK4810H', b'&j;' if nombre == 'risas' else b'&x;', 1)
+        if codificacion != 'utf-8':
+            datos = datos.decode('utf-8').encode(codificacion)
+        ruta = os.path.join(carpeta, f'doctype_{nombre}.gml')
+        with open(ruta, 'wb') as f:
+            f.write(datos)
+        informe = validador.validar(ruta)
+        mensajes = [i.mensaje for i in informe.incidencias if i.nivel == 'error']
+        vistos.append((nombre, mensajes[:1], conversor.leer_generico(datos)[0] is None, servicios.excepcion_wfs(datos) == ''))
+    rapido = time.time() - inicio < 10
+    ok = rapido and all(m and 'DOCTYPE' in m[0] and 'root:' not in m[0] and generico and wfs for _, m, generico, wfs in vistos)
+    return ok, (rapido, vistos)
+
+
+caso("DOCTYPE con entidades (bomba de risas, entidad externa, UTF-16): no se lee y lo dice", doctype)
+
 print("=" * 60)
 print("QGIS", Qgis.version(), "· XML rotos: batería de casos")
 for nombre, ok in resultados.items():

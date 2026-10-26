@@ -37,7 +37,7 @@ from qgis.PyQt.QtWidgets import (
 from ..core import gml_lector as gl
 from ..core import refcat, servicios
 from ..core.incidencias import AVISO, ERROR, INFO
-from ..core.info import FUENTE_DGC, FUENTE_NAVARRA, provincia
+from ..core.info import FUENTE_DGC, FUENTE_NAVARRA, FUENTES_VASCAS, provincia
 from . import estilos, fondo
 
 PROPIEDAD_FUENTE = 'catastral_gml_tools/fuente'  #Cita de la fuente guardada en cada capa descargada
@@ -60,6 +60,8 @@ VIGIA = _Vigia()
 def con_cambios(capa):
     """True si la capa se está editando, tiene cambios sin guardar o se ha editado alguna vez."""
     return capa.isEditable() or capa.isModified() or bool(capa.customProperty(PROPIEDAD_EDITADA))
+
+
 COLORES_NIVEL = {refcat.CORRECTA: '#2b8a3e', refcat.AVISO: '#e67700', refcat.ERROR: '#c92a2a'}
 
 
@@ -85,7 +87,8 @@ class PestanaDescargar(QWidget):
         principal = QVBoxLayout(self)
         principal.setContentsMargins(0, 0, 0, 0)
         ayuda = QLabel("Escriba la referencia catastral (en Navarra: municipio-polígono-parcela) y pulse <b>Descargar</b>. "
-                       "Si no la conoce, pulse <b>Elegir en el mapa</b> y haga clic sobre la parcela.", self)
+                       "Si no la conoce, o en el País Vasco, pulse <b>Elegir en el mapa</b> y haga clic sobre la parcela.",
+                       self)
         ayuda.setWordWrap(True)
         principal.addWidget(ayuda)
 
@@ -94,7 +97,9 @@ class PestanaDescargar(QWidget):
         self.rc.setPlaceholderText("p. ej. 9872023VH5797S o, en Navarra, 201-7-184")
         self.rc.setClearButtonEnabled(True)
         self.rc.setToolTip("Referencia de la parcela (14 caracteres), urbana o rústica, o de un inmueble (18 o 20: se\n"
-                           "descarga su parcela). En Navarra: municipio, polígono y parcela (201-7-184) o sus 9 dígitos")
+                           "descarga su parcela). En Navarra: municipio, polígono y parcela (201-7-184) o sus 9 dígitos.\n"
+                           "En el País Vasco: el identificador de su diputación (Bizkaia 48.020.1619.01003, Gipuzkoa\n"
+                           "069-8296630-28223, o con el namespace: ES.AFA.CP.59600921); más fácil con «Elegir en el mapa»")
         fila.addWidget(self.rc, 1)
         self.descargarBoton = QPushButton(QgsApplication.getThemeIcon('/mActionAddWfsLayer.svg'), "Descargar", self)
         self.descargarBoton.setDefault(True)
@@ -145,8 +150,8 @@ class PestanaDescargar(QWidget):
         principal.addWidget(self.resumen)
         nota = QLabel(f"<small>Datos públicos de la {FUENTE_DGC} (servicios INSPIRE), sin titulares ni valores; en Navarra, "
                       f"del {FUENTE_NAVARRA.replace('Gobierno de Navarra – ', '')}. Se descarga una parcela cada vez, en el "
-                      "huso UTM que le corresponde. El País Vasco (Álava/Araba, Gipuzkoa y Bizkaia) tiene catastros propios "
-                      "que no están en estos servicios.</small>", self)
+                      "huso UTM que le corresponde. En el País Vasco (Álava/Araba, Gipuzkoa y Bizkaia), de los servicios "
+                      "INSPIRE de sus diputaciones forales, solo para ver: el GML de la DGC no sirve allí.</small>", self)
         nota.setWordWrap(True)
         principal.addWidget(nota)
         principal.addStretch(1)
@@ -180,6 +185,13 @@ class PestanaDescargar(QWidget):
             return
         r = refcat.comprobar(texto)
         navarra = refcat.navarra(texto) if not r.valida else ''
+        vasca = servicios.vasco(texto)  #Antes que la referencia: «48.020.1619.01003» parece una rústica de la DGC
+        if vasca:
+            self.comprobacion.setText(f"<small><span style='color:{COLORES_NIVEL[refcat.CORRECTA]}'>✔ Parcela {vasca[1]} de "
+                                      f"{vasca[0]}. Se descarga del catastro de la Diputación Foral, solo para ver (el GML "
+                                      "de la DGC no sirve allí). Pulse Descargar.</span></small>")
+            self.descargarBoton.setEnabled(self.tarea is None)
+            return
         if navarra:
             municipio, poligono, numero = refcat.navarra_partes(navarra)
             self.comprobacion.setText(f"<small><span style='color:{COLORES_NIVEL[refcat.CORRECTA]}'>✔ Parcela de Navarra: "
@@ -202,7 +214,9 @@ class PestanaDescargar(QWidget):
         self.dock.messageBar.clearWidgets()
         rc = self.rc.text()
         opciones = {'colindantes': self.colindantes.isChecked(), 'construcciones': self.construcciones.isChecked()}
-        self.resumen.setText(f"<i>Descargando {refcat.comprobar(rc).parcela or refcat.navarra(rc)}…</i>")
+        vasca = servicios.vasco(rc)
+        self.resumen.setText(f"<i>Descargando {vasca[1] if vasca else refcat.comprobar(rc).parcela or refcat.navarra(rc)}"
+                             "…</i>")
         if not segundo_plano:
             return self.descargada(servicios.descargar(rc, **opciones), segundo_plano=False)
         self.descargarBoton.setEnabled(False)
@@ -296,8 +310,8 @@ class PestanaDescargar(QWidget):
         self.capas = cargar_descarga(descarga, self.dock.iface)
         if self.dock.iface is not None and hasattr(self.dock.iface, 'setActiveLayer'):
             self.dock.iface.setActiveLayer(self.capas['parcela'])
-        navarra = descarga.territorio == 'Navarra'
-        if not navarra:  #El GML de la Sede de la DGC no sirve en Navarra: no se pasa a la pestaña Parcela
+        foral = bool(descarga.territorio)
+        if not foral:  #El GML de la Sede de la DGC no sirve en Navarra ni en el País Vasco: no se pasa a Parcela
             self.dock.parcela_descargada(self.capas['parcela'])  #La pestaña Parcela pasa a trabajar con ella
             self.dock.construcciones_descargadas(descarga.rc, self.capas.get('construcciones'))  #Y la pestaña Edificio
         info = [i.mensaje for i in descarga.incidencias if i.codigo == 'DESCARGA']
@@ -306,8 +320,8 @@ class PestanaDescargar(QWidget):
         self.resumen.setText(f"<span style='color:#2b8a3e'>✔ {info[0] if info else descarga.rc}</span><br>"
                              + ''.join(f"<small>ℹ {n}</small><br>" for n in notas)
                              + f"<small>{descarga.atribucion()}</small>")
-        if navarra:
-            self.dock.success(f"Descargada la parcela {descarga.rc} de Navarra", [("Acercar", self.acercar)],
+        if foral:
+            self.dock.success(f"Descargada la parcela {descarga.rc} de {descarga.territorio}", [("Acercar", self.acercar)],
                               detalles=avisos)
         else:
             self.dock.success(f"Descargada la parcela {descarga.rc}",
@@ -469,7 +483,9 @@ class TareaCatastro(QgsTask):
 
 def _con_fuente(capa, descarga, que):
     """Cita de la fuente y fecha en los metadatos de la capa (se ven en Propiedades > Metadatos)."""
+    vasca = FUENTES_VASCAS.get(descarga.territorio)
     origen = (f"del servicio INSPIRE del {FUENTE_NAVARRA}" if descarga.territorio == 'Navarra'
+              else f"del servicio INSPIRE de la {vasca['cita']}, licencia {vasca['licencia']}" if vasca
               else f"de los servicios INSPIRE de la {FUENTE_DGC}")
     metadatos = capa.metadata()
     metadatos.setTitle(capa.name())

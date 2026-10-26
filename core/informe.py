@@ -187,7 +187,7 @@ def leyenda(entradas):
                    f'{muestras.get(estilo, muestras["relleno"]).format(c=color)}"></span>' if color else '')
         partes.append('<span style="display:inline-flex;align-items:center;gap:6px;margin:2px 14px 2px 0">'
                       f'{muestra}{escape(texto)}</span>')
-    return ('<div class="leyenda" style="max-width:760px;margin:6px auto 14px;font-size:.88em;display:flex;'
+    return ('<div class="leyenda-croquis" style="max-width:760px;margin:6px auto 14px;font-size:.88em;display:flex;'
             'flex-wrap:wrap">' + ''.join(partes) + '</div>')
 
 
