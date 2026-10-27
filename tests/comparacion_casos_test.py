@@ -186,6 +186,16 @@ def navarra():
     return not c.comparada and 'RC-FORAL' in codigos(c), resumen(c)
 
 
+def hueco_rustico():
+    """En rústica, el suelo sin parcela no es una calle: un hueco de la cartografía (guías de la Gerencia de Valencia)."""
+    c = comparar_ruta(escribir('hueco_rustica', [gp.ParcelaGML(sim.RUSTICA_SOLA, gp.SDGC, rect(X0 + 300, Y0, 50, 51), '10')]))
+    texto = ' '.join(i.mensaje for i in c.incidencias if i.codigo == 'CMP-SIN-PARCELA')
+    return 'rústica, un hueco de la cartografía' in texto and 'vía pública' not in texto, resumen(c)
+
+
+caso("rústica que ocupa un hueco de la cartografía: lo dice así, no «vía pública»", hueco_rustico)
+
+
 caso("referencia de Navarra: no se compara y se dice", navarra)
 
 
