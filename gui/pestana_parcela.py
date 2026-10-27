@@ -26,7 +26,6 @@ from qgis.PyQt.QtWidgets import (
     QHeaderView,
     QLabel,
     QPushButton,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -133,7 +132,7 @@ class PestanaParcela(QWidget):
         self.division = BloqueDivision(self, self)  #Fase 10: dividir la parcela seleccionada (plegado)
         principal.addWidget(self.division)
 
-        self.tabla = QTableWidget(0, len(CABECERAS), self)
+        self.tabla = desplazable.TablaFlexible(0, len(CABECERAS), self)
         self.tabla.setHorizontalHeaderLabels(CABECERAS)
         self.tabla.verticalHeader().setVisible(False)
         self.tabla.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
