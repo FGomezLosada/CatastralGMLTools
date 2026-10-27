@@ -30,7 +30,8 @@ from qgis.PyQt.QtWidgets import (
     QScrollArea,
 )
 
-ALTO_MINIMO_TABLA = 150  #px: unas cuatro filas de la tabla siempre a la vista
+ALTO_MINIMO_TABLA = 100  #px: la cabecera y unas tres filas a la vista (con 150, la pestaña Parcela se desplazaba en un
+#panel de altura normal y parecía una ventana dentro de otra: prueba a mano del 27/10/2026)
 
 
 class FiltroRueda(QObject):

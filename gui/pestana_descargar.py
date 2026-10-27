@@ -86,9 +86,10 @@ class PestanaDescargar(QWidget):
     def construir(self):
         principal = QVBoxLayout(self)
         principal.setContentsMargins(0, 0, 0, 0)
-        ayuda = QLabel("Escriba la referencia catastral (en Navarra: municipio-polígono-parcela) y pulse <b>Descargar</b>. "
-                       "Si no la conoce, o en el País Vasco, pulse <b>Elegir en el mapa</b> y haga clic sobre la parcela.",
-                       self)
+        #Los formatos de Navarra y del País Vasco, en la explicación de la casilla (al pasar el ratón): aquí repetían lo mismo
+        #y alargaban la pestaña (prueba a mano del 27/10/2026)
+        ayuda = QLabel("Escriba la referencia catastral y pulse <b>Descargar</b>, o pulse <b>Elegir en el mapa</b> y haga "
+                       "clic sobre la parcela.", self)
         ayuda.setWordWrap(True)
         principal.addWidget(ayuda)
 
@@ -148,10 +149,9 @@ class PestanaDescargar(QWidget):
         self.resumen = QLabel(self)
         self.resumen.setWordWrap(True)
         principal.addWidget(self.resumen)
-        nota = QLabel(f"<small>Datos públicos de la {FUENTE_DGC} (servicios INSPIRE), sin titulares ni valores; en Navarra, "
-                      f"del {FUENTE_NAVARRA.replace('Gobierno de Navarra – ', '')}. Se descarga una parcela cada vez, en el "
-                      "huso UTM que le corresponde. En el País Vasco (Álava/Araba, Gipuzkoa y Bizkaia), de los servicios "
-                      "INSPIRE de sus diputaciones forales, solo para ver: el GML de la DGC no sirve allí.</small>", self)
+        nota = QLabel(f"<small>Datos públicos de la {FUENTE_DGC}, sin titulares ni valores, en el huso UTM de la parcela. "
+                      "En Navarra y el País Vasco, de sus catastros forales y solo para ver: el GML de la DGC no sirve "
+                      "allí.</small>", self)
         nota.setWordWrap(True)
         principal.addWidget(nota)
         principal.addStretch(1)

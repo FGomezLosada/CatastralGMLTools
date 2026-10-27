@@ -220,6 +220,28 @@ def aviso_largo():
 caso("aviso largo de una línea en un panel estrecho: la caja crece con el texto", aviso_largo)
 
 
+def exito_largo():
+    """El mensaje final con botones: el texto a todo lo ancho y entero, los botones debajo (27/10/2026)."""
+    dw.messageBar.clearWidgets()
+    dw.resize(360, 700)
+    dw.show()
+    mensaje = dw.success("GML creado: Parcela_29075A01100155.gml · 1 parcelas · EPSG:25830 · la Sede propondrá: subsanación "
+                         "de discrepancias", [("Validar", dw.raise_), ("Abrir carpeta", dw.raise_),
+                                             ("Cargar en el mapa", dw.raise_)])
+    for _ in range(3):
+        QgsApplication.processEvents()
+    etiqueta = [e for e in mensaje.findChildren(QLabel) if 'GML creado' in e.text()][0]
+    botones = [b for b in mensaje.findChildren(QAbstractButton) if b.text() == "Validar"]
+    entero = etiqueta.height() >= etiqueta.heightForWidth(etiqueta.width()) > 0
+    debajo = bool(botones) and botones[0].mapTo(mensaje, botones[0].rect().topLeft()).y() >= \
+        etiqueta.mapTo(mensaje, etiqueta.rect().bottomLeft()).y()
+    dw.messageBar.clearWidgets()
+    return entero and debajo, (etiqueta.height(), etiqueta.heightForWidth(etiqueta.width()), etiqueta.width(), debajo)
+
+
+caso("mensaje final largo con botones en un panel estrecho: texto entero y botones debajo", exito_largo)
+
+
 def exito():
     dw.messageBar.clearWidgets()
     pulsado = []
