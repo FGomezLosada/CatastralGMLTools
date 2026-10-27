@@ -36,6 +36,7 @@ RC_SIN_RED = '1907409VK4810H'
 RC_GRANDE = '1907407VK4810H'
 NAVARRA = '201040112'  #Parcela sintética de Navarra (municipio 201, polígono 4, parcela 112)
 NX, NY = 610000.0, 4740000.0  #Navarra, EPSG:25830
+RUSTICA_SOLA = '29071A00700010'  #Parcela rústica sin vecinas (un hueco de la cartografía alrededor)
 CAMINO = '29071A00709001'  #Camino de dominio público (parcela 9001 de rústica) que linda con RC por el sur
 X0, Y0 = 421500.0, 4070500.0          #Huso 30 (Andalucía oriental)
 X29, Y29 = 150000.0, 4700000.0        #En coordenadas del huso 30, pero cae en el 29 (Galicia)
@@ -66,7 +67,8 @@ def _todas():
     return [(RC, rect(X0, Y0, 20, 30)), ('1907402VK4810H', rect(X0 + 20, Y0, 20, 30)),
             ('1907403VK4810H', rect(X0 + 40, Y0, 20, 30)), (CAMINO, rect(X0, Y0 - 6, 60, 6)), ('1907408VK4810H', rect(X0 + 120, Y0, 20, 30)),
             (RC_HUSO_29, rect(X29, Y29, 20, 30)), ('1907405VK4810H', rect(X29 + 20, Y29, 20, 30)),
-            (RC_GRANDE, rect(X0 + 5000, Y0, 1200, 1000))]
+            (RC_GRANDE, rect(X0 + 5000, Y0, 1200, 1000)),
+            (RUSTICA_SOLA, rect(X0 + 300, Y0, 50, 50))]  #Rústica con un hueco de la cartografía alrededor
 
 
 def _parcelas(lista, epsg):

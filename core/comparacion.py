@@ -231,22 +231,27 @@ def comparar(lectura):
     #Suelo sin parcela ocupado (calles en urbana)
     sin_parcela = fuera_de(union, union_todas)
     if sin_parcela is not None:
+        #En urbana, el suelo sin parcela son las calles; en rústica (caminos y cauces son parcelas 9001-9999), un hueco
+        #de la cartografía. Antes se decía siempre «en urbana, vía pública» (guías de la Gerencia de Valencia, 26/10/2026)
+        rustica = bool(afectadas) and all(refcat.tipo_parcela(e.local_id) == 'rústica' for e in afectadas)
+        donde = "en rústica, un hueco de la cartografía catastral" if rustica else "en urbana, vía pública"
         #¿Lo cubren solo parcelas nuevas (LOCAL)? Es la forma admitida de ceder o incorporar viario (AU-21)
         sdgc = [e.geometria for e in propuestas if e.namespace == 'ES.SDGC.CP']
         en_sdgc = fuera_de(sin_parcela, QgsGeometry.unaryUnion(sdgc).buffer(-TOLERANCIA, 4)) if sdgc else sin_parcela
         solo_local = not sdgc or (en_sdgc is not None and abs(en_sdgc.area() - sin_parcela.area()) < 0.01)
         if solo_local:
             c.incidencias.append(Incidencia(
-                AVISO, 'CMP-VIARIO', f"El GML ocupa {sin_parcela.area():.2f} m² de suelo sin parcela catastral (en urbana, "
-                                     "vía pública) con una parcela nueva (LOCAL): cesión o incorporación de viario. La Sede "
+                AVISO, 'CMP-VIARIO', f"El GML ocupa {sin_parcela.area():.2f} m² de suelo sin parcela catastral ({donde}) "
+                                     "con una parcela nueva (LOCAL): cesión o incorporación de viario. La Sede "
                                      "da un informe positivo condicionado, sin tramitación automática; necesita la "
                                      "conformidad de la Administración titular del viario"))
         else:
             c.incidencias.append(Incidencia(
-                ERROR, 'CMP-SIN-PARCELA', f"El GML ocupa {sin_parcela.area():.2f} m² de suelo sin parcela catastral (en urbana, "
-                                          "vía pública) dentro de una parcela con referencia (SDGC): la Sede no emitirá el "
-                                          "informe. Para ceder o incorporar viario, delimítelo como una parcela propia "
-                                          "(LOCAL)"))
+                ERROR, 'CMP-SIN-PARCELA', f"El GML ocupa {sin_parcela.area():.2f} m² de suelo sin parcela catastral ({donde}) "
+                                          "dentro de una parcela con referencia (SDGC): la Sede no emitirá el informe. "
+                                          + ("Si el hueco es un error de la cartografía, ajuste el contorno a las parcelas "
+                                             "catastrales o pida antes al Catastro que lo corrija" if rustica else
+                                             "Para ceder o incorporar viario, delimítelo como una parcela propia (LOCAL)")))
     #Para el mapa, la diferencia entera (también el primer centímetro), no solo lo que pasa de la tolerancia: si no, la
     #zona dibujada no llegaba a la línea del GML y parecía otro descuadre (prueba a mano del 13/10/2026)
     c.exceso = diferencia(union, union_origen) if fuera_de(union, union_origen) is not None else None
