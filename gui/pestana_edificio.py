@@ -28,7 +28,6 @@ from qgis.PyQt.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -108,7 +107,7 @@ class PestanaEdificio(QWidget):
         formulario.addRow("Campo de plantas", self.campoPlantas)
         principal.addLayout(formulario)
 
-        self.tabla = QTableWidget(0, len(CABECERAS), self)
+        self.tabla = desplazable.TablaFlexible(0, len(CABECERAS), self)
         self.tabla.setHorizontalHeaderLabels(CABECERAS)
         self.tabla.verticalHeader().setVisible(False)
         self.tabla.setMinimumHeight(desplazable.ALTO_MINIMO_TABLA)

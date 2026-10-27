@@ -28,10 +28,22 @@ from qgis.PyQt.QtWidgets import (
     QFrame,
     QLineEdit,
     QScrollArea,
+    QTableWidget,
 )
 
-ALTO_MINIMO_TABLA = 100  #px: la cabecera y unas tres filas a la vista (con 150, la pestaña Parcela se desplazaba en un
-#panel de altura normal y parecía una ventana dentro de otra: prueba a mano del 27/10/2026)
+ALTO_MINIMO_TABLA = 72  #px: la cabecera y dos filas a la vista; con más sitio, la tabla crece
+
+
+class TablaFlexible(QTableWidget):
+    """
+    Tabla que pide poco alto (el mínimo) y crece con el sitio que haya. Una QTableWidget pide unos 190 px, y la zona
+    desplazable de Parcela calcula su alto con lo que piden los elementos (no con su mínimo): aunque todo cabía, salía la
+    barra de desplazamiento y la pestaña parecía una ventana dentro de otra (prueba a mano del 27/10/2026).
+    """
+
+    def sizeHint(self):  # noqa: N802 (nombre impuesto por Qt)
+        hint = super().sizeHint()
+        return QSize(hint.width(), max(self.minimumHeight(), ALTO_MINIMO_TABLA))
 
 
 class FiltroRueda(QObject):
