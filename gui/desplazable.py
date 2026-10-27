@@ -215,6 +215,10 @@ def envolver(widget, padre):
     zona.setWidgetResizable(True)
     zona.setFrameShape(QFrame.Shape.NoFrame)
     zona.setWidget(widget)
+    #Sin fondo propio: la zona pintaba el gris de la ventana sobre el blanco de la pestaña (en Windows) y Parcela se veía
+    #como una caja gris dentro de la pestaña (prueba a mano del 27/10/2026)
+    zona.viewport().setAutoFillBackground(False)
+    widget.setAutoFillBackground(False)
     return zona
 
 
