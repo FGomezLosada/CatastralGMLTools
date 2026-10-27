@@ -17,7 +17,7 @@ from qgis.gui import QgsMessageBar
 from qgis.PyQt import QtWidgets, sip, uic
 from qgis.PyQt.QtCore import QEvent, QObject, Qt, QUrl
 from qgis.PyQt.QtGui import QDesktopServices
-from qgis.PyQt.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTextBrowser, QToolButton, QWidget
+from qgis.PyQt.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTextBrowser, QToolButton, QVBoxLayout, QWidget
 
 from .core.ficheros import misma_ruta
 from .core.info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, ruta, version
@@ -56,6 +56,12 @@ class AjusteAltura(QObject):
     def eventFilter(self, objeto, evento):
         if evento.type() == QEvent.Type.Resize and isinstance(objeto, QTextBrowser):
             ajustar_altura(objeto)
+        elif evento.type() == QEvent.Type.Resize and isinstance(objeto, QWidget) and objeto.layout() is not None:
+            #La barra no tiene en cuenta que el texto y los botones se parten en varias líneas: «… la Sede propondrá:
+            #subsanación de» se quedaba sin la última palabra (prueba a mano del 27/10/2026)
+            alto = objeto.layout().totalHeightForWidth(objeto.width())
+            if alto > 0 and objeto.minimumHeight() != alto:
+                objeto.setMinimumHeight(alto)
         return False
 
 
@@ -81,6 +87,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.setup_validar()
         self.setup_descargar()
         self.setup_utilidades()
+        self.quitar_espaciadores()
         desplazable.proteger(self.dockWidgetContents)  #La rueda desplaza el panel; no cambia listas sin foco
         desplazable.estrechar(self.dockWidgetContents)  #Un nombre largo en una lista no ensancha el panel
         self.visibilityChanged.connect(self.visibilidad_cambiada)
@@ -110,6 +117,18 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         QDesktopServices.openUrl(self.help_url())
 
     # ------------------------------------------------------------------ Pestañas
+
+    def quitar_espaciadores(self):
+        """
+        Fuera los espaciadores del diseño (.ui): con el contenido de cada pestaña estirado, se repartían el alto con él y
+        Parcela quedaba en una caja con un hueco vacío debajo, «una ventana dentro de otra» (prueba a mano del
+        27/10/2026). Cada pestaña lleva su propio espacio elástico donde hace falta.
+        """
+        for layout in (self.tabDescargarLayout, self.tabParcelaLayout, self.tabEdificioLayout, self.tabValidarLayout,
+                       self.tabUtilidadesLayout):
+            for i in reversed(range(layout.count())):
+                if layout.itemAt(i).spacerItem() is not None:
+                    layout.takeAt(i)
 
     def setup_tabs(self):
         """Pone a cada pestaña su icono nativo de QGIS."""
@@ -262,6 +281,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         etiqueta.setTextFormat(Qt.TextFormat.RichText)
         etiqueta.setText(f"{html.escape(primera)}<br><small>" + "<br>".join(f"· {v}" for v in visibles) + "</small>")
         etiqueta.setToolTip(message.strip())
+        contenido.installEventFilter(AjusteAltura(contenido))
         fila.addWidget(etiqueta, 1)
         self.messageBar.pushWidget(self.messageBar.createMessage(contenido), level, duration)
 
@@ -278,8 +298,11 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         if sip.isdeleted(self):
             return None
         contenido = QWidget(self.messageBar)  #Con padre: si no, Python lo borraría al salir de aquí
-        fila = QHBoxLayout(contenido)
-        fila.setContentsMargins(0, 0, 0, 0)
+        #El texto a todo lo ancho y los botones debajo: al lado, en un panel estrecho, el texto quedaba en una columna de
+        #cinco líneas (prueba a mano del 27/10/2026)
+        columna = QVBoxLayout(contenido)
+        columna.setContentsMargins(0, 0, 0, 0)
+        columna.setSpacing(4)
         etiqueta = QLabel(message, contenido)
         etiqueta.setTextFormat(Qt.TextFormat.PlainText)  #Lo que venga en el mensaje (nombres, «<1 m²»…) se lee tal cual
         etiqueta.setWordWrap(True)
@@ -294,11 +317,15 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             etiqueta.setTextFormat(Qt.TextFormat.RichText)
             etiqueta.setText(f"{html.escape(message)}<br><small>" + "<br>".join(lineas) + "</small>")
             etiqueta.setToolTip("\n".join(list(detalles) + list(notas)))
-        fila.addWidget(etiqueta, 1)
-        for texto, metodo in buttons:
-            boton = QPushButton(texto, contenido)
-            boton.clicked.connect(metodo)
-            fila.addWidget(boton)
+        contenido.installEventFilter(AjusteAltura(contenido))
+        columna.addWidget(etiqueta)
+        if buttons:
+            fila = desplazable.FilaFlexible()  #Los botones pasan a otra línea si no caben
+            for texto, metodo in buttons:
+                boton = QPushButton(texto, contenido)
+                boton.clicked.connect(metodo)
+                fila.addWidget(boton)
+            columna.addLayout(fila)
         mensaje = self.messageBar.createMessage(contenido)
         nivel = Qgis.MessageLevel.Warning if detalles else Qgis.MessageLevel.Success
         self.messageBar.pushWidget(mensaje, nivel, 0)
