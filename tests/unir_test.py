@@ -107,7 +107,7 @@ pu.destino.setFilePath(os.path.join(carpeta, 'desde_panel.gml'))
 hecho = pu.unir()
 barra = ' '.join(e.text() for e in dw.messageBar.currentItem().findChildren(QLabel)) if dw.messageBar.currentItem() else ''
 panel = (hecho == os.path.join(carpeta, 'desde_panel.gml') and os.path.isfile(hecho)
-         and 'GML unido: desde_panel.gml · 3 parcelas de 2 ficheros' in barra)
+         and 'GML multiparcela creado: desde_panel.gml · 3 parcelas de 2 ficheros' in barra)
 pu.validar()
 validar = dw.tabWidget.currentWidget() is dw.tabValidar and dw.pestanaValidar.fichero.filePath() == hecho
 pu.lista.setCurrentRow(0)

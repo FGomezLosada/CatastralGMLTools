@@ -112,6 +112,24 @@ for i in range(pv.lista.count()):
 lista_a_tabla = [r.row() for r in pv.tabla.selectionModel().selectedRows()] == [0]
 iconos = {pv.lista.item(i).text()[:20]: pv.lista.item(i).data(Qt.ItemDataRole.UserRole + 1) for i in range(pv.lista.count())}
 iconos_ok = ('/mIconWarning.svg' in iconos.values() and '/mIconSuccess.svg' in iconos.values())
+#Texto largo en la lista: corto con «… ▸», entero al elegirlo y al pasar el ratón; al elegir otro, vuelve a corto (U-05)
+from catastral_gml_tools.gui import pestana_validar as _pv_mod  # noqa: E402
+from catastral_gml_tools.core.incidencias import AVISO as _AVISO, Incidencia as _Incidencia  # noqa: E402
+pv.informe.incidencias.append(_Incidencia(_AVISO, 'PRUEBA-LARGA', "Un aviso largo de prueba " + "con muchas palabras " * 12
+                                          + "y el final que solo se ve al elegirlo"))
+pv.mostrar_informe()
+_largas = [pv.lista.item(i) for i in range(pv.lista.count())
+           if len(pv.lista.item(i).data(_pv_mod.TEXTO_COMPLETO) or '') > _pv_mod.LARGO_LISTA]
+_corta_antes = bool(_largas) and _largas[0].text().endswith('… ▸') and len(_largas[0].text()) <= _pv_mod.LARGO_LISTA + 2
+if _largas:
+    pv.lista.setCurrentItem(_largas[0])
+_entera = bool(_largas) and _largas[0].text() == _largas[0].data(_pv_mod.TEXTO_COMPLETO)
+_otro = next((pv.lista.item(i) for i in range(pv.lista.count()) if pv.lista.item(i) is not (_largas[0] if _largas else None)), None)
+if _otro is not None:
+    pv.lista.setCurrentItem(_otro)
+_vuelve = bool(_largas) and _largas[0].text().endswith('… ▸')
+texto_corto = (_corta_antes and _entera and _vuelve
+               and _largas[0].data(_pv_mod.TEXTO_COMPLETO)[:40] in _largas[0].toolTip())
 
 # 4. GML 3.0: errores de la Sede (esquema obsoleto) y sin comprobación XSD
 pv.fichero.setFilePath(os.path.join(DATOS, 'parcela_cp30_sintetica.gml'))
@@ -208,6 +226,7 @@ checks = {
     "arrastrar la capa cargada desde el panel de Capas abre su GML": desde_capas,
     "la leyenda solo muestra los tipos presentes": leyenda,
     "estilo: relleno naranja casi transparente": estilo_ok,
+    "incidencia larga: corta con «… ▸», entera al elegirla y al pasar el ratón": texto_corto,
     "ninguna ventana emergente": not ventanas,
 }
 

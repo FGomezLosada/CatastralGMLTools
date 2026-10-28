@@ -276,6 +276,15 @@ def pestana():
     raiz.removeChildNode(grupo)
     capas = pes.descargar(segundo_plano=False)
     otra_vez = capas is not None and raiz.findGroup(f'Catastro {RC}') is not None
+    #Varias descargas: todas dentro de «Descargas del Catastro», la última arriba y abierta, las demás plegadas (U-06)
+    from catastral_gml_tools.gui import pestana_descargar as pd
+    pes.rc.setText(sim.NAVARRA)
+    pes.descargar(segundo_plano=False)
+    contenedor = raiz.findGroup(pd.GRUPO_DESCARGAS)
+    hijos = contenedor.children() if contenedor else []
+    juntas = (len([n for n in raiz.children() if n.name().startswith('Catastro ')]) == 0 and len(hijos) >= 2
+              and hijos[0].name() == f'Catastro {sim.NAVARRA}' and hijos[0].isExpanded()
+              and not any(h.isExpanded() for h in hijos[1:]))
     #País Vasco: se reconoce al escribir, se descarga solo para ver (sin pasar a Parcela) y Parcela no crea su GML
     pes.rc.setText(sim.BIZKAIA)
     reconocida = 'Bizkaia' in pes.comprobacion.text() and pes.descargarBoton.isEnabled()
@@ -312,12 +321,12 @@ def pestana():
     dw.deleteLater()
     proyecto.removeAllMapLayers()
     raiz.removeAllChildren()
-    ok = vacia_ok and mala_ok and otra_vez and sin_red_ok and mar and cerrada and vasco_ok
-    return ok, (vacia_ok, mala_ok, otra_vez, sin_red_ok, mar, cerrada, vasco_ok, reconocida, marcada, licencia, sin_gml,
+    ok = vacia_ok and mala_ok and otra_vez and sin_red_ok and mar and cerrada and vasco_ok and juntas
+    return ok, (vacia_ok, mala_ok, otra_vez, sin_red_ok, mar, cerrada, vasco_ok, juntas, reconocida, marcada, licencia, sin_gml,
                 barra_vasca[:200], barra[:200])
 
 
-caso("pestaña: vacía, mal escrita, grupo borrado, País Vasco solo para ver, sin red, clic en el mar y cerrar a mitad",
+caso("pestaña: vacía, mal escrita, grupo borrado, descargas juntas, País Vasco solo para ver, sin red, clic en el mar y cerrar a mitad",
      pestana)
 
 servicios.pedir = original

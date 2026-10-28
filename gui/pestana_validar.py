@@ -7,6 +7,7 @@ copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
 import contextlib
+import html
 import os
 
 from qgis.core import Qgis, QgsApplication, QgsFeedback, QgsMimeDataUtils, QgsProject, QgsTask
@@ -42,6 +43,16 @@ from . import desplazable, estilos
 
 CABECERAS = ['Tipo', 'Identificador (localId)', 'Namespace', 'Sup. GML m²', 'Sup. calculada m²', 'Estado']
 COL_ESTADO = 5
+LARGO_LISTA = 150  #Caracteres de una incidencia en la lista; el resto, al elegirla o al pasar el ratón (USABILIDAD U-05)
+TEXTO_COMPLETO = Qt.ItemDataRole.UserRole + 2
+
+
+def corto(texto, largo=LARGO_LISTA):
+    """El principio de un texto largo, cortado en una palabra, con «… ▸» para indicar que hay más."""
+    if len(texto) <= largo:
+        return texto
+    corte = texto.rfind(' ', 0, largo - 4)
+    return texto[:corte if corte > largo // 2 else largo - 4].rstrip(' ,;:(') + ' … ▸'
 ICONOS = {ERROR: '/mIconCritical.svg', AVISO: '/mIconWarning.svg', INFO: '/mIconInfo.svg'}
 ICONOS_CODIGO = {'XSD-VALIDO': '/mIconSuccess.svg', 'CMP-CONTORNO-OK': '/mIconSuccess.svg', 'CMP-BU-DENTRO': '/mIconSuccess.svg'}  #Marca verde para lo que está bien
 TEXTO_ESTADO = {ERROR: 'Con errores', AVISO: 'Con avisos', 'correcta': 'Correcta'}
@@ -113,7 +124,8 @@ class PestanaValidar(QWidget):
         cabecera.setMinimumSectionSize(40)
         self.lista = QListWidget(divisor)
         self.lista.setWordWrap(True)
-        self.lista.setToolTip("Incidencias del GML. Al elegir una, se marca su parcela en la tabla")
+        self.lista.setToolTip("Incidencias del GML. Las largas acaban en «… ▸»: al elegir una se lee entera y se marca su "
+                              "parcela en la tabla")
         divisor.addWidget(self.tabla)
         divisor.addWidget(self.lista)
         principal.addWidget(divisor, 1)
@@ -359,7 +371,10 @@ class PestanaValidar(QWidget):
             icono = ICONOS_CODIGO.get(inc.codigo) or ICONOS.get(inc.nivel, '/mIconInfo.svg')
             if inc.codigo == 'CMP-OPERACION' and inc.nivel == INFO:  #Operación admitida: también en verde
                 icono = '/mIconSuccess.svg'
-            item = QListWidgetItem(QgsApplication.getThemeIcon(icono), str(inc))
+            completo = str(inc)
+            item = QListWidgetItem(QgsApplication.getThemeIcon(icono), corto(completo))
+            item.setData(TEXTO_COMPLETO, completo)
+            item.setToolTip(f"<p>{html.escape(completo)}</p>")  #En HTML, la explicación se parte en líneas
             item.setData(Qt.ItemDataRole.UserRole + 1, icono)
             item.setData(Qt.ItemDataRole.UserRole, inc.elemento)
             if inc.nivel == ERROR:
@@ -376,8 +391,16 @@ class PestanaValidar(QWidget):
                             "Catastro.</small>")
 
     def ir_a_elemento(self):
-        """Al elegir una incidencia de la lista, se selecciona su fila en la tabla."""
+        """
+        Al elegir una incidencia de la lista, se lee entera (las demás vuelven a su texto corto) y se selecciona su fila
+        en la tabla.
+        """
         items = self.lista.selectedItems()
+        for k in range(self.lista.count()):
+            otro = self.lista.item(k)
+            completo = otro.data(TEXTO_COMPLETO)
+            if completo:
+                otro.setText(completo if otro in items else corto(completo))
         elemento = items[0].data(Qt.ItemDataRole.UserRole) if items else ''
         if not elemento:
             return

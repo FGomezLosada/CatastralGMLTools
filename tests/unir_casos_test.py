@@ -249,7 +249,7 @@ def panel():
     hecho = pu.unir()
     barra = ' '.join([i.text() for i in dw.messageBar.items()] + [e.text() for i in dw.messageBar.items()
                                                                    for e in i.findChildren(QLabel)])
-    unido = hecho is not None and 'GML unido' in barra and '4 parcelas' in barra
+    unido = hecho is not None and 'GML multiparcela creado' in barra and '4 parcelas' in barra
     #Quitar todo: el botón se desactiva
     pu.lista.selectAll()
     pu.quitar()
