@@ -450,7 +450,7 @@ Documentos sin contenido útil: `Modelo_900D.txt` (3 bytes) y `Presentación_Pra
 - Estado: CUBIERTO.
 
 **M-04 · Mismo municipio, polígono o manzana y tipo**
-- Estado: CUBIERTO en la comparación; `unir.py` no lo avisa al juntar ficheros.
+- Estado: CUBIERTO en la comparación; `unir.py` no lo avisa al unir ficheros.
 - Hacer: llamar a la misma comprobación (por los prefijos de las RC SDGC) en `unir.reunir`.
 
 **M-05 · Parcelas repetidas e ids distintos**

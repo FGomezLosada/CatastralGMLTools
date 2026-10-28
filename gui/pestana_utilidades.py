@@ -1,5 +1,5 @@
 """
-Pestaña «Utilidades»: «Juntar ficheros GML» (multiparcela, core/unir.py): varios GML de parcela en uno solo; «Convertir a 4.0 o
+Pestaña «Utilidades»: «Unir ficheros GML» (multiparcela, core/unir.py): varios GML de parcela en uno solo; «Convertir a 4.0 o
 reparar» (core/conversor.py): un GML de parcela del esquema 3.0 al 4.0, o un 4.0 con fallos que se arreglan al
 reescribirlo; «Informe de superficies y coordenadas» (core/superficies.py): superficies, linderos y coordenadas de cada
 parcela de un GML, en HTML; «Ajustar a la cartografía catastral» (core/ajuste.py, gui/bloque_ajuste.py); y «Comparar
@@ -77,7 +77,7 @@ class PestanaUtilidades(QWidget):
         principal.setContentsMargins(0, 0, 0, 0)
         self.utilidades = QToolBox(self)
         for numero, (widget, titulo, icono, ayuda) in enumerate((
-                (self.pagina_unir(), "Juntar ficheros GML (multiparcela)", '/mActionMergeFeatures.svg',
+                (self.pagina_unir(), "Unir ficheros GML (multiparcela)", '/mActionMergeFeatures.svg',
                  "Junta varios GML de parcela en uno solo para presentarlos a la vez en la Sede. Las parcelas repetidas "
                  "se incluyen una vez; si vienen en husos distintos, se pasan al del primer fichero. (Para unir parcelas "
                  "de una capa en una sola, use «Unir parcelas» en la pestaña Parcela.)"),
@@ -127,7 +127,7 @@ class PestanaUtilidades(QWidget):
         caja = QVBoxLayout(pagina)
         self.lista = QListWidget(pagina)
         self.lista.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.lista.setToolTip("Ficheros GML que se van a juntar en uno (puede arrastrarlos aquí desde el Explorador o el panel de Capas)")
+        self.lista.setToolTip("Ficheros GML que se van a unir en uno (puede arrastrarlos aquí desde el Explorador o el panel de Capas)")
         self.lista.setAcceptDrops(False)
         caja.addWidget(self.lista, 1)
         fila = QHBoxLayout()
@@ -146,7 +146,7 @@ class PestanaUtilidades(QWidget):
         caja.addLayout(formulario)
         botones = QHBoxLayout()
         botones.addStretch(1)
-        self.unirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionMergeFeatures.svg'), "Juntar GML", pagina)
+        self.unirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionMergeFeatures.svg'), "Unir GML", pagina)
         botones.addWidget(self.unirBoton)
         caja.addLayout(botones)
         return pagina
@@ -240,7 +240,7 @@ class PestanaUtilidades(QWidget):
             self.destino.setFilePath(os.path.join(os.path.dirname(actuales[0]), 'multiparcela.gml'))
 
     def elegir(self, *args):
-        rutas, _ = QFileDialog.getOpenFileNames(self, "Elegir los GML que se van a juntar", '', "GML (*.gml)")
+        rutas, _ = QFileDialog.getOpenFileNames(self, "Elegir los GML que se van a unir", '', "GML (*.gml)")
         self.agregar(rutas)
 
     def quitar(self, *args):
