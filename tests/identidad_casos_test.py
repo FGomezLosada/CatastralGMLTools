@@ -18,7 +18,8 @@ import time
 import traceback
 
 import qgis.utils
-from qgis.core import Qgis, QgsCoordinateReferenceSystem, QgsGeometry, QgsProject
+from qgis.core import (Qgis, QgsCoordinateReferenceSystem, QgsGeometry, QgsProject, QgsVectorFileWriter,
+                       QgsVectorLayer)
 from qgis.PyQt.QtWidgets import QMessageBox
 
 import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa: E402
@@ -216,6 +217,27 @@ def pestana_validar():
     textos = [pv.lista.item(k).text() for k in range(pv.lista.count())]
     nombres = [c.name() for c in QgsProject.instance().mapLayers().values()]
     en_mapa = ("Identidad gráfica: margen ±0,50 m" in nombres and "Identidad gráfica: fuera del margen" in nombres)
+    #Con atributos (prueba a mano del 28/10) y se pueden guardar en GeoPackage sin perderlos
+    atributos = {}
+    for capa in QgsProject.instance().mapLayers().values():
+        if capa.name().startswith('Identidad gráfica'):
+            destino = os.path.join(carpeta, f"guardada_{len(atributos)}.gpkg")
+            opciones = QgsVectorFileWriter.SaveVectorOptions()
+            opciones.driverName = 'GPKG'
+            error = QgsVectorFileWriter.writeAsVectorFormatV3(capa, destino, QgsProject.instance().transformContext(),
+                                                              opciones)[0]
+            leida = QgsVectorLayer(destino, 'leida', 'ogr')
+            entidad = next(leida.getFeatures(), None)
+            atributos[capa.name()] = (error == QgsVectorFileWriter.WriterError.NoError and entidad is not None
+                                      and not entidad.geometry().isEmpty()
+                                      and {k: entidad[k] for k in ('parcela_catastral', 'margen_m')} == {
+                                          'parcela_catastral': ', '.join(pv.comparacion.identidad.catastrales),
+                                          'margen_m': 0.5})
+            if 'fuera' not in capa.name():
+                atributos['cumpliria'] = entidad['cumpliria'] == 'no' and entidad['diferencia_pct'] < 1
+            else:
+                atributos['separacion'] = abs(entidad['separacion_max_m'] - 0.7) < 0.05 and entidad['tramos'] >= 1
+    en_mapa = en_mapa and len(atributos) == 4 and all(atributos.values())
     ruta = pv.crear_informe()
     with open(ruta, encoding='utf-8') as f:
         informe = f.read()
@@ -236,7 +258,7 @@ def pestana_validar():
     utilidades = [dw.pestanaUtilidades.utilidades.itemText(k) for k in range(dw.pestanaUtilidades.utilidades.count())]
     ok = (any('No cumpliría' in t for t in textos) and not any('Identidad' in u for u in utilidades) and en_informe
           and sin_seccion and en_mapa)
-    return ok, (textos[-3:], utilidades, en_informe, sin_seccion, nombres, seccion[:300])
+    return ok, (textos[-3:], utilidades, en_informe, sin_seccion, nombres, atributos, seccion[:300])
 
 
 caso("pestaña Validar: la línea en la lista, el margen y lo que sale en el mapa, la sección con croquis y detalle en el informe "
