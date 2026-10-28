@@ -190,7 +190,7 @@ aviso_grande = texto_barra(dw.messageBar).startswith('Demasiadas parcelas')
 ids_grande = list(grande.allFeatureIds())
 grande.selectByIds(ids_grande[:2])
 pt.capaCombo.setLayer(segregacion)
-pt.capaCombo.setLayer(grande)  #Con selección: se marca «Solo los seleccionados» y salen las 2
+pt.capaCombo.setLayer(grande)  #Con selección: se marca «Solo las seleccionadas» y salen las 2
 auto_seleccion = pt.soloSeleccion.isChecked() and pt.tabla.rowCount() == 2
 grande.selectByIds(ids_grande[:3])  #Al seleccionar en el mapa, la tabla se actualiza sola
 sigue_seleccion = pt.tabla.rowCount() == 3

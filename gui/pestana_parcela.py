@@ -1,8 +1,9 @@
 """
 Pestaña «Parcela»: crea el GML de parcela catastral (INSPIRE CP 4.0) a partir de una capa de polígonos.
 
-Flujo: capa (y si se quiere solo la selección) → campos de identificador y de número de parcela → tabla con una fila por
-parcela, donde se pueden cambiar identificador, namespace y número → fecha, SRC y fichero → Crear GML.
+Por pasos (USABILIDAD U-01): 1. Parcelas (capa, solo las seleccionadas, identificador) → 2. Operación (alteración, unir o
+dividir) → 3. Revisar (tabla con una fila por parcela, donde se pueden cambiar identificador, namespace y número) →
+4. Crear (fichero). El nº de parcela, la fecha y el SRC van en «Opciones avanzadas», plegadas.
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
@@ -13,7 +14,7 @@ import os
 import re
 
 from qgis.core import Qgis, QgsApplication, QgsProject
-from qgis.gui import QgsFieldComboBox, QgsFileWidget, QgsMapLayerComboBox
+from qgis.gui import QgsCollapsibleGroupBox, QgsFieldComboBox, QgsFileWidget, QgsMapLayerComboBox
 from qgis.PyQt import sip
 from qgis.PyQt.QtCore import QDateTime, QTime, QTimer, Qt
 from qgis.PyQt.QtWidgets import (
@@ -51,6 +52,7 @@ AUTOMATICO = 0  #Dato del combo de SRC para «automático»
 #con una capa grande (p. ej. un municipio entero) hay que seleccionar las parcelas: cargarla entera bloqueaba QGIS.
 PROPIEDAD_TERRITORIO = 'catastral_gml_tools/territorio'  #La pone la pestaña Descargar en las capas de Navarra
 MAX_FILAS = 100
+TEXTO_DIVIDIR = {False: "Dividir parcela ▸", True: "Dividir parcela ▾"}  #Cerrado / abierto
 
 
 def miles(numero):
@@ -88,18 +90,27 @@ class PestanaParcela(QWidget):
     # ------------------------------------------------------------------ Interfaz
 
     def construir(self):
+        """
+        Por pasos (USABILIDAD U-01, maqueta aprobada el 28/10/2026): 1. Parcelas → 2. Operación (alteración, unir,
+        dividir) → 3. Revisar (tabla) → 4. Crear; el nº de parcela, la fecha y el SRC, en «Opciones avanzadas», plegadas.
+        """
         principal = QVBoxLayout(self)
         principal.setContentsMargins(0, 0, 0, 0)
-        formulario = QFormLayout()
 
+        # 1. Parcelas
+        self.paso1 = desplazable.TituloPaso(1, "Parcelas", self)
+        principal.addWidget(self.paso1)
+        formulario = QFormLayout()
         self.capaCombo = QgsMapLayerComboBox(self)
         self.capaCombo.setFilters(Qgis.LayerFilter.PolygonLayer)
         self.capaCombo.setAllowEmptyLayer(True)  #Se puede dejar sin capa
         self.capaCombo.setToolTip("Capa de polígonos con las parcelas (cada polígono será una parcela del GML)")
         formulario.addRow("Capa", self.capaCombo)
 
-        self.soloSeleccion = QCheckBox("Solo los seleccionados", self)
-        self.soloSeleccion.setToolTip("Solo los elementos seleccionados en el mapa (o en la tabla de atributos) de la capa")
+        self.soloSeleccion = QCheckBox("Solo las seleccionadas en el mapa", self)
+        self.soloSeleccion.setToolTip("Solo las parcelas seleccionadas en el mapa (o en la tabla de atributos) de la capa.\n"
+                                      "Al elegir una capa con parcelas seleccionadas se marca sola: así el GML lleva solo "
+                                      "las de la operación (no, p. ej., todas las colindantes)")
         formulario.addRow("", self.soloSeleccion)
 
         self.campoId = QgsFieldComboBox(self)
@@ -107,13 +118,11 @@ class PestanaParcela(QWidget):
         self.campoId.setToolTip("Campo con la referencia catastral o el identificador de cada parcela.\n"
                                 "Si se deja vacío, se numeran como Parcela_1, Parcela_2…")
         formulario.addRow("Identificador", self.campoId)
+        principal.addLayout(formulario)
 
-        self.campoLabel = QgsFieldComboBox(self)
-        self.campoLabel.setAllowEmptyFieldName(True)
-        self.campoLabel.setToolTip("Campo con el número de parcela que se ve en el plano (opcional).\n"
-                                   "Si se deja vacío, se deduce de la referencia catastral")
-        formulario.addRow("Nº de parcela", self.campoLabel)
-
+        # 2. Operación
+        principal.addWidget(desplazable.TituloPaso(2, "Operación", self))
+        operacion = QFormLayout()
         self.alteracion = QComboBox(self)
         for tipo in alt.TIPOS:
             self.alteracion.addItem(alt.NOMBRES[tipo], tipo)
@@ -127,11 +136,32 @@ class PestanaParcela(QWidget):
                                     "catastral (por defecto, la mayor). La escritura puede designar como matriz el resto menor")
         self.matrizBoton.setEnabled(False)
         fila_alteracion.addWidget(self.matrizBoton)
-        formulario.addRow("Alteración", fila_alteracion)
-        principal.addLayout(formulario)
-        self.division = BloqueDivision(self, self)  #Fase 10: dividir la parcela seleccionada (plegado)
+        operacion.addRow("Alteración", fila_alteracion)
+        principal.addLayout(operacion)
+
+        herramientas = QHBoxLayout()
+        self.unirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionMergeFeatures.svg'), "Unir parcelas", self)
+        self.unirBoton.setToolTip("Une en una sola parcela las parcelas seleccionadas en el mapa (agregación o agrupación).\n"
+                                  "Para unir varios ficheros GML ya hechos en uno, use Utilidades › 1. Unir ficheros GML.\n"
+                                  "La mayor conserva sus datos. La capa queda en edición: Ctrl+Z deshace la unión")
+        self.unirBoton.setEnabled(False)
+        herramientas.addWidget(self.unirBoton)
+        self.dividirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionSplitFeatures.svg'), TEXTO_DIVIDIR[False], self)
+        self.dividirBoton.setCheckable(True)
+        self.dividirBoton.setToolTip("Abre (o pliega) las opciones para dividir la parcela seleccionada en el mapa: partes "
+                                     "iguales, porcentajes, superficies, cuotas o franjas")
+        herramientas.addWidget(self.dividirBoton)
+        herramientas.addStretch(1)
+        principal.addLayout(herramientas)
+        self.unirInfo = QLabel(self)  #Qué hará «Unir parcelas» (solo cuando se puede pulsar)
+        self.unirInfo.setWordWrap(True)
+        self.unirInfo.hide()
+        principal.addWidget(self.unirInfo)
+        self.division = BloqueDivision(self, self)  #Fase 10: se abre con «Dividir parcela»
         principal.addWidget(self.division)
 
+        # 3. Revisar
+        principal.addWidget(desplazable.TituloPaso(3, "Revisar", self))
         self.tabla = desplazable.TablaFlexible(0, len(CABECERAS), self)
         self.tabla.setHorizontalHeaderLabels(CABECERAS)
         self.tabla.verticalHeader().setVisible(False)
@@ -157,23 +187,37 @@ class PestanaParcela(QWidget):
         self.alteracionInfo.hide()
         principal.addWidget(self.alteracionInfo)
 
-        salida = QFormLayout()
+        # Opciones avanzadas (plegadas): casi siempre valen las automáticas
+        #Título corto: en un panel estrecho, el título de un grupo plegable fija su ancho mínimo
+        self.avanzadas = QgsCollapsibleGroupBox("Opciones avanzadas", self)
+        self.avanzadas.setToolTip("Nº de parcela, fecha y hora, y SRC del GML: casi siempre valen los automáticos")
+        self.avanzadas.setSaveCollapsedState(False)
+        avanzadas = QFormLayout(self.avanzadas)
+        self.campoLabel = QgsFieldComboBox(self)
+        self.campoLabel.setAllowEmptyFieldName(True)
+        self.campoLabel.setToolTip("Campo con el número de parcela que se ve en el plano (opcional).\n"
+                                   "Si se deja vacío, se deduce de la referencia catastral")
+        avanzadas.addRow("Nº de parcela", self.campoLabel)
         ahora = QDateTime.currentDateTime()
         ahora.setTime(QTime(ahora.time().hour(), ahora.time().minute()))  #Al minuto, sin segundos
         self.fecha = QDateTimeEdit(ahora, self)
         self.fecha.setCalendarPopup(True)
         self.fecha.setDisplayFormat('dd/MM/yyyy HH:mm')
         self.fecha.setToolTip("Fecha y hora del GML (beginLifespanVersion), en el formato AAAA-MM-DDThh:mm:ss")
-        salida.addRow("Fecha y hora", self.fecha)
-
+        avanzadas.addRow("Fecha y hora", self.fecha)
         self.srcCombo = QComboBox(self)
         self.srcCombo.addItem("Automático (según la posición)", AUTOMATICO)
         for epsg, nombre in ((25829, 'ETRS89 / UTM 29N'), (25830, 'ETRS89 / UTM 30N'), (25831, 'ETRS89 / UTM 31N'),
                              (32628, 'WGS84 / UTM 28N (Canarias)')):
             self.srcCombo.addItem(f"EPSG:{epsg} · {nombre}", epsg)
         self.srcCombo.setToolTip("SRC del GML. La Sede solo admite estos cuatro; la capa se transforma si hace falta")
-        salida.addRow("SRC", self.srcCombo)
+        avanzadas.addRow("SRC", self.srcCombo)
+        self.avanzadas.setCollapsed(True)
+        principal.addWidget(self.avanzadas)
 
+        # 4. Crear
+        principal.addWidget(desplazable.TituloPaso(4, "Crear", self))
+        salida = QFormLayout()
         self.destino = QgsFileWidget(self)
         self.destino.setStorageMode(QgsFileWidget.StorageMode.SaveFile)
         self.destino.setFilter("GML (*.gml)")
@@ -187,12 +231,6 @@ class PestanaParcela(QWidget):
         self.crearBoton = QPushButton(QgsApplication.getThemeIcon('/mActionFileSave.svg'), "Crear GML", self)
         self.crearBoton.setDefault(True)
         botones.addWidget(self.recargarBoton)
-        self.unirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionMergeFeatures.svg'), "Unir parcelas", self)
-        self.unirBoton.setToolTip("Une en una sola parcela las parcelas seleccionadas en el mapa (agregación o agrupación).\n"
-                                  "Para unir varios ficheros GML ya hechos en uno, use Utilidades › 1. Unir ficheros GML.\n"
-                                  "La mayor conserva sus datos. La capa queda en edición: Ctrl+Z deshace la unión")
-        self.unirBoton.setEnabled(False)
-        botones.addWidget(self.unirBoton)
         botones.addStretch(1)
         botones.addWidget(self.crearBoton)
         principal.addLayout(botones)
@@ -214,6 +252,8 @@ class PestanaParcela(QWidget):
         self.tabla.itemChanged.connect(self.celda_cambiada)
         self.recargarBoton.clicked.connect(self.recargar_desde_capa)
         self.unirBoton.clicked.connect(self.unir_seleccionadas)
+        self.dividirBoton.toggled.connect(self.abrir_division)
+        self.division.collapsedStateChanged.connect(self.division_plegada)
         self.crearBoton.clicked.connect(self.crear_gml)
 
     # ------------------------------------------------------------------ Capa y tabla
@@ -263,8 +303,9 @@ class PestanaParcela(QWidget):
         self.campoLabel.setLayer(capa)
         #En una capa grande con elementos seleccionados se trabaja con la selección; en otra capa, con todos (la casilla
         #no se queda marcada de la capa anterior: AU-46)
-        self.soloSeleccion.setChecked(capa is not None and capa.featureCount() > MAX_FILAS
-                                      and capa.selectedFeatureCount() > 0)
+        #Y con parcelas seleccionadas, siempre con ellas (U-02): con todas las de la capa (p. ej. «Colindantes») el GML
+        #llevaba parcelas que no eran de la operación y salían nombres como Agrupa_1, Agrupa_2, Agrupa_3
+        self.soloSeleccion.setChecked(capa is not None and capa.selectedFeatureCount() > 0)
         if capa is not None:
             #Propone el campo de identificador si hay uno con nombre habitual
             for nombre in ('refcat', 'ref_catastral', 'referencia', 'nationalCadastralReference', 'localId', 'localid', 'rc'):
@@ -294,7 +335,7 @@ class PestanaParcela(QWidget):
         self.destino.setFilePath(self.destino_automatico)
 
     def seguir_seleccion(self, capa):
-        """Con «Solo los seleccionados», la tabla se actualiza al seleccionar parcelas en el mapa."""
+        """Con «Solo las seleccionadas», la tabla se actualiza al seleccionar parcelas en el mapa."""
         anterior = self.capa_conectada
         if anterior is not None and not sip.isdeleted(anterior):
             for senal, metodo in self.senales(anterior):
@@ -358,7 +399,41 @@ class PestanaParcela(QWidget):
 
     def actualizar_unir(self):
         capa = self.capa()
-        self.unirBoton.setEnabled(capa is not None and capa.selectedFeatureCount() >= 2)
+        n = capa.selectedFeatureCount() if capa is not None else 0
+        self.unirBoton.setEnabled(n >= 2)
+        self.unirInfo.setVisible(n >= 2)
+        if n >= 2:
+            self.unirInfo.setText(f"<small style='color:#666'>«Unir parcelas» une en una las {n} seleccionadas, al "
+                                  "momento; Ctrl+Z lo deshace.</small>")
+        self.actualizar_paso1()
+
+    def actualizar_paso1(self):
+        """Junto al título «1. Parcelas», con cuántas se trabaja; en naranja si hay una selección que no se usa (U-02)."""
+        capa = self.capa()
+        if capa is None:
+            self.paso1.poner_estado('')
+            return
+        total, sel = capa.featureCount(), capa.selectedFeatureCount()
+        s = '' if sel == 1 else 's'
+        if self.soloSeleccion.isChecked():
+            self.paso1.poner_estado(f"{miles(sel)} de {miles(total)} seleccionada{s}")
+        elif sel and total > sel:
+            self.paso1.poner_estado(f"todas ({miles(total)}), pero hay {miles(sel)} seleccionada{s} en el mapa: marque "
+                                    "«Solo las seleccionadas» si son las de la operación", '#e67700')
+        else:
+            self.paso1.poner_estado(f"{miles(total)} parcela{'' if total == 1 else 's'}", '#495057')
+
+    def abrir_division(self, abierto):
+        """Botón «Dividir parcela»: abre o pliega sus opciones, justo debajo."""
+        self.division.setCollapsed(not abierto)
+        self.dividirBoton.setText(TEXTO_DIVIDIR[bool(abierto)])
+
+    def division_plegada(self, plegado):
+        """Si las opciones se abren o pliegan desde fuera (p. ej. las pruebas), el botón lo refleja."""
+        self.dividirBoton.blockSignals(True)
+        self.dividirBoton.setChecked(not plegado)
+        self.dividirBoton.blockSignals(False)
+        self.dividirBoton.setText(TEXTO_DIVIDIR[not plegado])
 
     def unir_seleccionadas(self, *args):
         """Une las parcelas seleccionadas en una y propone agregación o agrupación en el asistente."""
@@ -377,13 +452,13 @@ class PestanaParcela(QWidget):
         self.antes_union = antes  #Con Ctrl+Z la tabla vuelve a este estado (capa_editada)
         if tipo:
             #Agregación o agrupación de parcelas catastrales: el GML lleva solo la parcela resultante (que queda
-            #seleccionada), así que la tabla pasa a «Solo los seleccionados»
+            #seleccionada), así que la tabla pasa a «Solo las seleccionadas»
             self.soloSeleccion.blockSignals(True)
             self.soloSeleccion.setChecked(True)
             self.soloSeleccion.blockSignals(False)
             self.recargar()
             self.poner_alteracion(tipo, False)
-            vista = (". La tabla muestra solo la parcela unida (desmarque «Solo los seleccionados» para ver "
+            vista = (". La tabla muestra solo la parcela unida (desmarque «Solo las seleccionadas» para ver "
                      "todas)")
             propuesta = f" · propuesta: {alt.NOMBRES[tipo]}"
         else:
@@ -460,6 +535,7 @@ class PestanaParcela(QWidget):
         self.aplicar_alteracion()  #Si hay un tipo de alteración elegido, se propone también para la capa nueva
         self.aplicar_manuales()
         self.actualizar_superficies()
+        self.actualizar_paso1()
 
     def aplicar_manuales(self):
         """Vuelve a poner en la tabla lo que el usuario había escrito a mano en cada parcela (por su fid)."""
@@ -515,7 +591,7 @@ class PestanaParcela(QWidget):
                 texto = "<i>Elija una capa de polígonos con las parcelas.</i>"
             elif self.demasiadas:
                 texto = (f"<i>La capa tiene {miles(self.numero_parcelas(capa))} parcelas: seleccione en el mapa las que "
-                         f"quiera incluir (máximo {MAX_FILAS}) y marque «Solo los seleccionados».</i>")
+                         f"quiera incluir (máximo {MAX_FILAS}) y marque «Solo las seleccionadas».</i>")
             else:
                 texto = "<i>La capa no tiene polígonos (o no hay ninguno seleccionado).</i>"
             self.resumen.setText(texto)
@@ -761,7 +837,7 @@ class PestanaParcela(QWidget):
         if not self.filas:
             if self.demasiadas:
                 self.dock.warn(f"Demasiadas parcelas: seleccione en el mapa las que quiera incluir (máximo {MAX_FILAS}) "
-                               "y marque «Solo los seleccionados»")
+                               "y marque «Solo las seleccionadas»")
             else:
                 self.dock.warn("No hay parcelas: la capa está vacía o no hay elementos seleccionados")
             return
@@ -776,7 +852,8 @@ class PestanaParcela(QWidget):
             return
         epsg = self.epsg_salida()
         if epsg is None:
-            self.dock.warn("No se ha podido determinar el SRC del GML: elíjalo en la lista")
+            self.avanzadas.setCollapsed(False)  #El SRC está en las opciones avanzadas
+            self.dock.warn("No se ha podido determinar el SRC del GML: elíjalo en «Opciones avanzadas › SRC»")
             return
         filas = self.filas_editadas()
         fecha = self.fecha.dateTime().toPyDateTime().replace(second=0, microsecond=0)

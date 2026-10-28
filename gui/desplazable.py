@@ -19,6 +19,7 @@ from qgis.PyQt.QtWidgets import (
     QAbstractSpinBox,
     QBoxLayout,
     QHBoxLayout,
+    QLabel,
     QLayout,
     QSizePolicy,
     QWidget,
@@ -29,6 +30,7 @@ from qgis.PyQt.QtWidgets import (
     QLineEdit,
     QScrollArea,
     QTableWidget,
+    QVBoxLayout,
 )
 
 ALTO_MINIMO_TABLA = 72  #px: la cabecera y dos filas a la vista; con más sitio, la tabla crece
@@ -44,6 +46,36 @@ class TablaFlexible(QTableWidget):
     def sizeHint(self):  # noqa: N802 (nombre impuesto por Qt)
         hint = super().sizeHint()
         return QSize(hint.width(), max(self.minimumHeight(), ALTO_MINIMO_TABLA))
+
+
+class TituloPaso(QWidget):
+    """
+    Título de un paso de la pestaña («1. Parcelas», «2. Operación»…) con una línea debajo y, a su lado, un estado corto
+    (p. ej. «2 de 7 seleccionadas»). Sin cajas alrededor: la pestaña dentro de cajas parecía «una ventana dentro de
+    otra» (prueba a mano del 27/10/2026; USABILIDAD U-01).
+    """
+
+    def __init__(self, numero, texto, parent=None):
+        super().__init__(parent)
+        caja = QVBoxLayout(self)
+        caja.setContentsMargins(0, 6, 0, 0)
+        caja.setSpacing(2)
+        fila = QHBoxLayout()
+        fila.setSpacing(8)
+        self.titulo = QLabel(f"<b>{numero}. {texto}</b>", self)
+        fila.addWidget(self.titulo)
+        self.estado = QLabel(self)
+        self.estado.setWordWrap(True)
+        self.estado.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        fila.addWidget(self.estado, 1)
+        caja.addLayout(fila)
+        linea = QFrame(self)
+        linea.setFrameShape(QFrame.Shape.HLine)
+        linea.setFrameShadow(QFrame.Shadow.Sunken)
+        caja.addWidget(linea)
+
+    def poner_estado(self, texto, color='#2b8a3e'):
+        self.estado.setText(f"<span style='color:{color}'>{texto}</span>" if texto else '')
 
 
 class FiltroRueda(QObject):

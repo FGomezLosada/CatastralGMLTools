@@ -1,5 +1,5 @@
 """
-Bloque «Dividir la parcela seleccionada» de la pestaña Parcela (fase 10, AU-54; USABILIDAD U-09): divide la parcela
+Bloque «Dividir parcela» de la pestaña Parcela (fase 10, AU-54; USABILIDAD U-01 y U-09): divide la parcela
 seleccionada en el mapa con linderos paralelos o perpendiculares a uno de sus lados (core/division.py), muestra antes el
 resultado, la sustituye en la capa (Ctrl+Z lo deshace) y propone la operación (segregación o división) en el asistente.
 
@@ -7,10 +7,11 @@ copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
 """
 from qgis.core import Qgis, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsGeometry, QgsProject
-from qgis.gui import QgsCollapsibleGroupBox, QgsRubberBand
+from qgis.gui import QgsRubberBand
 from qgis.PyQt import sip
+from qgis.PyQt.QtCore import pyqtSignal
 from qgis.PyQt.QtGui import QColor
-from qgis.PyQt.QtWidgets import QCheckBox, QComboBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton
+from qgis.PyQt.QtWidgets import QCheckBox, QComboBox, QFormLayout, QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton
 
 from ..core import alteraciones as alt
 from ..core import capa_parcelas as cp
@@ -22,10 +23,20 @@ OPERACIONES = ((alt.SEGREGACION, "Segregación (la mayor conserva la referencia)
                (alt.DIVISION, "División (todas son parcelas nuevas)"))
 
 
-class BloqueDivision(QgsCollapsibleGroupBox):
+class BloqueDivision(QFrame):
+    """
+    Opciones de la división, debajo del botón «Dividir parcela» del paso 2 (Operación). Se abre y se pliega con ese botón
+    (antes era una sección plegable suelta, lejos de «Unir parcelas»: USABILIDAD U-01). Una raya a la izquierda la une
+    al botón sin meterla en otra caja («una ventana dentro de otra», prueba a mano del 27/10).
+    """
+    collapsedStateChanged = pyqtSignal(bool)  # noqa: N815 (mismo nombre que en QgsCollapsibleGroupBox)
+
     def __init__(self, pestana, parent=None):
-        super().__init__("Dividir la parcela seleccionada", parent)
+        super().__init__(parent)
         self.pestana = pestana
+        self._plegado = False
+        self.setObjectName('bloqueDivision')
+        self.setStyleSheet("QFrame#bloqueDivision { border: none; border-left: 3px solid #4dabf7; }")
         self.banda = None      #Lado elegido, marcado en el mapa
         self.piezas = []       #Resultado previsto (en el SRC de cálculo)
         self.construir()
@@ -38,8 +49,20 @@ class BloqueDivision(QgsCollapsibleGroupBox):
         self.dividirBoton.clicked.connect(self.dividir)
         self.collapsedStateChanged.connect(self.plegado)
 
+    def isCollapsed(self):  # noqa: N802 (como en QgsCollapsibleGroupBox)
+        return self._plegado
+
+    def setCollapsed(self, plegado):  # noqa: N802
+        plegado = bool(plegado)
+        cambia = plegado != self._plegado
+        self._plegado = plegado
+        self.setVisible(not plegado)
+        if cambia:
+            self.collapsedStateChanged.emit(plegado)
+
     def construir(self):
         formulario = QFormLayout(self)
+        formulario.setContentsMargins(10, 2, 0, 4)
         self.modo = QComboBox(self)
         for modo in dv.MODOS:
             self.modo.addItem(dv.NOMBRES[modo], modo)
@@ -198,13 +221,6 @@ class BloqueDivision(QgsCollapsibleGroupBox):
         iface = getattr(self.pestana.dock, 'iface', None)
         return iface.mapCanvas() if iface is not None and hasattr(iface, 'mapCanvas') else None
 
-    def minimumSizeHint(self):  # noqa: N802 (nombre impuesto por Qt)
-        """Plegado, no pide el ancho de lo que lleva dentro: el panel se puede estrechar (prueba a mano del 20/10/2026)."""
-        tamano = super().minimumSizeHint()
-        if self.isCollapsed():
-            tamano.setWidth(min(tamano.width(), self.fontMetrics().horizontalAdvance(self.title()) + 40))
-        return tamano
-
     def plegado(self, *args):
         self.updateGeometry()
         if not self.isCollapsed():
@@ -250,9 +266,16 @@ class BloqueDivision(QgsCollapsibleGroupBox):
         antes['ausentes'] = fids[1:]
         self.pestana.antes_union = antes  #Con Ctrl+Z la tabla y la alteración vuelven a como estaban
         capa.selectByIds(fids)
+        vista = ''
+        if capa.featureCount() > len(fids) and not self.pestana.soloSeleccion.isChecked():
+            #Como al unir (U-02): el GML lleva solo las parcelas de la operación, no el resto de la capa
+            self.pestana.soloSeleccion.blockSignals(True)
+            self.pestana.soloSeleccion.setChecked(True)
+            self.pestana.soloSeleccion.blockSignals(False)
+            vista = ". La tabla muestra solo las parcelas resultantes (desmarque «Solo las seleccionadas» para ver todas)"
         self.pestana.recargar()
         self.pestana.poner_alteracion(self.operacion.currentData(), False)
-        self.pestana.dock.success(f"Parcela dividida en {len(fids)}: {superficies} m² · propuesta: {alt.NOMBRES[self.operacion.currentData()]}. La capa queda en "
-                                  "edición (Ctrl+Z deshace también la tabla; guarde la capa para conservarla)")
+        self.pestana.dock.success(f"Parcela dividida en {len(fids)}: {superficies} m² · propuesta: {alt.NOMBRES[self.operacion.currentData()]}{vista}. La capa queda "
+                                  "en edición (Ctrl+Z deshace también la tabla; guarde la capa para conservarla)")
         self.valores.clear()
         return fids

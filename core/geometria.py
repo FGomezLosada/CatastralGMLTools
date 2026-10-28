@@ -178,7 +178,8 @@ def preparar(geometria, elemento='', area_entera=True):
                                                  "SRC de la capa (revíselo en sus propiedades, pestaña Fuente)", elemento)]
     if geometria.isNull() or geometria.isEmpty():
         return [], [Incidencia(ERROR, 'GEO-VACIA', "No tiene geometría (un elemento vacío de la capa): bórrelo, o "
-                                                   "seleccione los demás y marque «Solo los seleccionados»",
+                                                   "seleccione los demás y marque «Solo las seleccionadas» (en Edificio, «Solo los "
+                                                   "seleccionados»)",
                                elemento)]
     if not finita(geometria):
         return [], [Incidencia(ERROR, 'GEO-SRC', "Coordenadas no válidas (infinitas): revise el SRC de la capa", elemento)]
