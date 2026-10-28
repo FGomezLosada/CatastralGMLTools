@@ -699,12 +699,24 @@ def cargar_comparacion(comparacion, ruta, iface=None):
     r = getattr(comparacion, 'identidad', None)
     if r is not None and r.banda is not None:
         from ..core import identidad as idg
+        #Con atributos (prueba a mano del 28/10): la capa se entiende sola al consultarla o guardarla
+        catastral = ', '.join(r.catastrales)
         if r.tramos:
             fuera = idg.exterior(r.rgga).difference(r.banda).buffer(max(0.04, r.margen * 0.1), 4)
+            peor = max(r.tramos, key=lambda t: t.distancia)
             capas.append(estilos.capa_zona(fuera, comparacion.epsg, "Identidad gráfica: fuera del margen", '#c92a2a',
-                                           200, 0.6))
+                                           200, 0.6, {
+                                               'parcela_catastral': catastral, 'margen_m': round(r.margen, 2),
+                                               'tramos': len(r.tramos),
+                                               'longitud_m': round(sum(t.longitud for t in r.tramos), 2),
+                                               'separacion_max_m': round(peor.distancia, 2),
+                                               'x_max': round(peor.x, 2), 'y_max': round(peor.y, 2)}))
         margen = f"{r.margen:.2f}".replace('.', ',')
-        capas.append(estilos.capa_zona(r.banda, comparacion.epsg, f"Identidad gráfica: margen ±{margen} m", '#4dabf7'))
+        capas.append(estilos.capa_zona(r.banda, comparacion.epsg, f"Identidad gráfica: margen ±{margen} m", '#4dabf7', campos={
+            'parcela_catastral': catastral, 'cartografia': r.cartografia, 'margen_m': round(r.margen, 2),
+            'separacion_max_m': round(r.separacion, 2), 'sup_gml_m2': round(r.area_rgga, 2),
+            'sup_catastral_m2': round(r.area_catastral, 2), 'diferencia_pct': round(r.diferencia, 2),
+            'cumpliria': 'sí' if r.cumple else 'no', 'nota': "Simulación no oficial (anexo II, Resolución 23/09/2020)"}))
     exceso = "Fuera de la parcela catastral" if comparacion.edificio else "Exceso: fuera de las parcelas catastrales"
     for geometria, titulo, color in ((comparacion.exceso, exceso, '#e03131'),
                                      (comparacion.defecto, "Defecto: parcela catastral sin cubrir", '#1971c2')):

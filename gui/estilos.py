@@ -80,13 +80,21 @@ def aplicar(capa, colores=None, campo_etiqueta='localId'):
     return capa
 
 
-def capa_zona(geometria, epsg, nombre, color, alfa=60, ancho=0.4):
-    """Capa de memoria con una zona de relleno liso semitransparente (el margen de identidad o lo que queda fuera)."""
-    capa = QgsVectorLayer(f"MultiPolygon?crs=EPSG:{epsg or 25830}", nombre, 'memory')
+def capa_zona(geometria, epsg, nombre, color, alfa=60, ancho=0.4, campos=None):
+    """Capa de memoria con una zona de relleno liso semitransparente (el margen de identidad o lo que queda fuera).
+
+    campos: {nombre: valor} para la tabla de atributos (float → double, int → integer, el resto texto), para que la capa
+    se entienda sola si se guarda o se consulta con «Identificar objetos»."""
+    campos = campos or {}
+    tipos = ''.join(f"&field={n}:{'double' if isinstance(v, float) else 'integer' if isinstance(v, int) else 'string'}"
+                    for n, v in campos.items())
+    capa = QgsVectorLayer(f"MultiPolygon?crs=EPSG:{epsg or 25830}{tipos}", nombre, 'memory')
     entidad = QgsFeature(capa.fields())
     g = QgsGeometry(geometria)
     g.convertToMultiType()
     entidad.setGeometry(g)
+    if campos:
+        entidad.setAttributes(list(campos.values()))
     capa.dataProvider().addFeatures([entidad])
     capa.updateExtents()
     capa.setCrs(QgsCoordinateReferenceSystem(f'EPSG:{epsg or 25830}'))

@@ -40,14 +40,17 @@ Detalle del plan en `docs/DESARROLLO.md`; pendientes de usabilidad en `docs/USAB
   `QGIS-TEST` y `QGIS3`.
 - Despliegue al PC: copiar a la salida y escribir con el puente con force; comprobar md5 (sin `\r`).
   `.github/workflows` no se puede escribir a distancia: se deja una copia `_nombre.yml` y Francisco la mueve.
+- Las capas temporales que crea el plugin llevan atributos que las expliquen (se pueden guardar y consultar).
 - Las fuentes en offscreen son más anchas que las reales: las pruebas de tamaño deben ser relativas.
 
 ## Estado (28/10/2026)
 - Hecho: identidad gráfica en Validar (AU-58), País Vasco, guarda DOCTYPE, escaneo de seguridad en la publicación,
-  U-03, U-05, U-06 y panel sin caja gris.
+  U-03, U-05, U-06, panel sin caja gris y capas de identidad gráfica con atributos.
 - Siguiente: punto 2 de usabilidad, **Parcela por pasos (U-01/U-02)**: 1 capa → 2 operación → 3 revisar → 4 crear;
   «Opciones avanzadas» plegables (nº de parcela, fecha, SRC); trabajar solo con las parcelas de la operación.
-  Enseñar maqueta antes de tocar nada.
+  Maqueta enseñada el 28/10 (pasos con títulos numerados y una línea, sin cajas: a Francisco no le gustó la «ventana
+  dentro de otra»; «Solo las seleccionadas» marcada por defecto si hay selección; Unir y Dividir en el paso 2).
+  Esperando su visto bueno.
 - Después: punto 3, **flujo guiado (U-07)** en la ayuda y quizá en la cabecera; quedan U-04, U-08, U-09.
 - En espera: AU-56 (IVG con XML adjunto, falta un PDF real), AU-54 (división con pivote y puntos de apoyo),
   «doble GML» (ninguna fuente oficial; preguntar al COAM), campaña de pruebas a mano.
