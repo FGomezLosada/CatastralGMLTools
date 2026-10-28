@@ -14,6 +14,9 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 #Aviso que se muestra en el panel, la ayuda y el README
 AVISO_LEGAL = ("Herramienta no oficial. Valide siempre el resultado en la Sede Electrónica del Catastro "
                "antes de usarlo en cualquier trámite.")
+#Último paso del trabajo (USABILIDAD U-07): la página de la Sede Electrónica del Catastro con el acceso a las
+#validaciones gráficas (IVG e ICUC). Se abre en el navegador; el plugin no envía nada a la Sede
+SEDE_VALIDACIONES = "https://www.sedecatastro.gob.es/Accesos/SECAccValidacionesGraficas.aspx"
 #Cita de la fuente para todo dato descargado de los servicios de la DGC
 FUENTE_DGC = "Dirección General del Catastro"
 #Cita de los datos de Navarra (servicios INSPIRE del Gobierno de Navarra, licencia CC BY 4.0)

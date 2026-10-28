@@ -31,6 +31,33 @@ en cualquier trámite.</div>
 para el informe de validación gráfica y el GML de edificio (INSPIRE BuildingExtended2D) para el informe de ubicación de
 construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p>
 
+<h2 id="flujo">Flujo de trabajo: de la referencia catastral a la Sede</h2>
+<p>El trabajo habitual tiene cinco pasos. Al terminar cada uno, el mensaje verde de arriba del panel lleva el botón del
+siguiente, así que se puede seguir sin buscar la pestaña.</p>
+<table>
+  <tr><th>Paso</th><th>Dónde</th><th>Qué hacer</th><th>Botón al terminar</th></tr>
+  <tr><td>1. Descargar</td><td>Descargar</td><td>Escriba la referencia catastral (o elija la parcela en el mapa) y pulse
+      Descargar: llegan la parcela, sus colindantes y sus construcciones. <a href="#descargar">Más</a></td>
+      <td>«Ir a Parcela» / «Ir a Edificio»</td></tr>
+  <tr><td>2. Dibujar la operación</td><td>Parcela › 2. Operación</td><td>Seleccione en el mapa las parcelas y pulse
+      <strong>Unir parcelas</strong> o <strong>Dividir parcela ▸</strong>, o edite la capa con las herramientas de
+      QGIS (mover vértices, dividir objetos…). La tabla sigue a la capa, también con Ctrl+Z.
+      <a href="#dividir">Más</a></td><td>—</td></tr>
+  <tr><td>3. Revisar y crear</td><td>Parcela › 3. Revisar y 4. Crear</td><td>Elija la alteración de la escritura (o
+      «Sin indicar»: el panel dice cuál deducirá la Sede), revise identificadores y namespaces y pulse
+      <strong>Crear GML</strong>. <a href="#crear-parcela">Más</a></td><td>«Validar»</td></tr>
+  <tr><td>4. Validar</td><td>Validar</td><td>El GML se comprueba como en la Sede; pulse <strong>Comparar con el
+      Catastro</strong> (operación, contorno ±1 cm, identidad gráfica…) y, si quiere, guarde el
+      <strong>Informe</strong>. <a href="#validar">Más</a></td><td>«Abrir la Sede» (sin errores y con el esquema
+      comprobado)</td></tr>
+  <tr><td>5. Presentar</td><td>Sede Electrónica del Catastro</td><td>Suba allí el fichero en «Validaciones gráficas»: el
+      informe de validación gráfica de la Sede es el único que vale para el trámite.
+      <a href="#antes-de-presentar">Antes de presentar</a></td><td>—</td></tr>
+</table>
+<p>Para el <strong>ICUC</strong> el camino es el mismo con la pestaña <strong>Edificio</strong> en lugar de Parcela:
+huellas de las construcciones, plantas y estado, Crear GML, Validar y subirlo a la Sede.
+<a href="#edificio">Más</a></p>
+
 <h2>Pestañas del panel</h2>
 <table>
   <tr><th>Pestaña</th><th>Qué hace</th></tr>
@@ -50,23 +77,6 @@ ve qué hace). Si la pestaña Parcela no cabe en la pantalla, se desplaza con su
 cambia las listas desplegables por las que pasa el puntero: para cambiar una con la rueda, haga clic antes en ella. Las
 notas informativas de la operación se abren con el enlace «ℹ … notas sobre la operación»; los avisos se ven siempre.</p>
 
-<h2>Flujo de trabajo habitual</h2>
-<ol>
-  <li><strong>Descargar</strong> la parcela por su referencia catastral (o eligiéndola en el mapa): llega con sus
-      colindantes y sus construcciones.</li>
-  <li><strong>Dibujar la operación</strong> en la capa descargada con las herramientas de QGIS (dividir objetos, mover
-      vértices, añadir polígonos), con «Unir parcelas» o con «Dividir parcela». La tabla de la pestaña Parcela sigue a la capa, también al
-      deshacer (Ctrl+Z).</li>
-  <li><strong>Elegir la operación</strong> que figurará en la escritura (o dejar «Sin indicar»: el panel dice cuál
-      deducirá la Sede) y revisar identificadores y namespaces.</li>
-  <li><strong>Crear el GML</strong> y pasar a <strong>Validar</strong>: comprobaciones de la Sede, esquema XSD y
-      <strong>Comparar con el Catastro</strong> (operación, contorno exterior ±1 cm, suelo sin parcela…).</li>
-  <li>Subir el fichero a la <strong>Sede Electrónica del Catastro</strong> y obtener allí el informe de validación
-      gráfica: es el único que vale para el trámite.</li>
-</ol>
-<p>Para el ICUC el camino es el mismo con la pestaña <strong>Edificio</strong>: huellas de las construcciones, plantas,
-estado, crear el GML, validarlo y compararlo con la parcela catastral.</p>
-
 <h2>Marco legal</h2>
 <p>La representación gráfica alternativa se rige por la Ley Hipotecaria (arts. 9, 10, 199 y 201, en la redacción de la
 Ley 13/2015), la Resolución conjunta de 26/10/2015 (requisitos técnicos), la de 23/09/2020 (criterio de identidad gráfica)
@@ -74,7 +84,7 @@ y la de 29/03/2021 (documentos notariales y cartografía desplazada). El informe
 el contorno de las parcelas resultantes coincida con el de las de origen con ±1 cm en los vértices. Más detalles en
 «Antes de presentar el GML».</p>
 
-<h2>Crear el GML de parcela</h2>
+<h2 id="crear-parcela">Crear el GML de parcela</h2>
 <ol>
   <li>Dibuje o cargue una capa de polígonos con una parcela por polígono (en cualquier SRC: si no es uno de los que admite la
       Sede, se transforma).</li>
@@ -114,7 +124,7 @@ mismo en las dos parcelas que lo comparten: así no queda fuera de él al redond
 <p>Si algo impide crear el fichero (una parcela con varias partes, un identificador repetido, SDGC sin referencia
 catastral…), no se crea y la columna <em>Estado</em> indica el problema de cada parcela.</p>
 
-<h2>Revisar y validar un GML</h2>
+<h2 id="validar">Revisar y validar un GML</h2>
 <p>En la pestaña <strong>Validar</strong>, elija o arrastre un GML de parcela (esquema 3.0 o 4.0) o de edificio. Se comprueba
 al momento como lo hará la Sede: esquema 4.0, declaración <code>xmlns:xlink</code>, sistema de referencia, identificadores y
 namespaces, un recinto por parcela, anillos cerrados y en el sentido correcto, superficie, solapes y huecos entre parcelas.
@@ -152,7 +162,11 @@ cada parcela o construcción con su identificador, su namespace y su superficie:
 a partir de la geometría (en rojo si no coinciden). <strong>Cargar en el mapa</strong> lo añade al proyecto con un estilo
 por tipo y una etiqueta con el identificador, para compararlo con la cartografía.</p>
 
-<h2>Crear el GML de edificio (ICUC)</h2>
+<p><strong>Siguiente paso.</strong> Si la comparación no da errores y el esquema XSD está comprobado, el mensaje dice que
+el GML está listo y lleva el botón <strong>Abrir la Sede</strong>, que abre en el navegador la página de «Validaciones
+gráficas» de la Sede Electrónica del Catastro (el plugin no envía nada: el fichero lo sube usted allí).</p>
+
+<h2 id="edificio">Crear el GML de edificio (ICUC)</h2>
 <p>El GML de edificio sirve para el Informe Catastral de Ubicación de las Construcciones (ICUC). En la pestaña
 <strong>Edificio</strong> elija la capa con la <strong>huella</strong> de cada construcción (el contorno a nivel del suelo,
 sin vuelos, terrazas ni balcones). Tras descargar una parcela con sus construcciones, la capa «Construcciones» pasa sola a
@@ -205,7 +219,7 @@ guardada desde QGIS). El informe que emite la Sede va firmado: use solo construc
 <p>Las parcelas con bienes de características especiales (BICE) no tienen ICUC. Si hay construcciones solapadas o
 alguna está a más de 100 m de la parcela, la Sede no emite el informe.</p>
 
-<h2>Dividir una parcela</h2>
+<h2 id="dividir">Dividir una parcela</h2>
 <p>En la pestaña <strong>Parcela</strong>, seleccione en el mapa <strong>una sola</strong> parcela y pulse
 <strong>Dividir parcela ▸</strong> (paso 2, Operación): sus opciones se abren justo debajo, marcadas con una raya azul, y
 el mismo botón (▾) las pliega. Elija cómo dividir (como la división automática del editor de la Sede):</p>
@@ -377,7 +391,7 @@ libre (<code>Seg_2</code>…) y se indica; si es una referencia catastral (SDGC)
 operación de cada zona). Si las parcelas
 están en zonas separadas, la Sede trata el fichero como una sola operación y no la propone: tendrá que elegirla a mano.</p>
 
-<h2>Descargar una parcela</h2>
+<h2 id="descargar">Descargar una parcela</h2>
 <p>En la pestaña <strong>Descargar</strong> hay dos formas de hacerlo:</p>
 <ul>
   <li><strong>Con la referencia catastral:</strong> escríbala (de la parcela, 14 caracteres, urbana o rústica, o de un inmueble:
@@ -426,7 +440,7 @@ Gipuzkoako Foru Aldundia / Diputación Foral de Gipuzkoa (CC BY-SA 3.0 ES; segú
 de cartografía oficial y no sirven para ningún certificado); Bizkaiko Foru Aldundia - Diputación Foral de Bizkaia (CC BY 3.0
 ES).</p>
 
-<h2>Antes de presentar el GML</h2>
+<h2 id="antes-de-presentar">Antes de presentar el GML</h2>
 <p>Algunas cosas que el plugin no puede comprobar y que conviene tener presentes (no es asesoramiento jurídico: ante la
 duda, consulte con la notaría, el Registro o el Catastro):</p>
 <ul>

@@ -38,7 +38,7 @@ from ..core import validador
 from ..core import servicios
 from ..core.incidencias import AVISO, ERROR, INFO, Incidencia
 from ..core.ficheros import misma_ruta
-from ..core.info import FUENTE_DGC
+from ..core.info import FUENTE_DGC, SEDE_VALIDACIONES
 from . import desplazable, estilos
 
 CABECERAS = ['Tipo', 'Identificador (localId)', 'Namespace', 'Sup. GML m²', 'Sup. calculada m²', 'Estado']
@@ -522,7 +522,8 @@ class PestanaValidar(QWidget):
             if 'XSD-VALIDO' in xsd:  #«Listo» solo con el esquema comprobado (AU-12)
                 self.dock.success(f"{texto}. Listo para el ICUC: en la Sede Electrónica del Catastro, «Informe catastral de "
                                   f"ubicación de las construcciones», indique la parcela {rc} y suba "
-                                  f"{os.path.basename(self.ruta)}", [("Abrir carpeta", self.abrir_carpeta_gml)])
+                                  f"{os.path.basename(self.ruta)}", [("Abrir carpeta", self.abrir_carpeta_gml),
+                                                                     ("Abrir la Sede", self.abrir_sede)])
             else:
                 falta = ("aún se está comprobando el esquema XSD: espere a que termine" if self.tarea is not None
                          else "no se ha podido comprobar el esquema XSD (¿sin conexión?): pulse «Comprobar esquema XSD» "
@@ -535,8 +536,24 @@ class PestanaValidar(QWidget):
             self.dock.notify(f"Comparación con el Catastro: {n} aviso{'s' if n != 1 else ''} · {corto}. Véalo en la lista",
                              Qgis.MessageLevel.Warning, 0)
         else:
-            self.dock.success(f"Comparación con el Catastro: {texto}" + ("" if comparacion.edificio else ". Contorno coincidente"))
+            texto = f"Comparación con el Catastro: {texto}" + ("" if comparacion.edificio else ". Contorno coincidente")
+            codigos = {i.codigo for i in self.informe.incidencias}
+            if comparacion.edificio or any(i.nivel == ERROR for i in self.informe.incidencias):
+                self.dock.success(texto)
+            elif 'XSD-VALIDO' in codigos:
+                #Último paso del trabajo (U-07): subirlo a la Sede, que es la que emite el informe que vale
+                self.dock.success(f"{texto}. Siguiente paso: súbalo a la Sede Electrónica del Catastro («Validaciones "
+                                  f"gráficas»), que emite el informe de validación gráfica: {os.path.basename(self.ruta)}",
+                                  [("Abrir carpeta", self.abrir_carpeta_gml), ("Abrir la Sede", self.abrir_sede)])
+            else:
+                falta = ("aún se está comprobando el esquema XSD: espere a que termine" if self.tarea is not None
+                         else "pulse «Comprobar esquema XSD» antes de subirlo a la Sede")
+                self.dock.success(f"{texto}; {falta}")
         return comparacion
+
+    def abrir_sede(self, *args):
+        """Abre en el navegador la página de validaciones gráficas de la Sede Electrónica del Catastro."""
+        self.dock.abrir_web(SEDE_VALIDACIONES)
 
     def abrir_carpeta_gml(self, *args):
         if self.ruta:
