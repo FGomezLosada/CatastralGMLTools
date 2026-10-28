@@ -500,13 +500,20 @@ def _con_fuente(capa, descarga, que):
     return capa
 
 
+GRUPO_DESCARGAS = "Descargas del Catastro"  #Todas las descargas, juntas (USABILIDAD U-06)
+
+
 def cargar_descarga(descarga, iface=None):
     """
-    Añade la descarga al proyecto en un grupo «Catastro <RC>» (si ya existía, lo sustituye, salvo que alguna de sus capas se haya editado: entonces la nueva va en «Catastro <RC> (2)»): construcciones, parcela
-    y colindantes, con estilo y la fuente en los metadatos. Devuelve {'parcela': capa, 'colindantes': …, …}.
+    Añade la descarga al proyecto en un grupo «Catastro <RC>» (si ya existía, lo sustituye, salvo que alguna de sus capas
+    se haya editado: entonces la nueva va en «Catastro <RC> (2)»): construcciones, parcela y colindantes, con estilo y
+    la fuente en los metadatos. Todas las descargas van dentro de «Descargas del Catastro», la última arriba y abierta y
+    las anteriores plegadas: antes se acumulaban sueltas en el proyecto (USABILIDAD U-06). Devuelve {'parcela': capa,
+    'colindantes': …, …}.
     """
     proyecto = QgsProject.instance()
     raiz = proyecto.layerTreeRoot()
+    contenedor = raiz.findGroup(GRUPO_DESCARGAS) or raiz.insertGroup(0, GRUPO_DESCARGAS)
     nombre = f"Catastro {descarga.rc}"
     viejo = raiz.findGroup(nombre)
     if viejo is not None:
@@ -519,8 +526,12 @@ def cargar_descarga(descarga, iface=None):
             nombre = f"{nombre} ({n})"
         else:
             proyecto.removeMapLayers(viejo.findLayerIds())
-            raiz.removeChildNode(viejo)
-    grupo = raiz.insertGroup(0, nombre)
+            (viejo.parent() or raiz).removeChildNode(viejo)
+    for anterior in contenedor.children():  #Las anteriores, plegadas: se ve la última
+        anterior.setExpanded(False)
+    grupo = contenedor.insertGroup(0, nombre)
+    grupo.setExpanded(True)
+    contenedor.setExpanded(True)
     capas = {}
     if descarga.construcciones is not None and descarga.construcciones.elementos:
         #Sin etiquetas: llevan la misma referencia que la parcela y tapaban su etiqueta

@@ -72,7 +72,9 @@ pes.fondo.setChecked(False)
 capas = pes.descargar(segundo_plano=False)
 grupo = raiz.findGroup(f'Catastro {sim.RC}')
 nombres = [n.name() for n in grupo.children()] if grupo else []
-orden = nombres == ['Construcciones', f'Parcela {sim.RC}', 'Colindantes', 'Entorno'] and raiz.children()[0] is grupo
+#Dentro de «Descargas del Catastro», arriba del proyecto (USABILIDAD U-06)
+orden = (nombres == ['Construcciones', f'Parcela {sim.RC}', 'Colindantes', 'Entorno']
+         and raiz.children()[0].name() == pd.GRUPO_DESCARGAS and raiz.children()[0].children()[0] is grupo)
 parcela = capas['parcela'] if capas else None
 fuente = (parcela is not None and all('Dirección General del Catastro' in c.metadata().rights()[0]
                                       and 'descargado el' in c.customProperty(pd.PROPIEDAD_FUENTE) for c in capas.values())
@@ -98,7 +100,7 @@ n_capas = len(proyecto.mapLayers())
 pes.colindantes.setChecked(False)
 pes.construcciones.setChecked(False)
 pes.descargar(segundo_plano=False)
-grupos = [g for g in raiz.findGroups() if g.name() == f'Catastro {sim.RC}']
+grupos = [g for g in raiz.findGroups(True) if g.name() == f'Catastro {sim.RC}']
 repetida = (len(grupos) == 1 and [n.name() for n in grupos[0].children()] == [f'Parcela {sim.RC}']
             and len(proyecto.mapLayers()) == n_capas - 3)
 #Con la capa de la parcela en edición, volver a descargar no la borra: la nueva va en «Catastro <RC> (2)» (AU-10)

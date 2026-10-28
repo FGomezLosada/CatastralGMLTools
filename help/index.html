@@ -40,7 +40,7 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
       seleccionada (bloque «Dividir la parcela seleccionada»).</td></tr>
   <tr><td>Edificio</td><td>Crea el GML de edificios y otras construcciones (piscinas) para el ICUC.</td></tr>
   <tr><td>Validar</td><td>Abre un GML, lo comprueba como la Sede, lo compara con el Catastro y guarda un informe.</td></tr>
-  <tr><td>Utilidades</td><td>Une varios GML de parcela en uno (multiparcela), convierte un GML del esquema 3.0 al 4.0
+  <tr><td>Utilidades</td><td>Junta varios GML de parcela en uno (multiparcela), convierte un GML del esquema 3.0 al 4.0
       (o repara uno 4.0), hace el informe de superficies y coordenadas, ajusta un levantamiento a la cartografía
       catastral desplazada o girada, compara dos GML y crea parcelas desde un fichero de coordenadas.</td></tr>
 </table>
@@ -55,7 +55,7 @@ notas informativas de la operación se abren con el enlace «ℹ … notas sobre
   <li><strong>Descargar</strong> la parcela por su referencia catastral (o eligiéndola en el mapa): llega con sus
       colindantes y sus construcciones.</li>
   <li><strong>Dibujar la operación</strong> en la capa descargada con las herramientas de QGIS (dividir objetos, mover
-      vértices, añadir polígonos), con «Unir seleccionadas» o con «Dividir la parcela seleccionada». La tabla de la pestaña Parcela sigue a la capa, también al
+      vértices, añadir polígonos), con «Unir parcelas» o con «Dividir la parcela seleccionada». La tabla de la pestaña Parcela sigue a la capa, también al
       deshacer (Ctrl+Z).</li>
   <li><strong>Elegir la operación</strong> que figurará en la escritura (o dejar «Sin indicar»: el panel dice cuál
       deducirá la Sede) y revisar identificadores y namespaces.</li>
@@ -94,7 +94,7 @@ si la tabla no encaja con la operación. Los nombres que escriba usted se respet
 que el plugin añade al mapa (la descargada o la «vista del GML») son temporales, solo para ver y editar: no las guarde con
 «Guardar como» GML de QGIS, que escribe un GML genérico y no el INSPIRE CadastralParcels 4.0 que pide la Sede.</p>
 <p><strong>Agregación o agrupación.</strong> Seleccione en el mapa las parcelas colindantes y pulse <strong>Unir
-seleccionadas</strong>: se unen en una sola (las rendijas de digitalización de menos de 1 cm entre ellas se cierran, y los
+parcelas</strong>: se unen en una sola (las rendijas de digitalización de menos de 1 cm entre ellas se cierran, y los
 huecos o cuñas de hasta 20 cm se rellenan con un aviso para que compruebe el resultado) y la mayor conserva sus datos. Si
 son parcelas catastrales distintas (dos referencias o más), el asistente propone agregación (si la mayor conserva su
 referencia y es al menos el 80 % del total) o agrupación, y la tabla muestra solo la parcela unida. Si no (por ejemplo, un
@@ -356,12 +356,14 @@ crea el GML como con cualquier otra capa. Si ninguna parcela se puede formar, el
 en el mapa</strong>, para ver dónde está lo que falla. Las capas son temporales: si quiere conservarlas, guárdelas
 desde el panel de Capas.</p>
 
-<h2>Unir varios GML (multiparcela)</h2>
-<p>En la pestaña <strong>Utilidades › 1. Unir GML</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse
-<strong>Unir GML</strong>. Las parcelas que estén en varios ficheros se incluyen una sola vez. Si dos parcelas nuevas (LOCAL) se
+<h2>Juntar varios GML (multiparcela)</h2>
+<p>No confundir con <strong>Unir parcelas</strong> (pestaña Parcela), que une en una sola parcela las parcelas
+seleccionadas de una capa. Aquí se juntan en un solo fichero varios GML ya hechos, para presentarlos a la vez.</p>
+<p>En la pestaña <strong>Utilidades › 1. Juntar ficheros GML</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse
+<strong>Juntar GML</strong>. Las parcelas que estén en varios ficheros se incluyen una sola vez. Si dos parcelas nuevas (LOCAL) se
 llaman igual pero son distintas (por ejemplo, el <code>Seg_1</code> de dos segregaciones), la segunda se renombra a un nombre
 libre (<code>Seg_2</code>…) y se indica; si es una referencia catastral (SDGC) con geometrías distintas, no se une. Si los ficheros están en husos distintos, todo se pasa al huso del primero. Con el botón
-<strong>Validar</strong> del resultado se revisa el GML unido (solapes, huecos y comparación con el Catastro, que dice la
+<strong>Validar</strong> del resultado se revisa el GML multiparcela (solapes, huecos y comparación con el Catastro, que dice la
 operación de cada zona). Si las parcelas
 están en zonas separadas, la Sede trata el fichero como una sola operación y no la propone: tendrá que elegirla a mano.</p>
 
@@ -380,7 +382,8 @@ buscarla ni añadirla a mano, se vuelve a probar en cada descarga (o con «Reint
 Con el Catastro en mantenimiento tampoco se puede descargar: el panel lo dice con su horario.</p>
 <p>La parcela se descarga de los servicios públicos de la
 Dirección General del Catastro, en el huso UTM que le corresponde, y se añade al proyecto en un grupo
-«Catastro <em>referencia</em>»: la parcela, sus colindantes (las que la tocan, con su número de parcela), el entorno (las
+«Catastro <em>referencia</em>», dentro de «Descargas del Catastro» (la última descarga arriba y abierta; las anteriores,
+plegadas): la parcela, sus colindantes (las que la tocan, con su número de parcela), el entorno (las
 demás parcelas a menos de 25 m, por ejemplo al otro lado de la calle) y sus edificios y otras construcciones, según las
 casillas marcadas. Si la parcela está rodeada de calles, no tiene colindantes en el Catastro y solo verá el entorno.</p>
 <p><strong>Dominio público.</strong> En rústica, los caminos, carreteras, cauces y acequias son parcelas (numeradas del 9001 al

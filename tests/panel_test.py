@@ -63,7 +63,7 @@ desplazables = (isinstance(pt.parentWidget().parentWidget(), QScrollArea)
                 and not any(isinstance(p.parentWidget().parentWidget(), QScrollArea) for p in otras))
 #Utilidades: lista numerada, una abierta cada vez, sin la línea descriptiva; mensajes con las notas recortadas
 caja = dw.pestanaUtilidades.utilidades
-utilidades = ([caja.itemText(i) for i in range(caja.count())][:2] == ["1. Unir GML (multiparcela)", "2. Convertir a 4.0 o reparar"]
+utilidades = ([caja.itemText(i) for i in range(caja.count())][:2] == ["1. Juntar ficheros GML (multiparcela)", "2. Convertir a 4.0 o reparar"]
               and caja.count() == 6 and caja.itemText(2) == "3. Informe de superficies y coordenadas"
               and caja.itemText(3) == "4. Ajustar a la cartografía catastral (desplazada o girada)"
               and caja.itemText(4) == "5. Comparar dos GML"

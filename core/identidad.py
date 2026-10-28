@@ -300,12 +300,14 @@ def mensaje_validar(r):
     """
     if not r.catastrales:
         return None
-    texto = (f"Identidad gráfica (simulación según el anexo II de la Resolución de 23/09/2020): margen ±{_m(r.margen)} m "
-             f"(cartografía {r.cartografia}); el contorno se separa hasta {_m(r.separacion)} m del catastral y la "
-             f"superficie difiere un {_m(r.diferencia)} % (máximo {DIFERENCIA_SUPERFICIE:.0f} %). ")
+    #El veredicto primero: en la lista de Validar se ve el principio de cada línea (USABILIDAD U-05)
+    datos = (f"margen ±{_m(r.margen)} m (cartografía {r.cartografia}); el contorno se separa hasta {_m(r.separacion)} m "
+             f"del catastral y la superficie difiere un {_m(r.diferencia)} % (máximo {DIFERENCIA_SUPERFICIE:.0f} %)")
+    norma = "simulación según el anexo II de la Resolución de 23/09/2020"
     if r.cumple:
-        return texto + ("Cumpliría: si el levantamiento solo confirma la parcela catastral, para el notario o el registro "
-                        "puede bastar la certificación catastral. Compruébelo en la Sede (Identidad de parcela)")
+        return (f"Cumpliría la identidad gráfica ({norma}): {datos}. Si el levantamiento solo confirma la parcela "
+                "catastral, para el notario o el registro puede bastar la certificación catastral. Compruébelo en la Sede "
+                "(Identidad de parcela)")
     motivos = [f"el contorno sale del margen cerca de X {r.tramos[0].x:.2f}, Y {r.tramos[0].y:.2f}"] if r.tramos else []
     if not r.dentro_superficie:
         motivos.append(f"la superficie difiere más del {DIFERENCIA_SUPERFICIE:.0f} %")
@@ -313,4 +315,4 @@ def mensaje_validar(r):
     if r.desplazamiento is not None:
         pista = (f"; con un desplazamiento de {_m(r.desplazamiento[0])} m en X y {_m(r.desplazamiento[1])} m en Y "
                  "entraría (si la cartografía catastral está desplazada, Utilidades «4. Ajustar»)")
-    return texto + "No cumpliría: " + " y ".join(motivos) + pista
+    return f"No cumpliría la identidad gráfica: {' y '.join(motivos)}{pista} ({norma}: {datos})"

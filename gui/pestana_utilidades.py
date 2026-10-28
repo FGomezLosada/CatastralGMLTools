@@ -1,5 +1,5 @@
 """
-Pestaña «Utilidades»: «Unir GML» (multiparcela, core/unir.py): varios GML de parcela en uno solo; «Convertir a 4.0 o
+Pestaña «Utilidades»: «Juntar ficheros GML» (multiparcela, core/unir.py): varios GML de parcela en uno solo; «Convertir a 4.0 o
 reparar» (core/conversor.py): un GML de parcela del esquema 3.0 al 4.0, o un 4.0 con fallos que se arreglan al
 reescribirlo; «Informe de superficies y coordenadas» (core/superficies.py): superficies, linderos y coordenadas de cada
 parcela de un GML, en HTML; «Ajustar a la cartografía catastral» (core/ajuste.py, gui/bloque_ajuste.py); y «Comparar
@@ -77,9 +77,10 @@ class PestanaUtilidades(QWidget):
         principal.setContentsMargins(0, 0, 0, 0)
         self.utilidades = QToolBox(self)
         for numero, (widget, titulo, icono, ayuda) in enumerate((
-                (self.pagina_unir(), "Unir GML (multiparcela)", '/mActionMergeFeatures.svg',
+                (self.pagina_unir(), "Juntar ficheros GML (multiparcela)", '/mActionMergeFeatures.svg',
                  "Junta varios GML de parcela en uno solo para presentarlos a la vez en la Sede. Las parcelas repetidas "
-                 "se incluyen una vez; si vienen en husos distintos, se pasan al del primer fichero."),
+                 "se incluyen una vez; si vienen en husos distintos, se pasan al del primer fichero. (Para unir parcelas "
+                 "de una capa en una sola, use «Unir parcelas» en la pestaña Parcela.)"),
                 (self.pagina_convertir(), "Convertir a 4.0 o reparar", '/mActionFileSaveAs.svg',
                  "La Sede solo admite el esquema 4.0. Crea una copia en 4.0 (o reparada, si ya lo era) con la estructura, "
                  "los anillos, los decimales y las superficies como los pide la Sede; el original no se toca. Dice qué ha "
@@ -126,7 +127,7 @@ class PestanaUtilidades(QWidget):
         caja = QVBoxLayout(pagina)
         self.lista = QListWidget(pagina)
         self.lista.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.lista.setToolTip("Ficheros GML que se van a unir (puede arrastrarlos aquí desde el Explorador o el panel de Capas)")
+        self.lista.setToolTip("Ficheros GML que se van a juntar en uno (puede arrastrarlos aquí desde el Explorador o el panel de Capas)")
         self.lista.setAcceptDrops(False)
         caja.addWidget(self.lista, 1)
         fila = QHBoxLayout()
@@ -140,12 +141,12 @@ class PestanaUtilidades(QWidget):
         self.destino = QgsFileWidget(pagina)
         self.destino.setStorageMode(QgsFileWidget.StorageMode.SaveFile)
         self.destino.setFilter("GML (*.gml)")
-        self.destino.setDialogTitle("Guardar el GML unido")
+        self.destino.setDialogTitle("Guardar el GML multiparcela")
         formulario.addRow("Salida", self.destino)
         caja.addLayout(formulario)
         botones = QHBoxLayout()
         botones.addStretch(1)
-        self.unirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionMergeFeatures.svg'), "Unir GML", pagina)
+        self.unirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionMergeFeatures.svg'), "Juntar GML", pagina)
         botones.addWidget(self.unirBoton)
         caja.addLayout(botones)
         return pagina
@@ -239,7 +240,7 @@ class PestanaUtilidades(QWidget):
             self.destino.setFilePath(os.path.join(os.path.dirname(actuales[0]), 'multiparcela.gml'))
 
     def elegir(self, *args):
-        rutas, _ = QFileDialog.getOpenFileNames(self, "Elegir los GML que se van a unir", '', "GML (*.gml)")
+        rutas, _ = QFileDialog.getOpenFileNames(self, "Elegir los GML que se van a juntar", '', "GML (*.gml)")
         self.agregar(rutas)
 
     def quitar(self, *args):
@@ -305,12 +306,12 @@ class PestanaUtilidades(QWidget):
         ok, n, incidencias = un.unir(self.rutas(), destino, ahora)
         problemas = [str(i) for i in incidencias if i.nivel in (ERROR, AVISO)]
         if not ok:
-            self.dock.notify("No se han unido los GML:\n\n" + "\n".join(f"- {p}" for p in problemas if p),
+            self.dock.notify("No se ha creado el GML multiparcela:\n\n" + "\n".join(f"- {p}" for p in problemas if p),
                              Qgis.MessageLevel.Critical, 0)
             return None
         self.ultimo = destino
         self.dock.gml_creado(destino)
-        self.dock.success(f"GML unido: {os.path.basename(destino)} · {n} parcelas de {self.lista.count()} ficheros",
+        self.dock.success(f"GML multiparcela creado: {os.path.basename(destino)} · {n} parcelas de {self.lista.count()} ficheros",
                           [("Validar", self.validar), ("Abrir carpeta", self.abrir_carpeta)],
                           detalles=[str(i) for i in incidencias if i.nivel == AVISO])
         return destino

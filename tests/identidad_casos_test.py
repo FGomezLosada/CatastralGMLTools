@@ -197,8 +197,8 @@ def en_comparacion():
     mal = linea('cmp_mal', [rect(X0 + 0.7, Y0, 20, 30)])
     igual = linea('cmp_igual', [RC])
     segregacion = linea('cmp_seg', [rect(X0, Y0, 10, 30), rect(X0 + 10, Y0, 10, 30)])
-    ok = (bien.startswith('Identidad gráfica') and 'Cumpliría' in bien and '±0,50 m' in bien
-          and 'No cumpliría' in mal and 'cerca de X' in mal and 'desplazamiento' in mal
+    ok = (bien.startswith('Cumpliría la identidad gráfica') and '±0,50 m' in bien
+          and mal.startswith('No cumpliría la identidad gráfica') and 'cerca de X' in mal and 'desplazamiento' in mal
           and igual == '' and segregacion == '')
     return ok, (bien[:200], mal[:300], igual[:100], segregacion[:100])
 

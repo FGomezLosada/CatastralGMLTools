@@ -187,8 +187,9 @@ class PestanaParcela(QWidget):
         self.crearBoton = QPushButton(QgsApplication.getThemeIcon('/mActionFileSave.svg'), "Crear GML", self)
         self.crearBoton.setDefault(True)
         botones.addWidget(self.recargarBoton)
-        self.unirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionMergeFeatures.svg'), "Unir seleccionadas", self)
+        self.unirBoton = QPushButton(QgsApplication.getThemeIcon('/mActionMergeFeatures.svg'), "Unir parcelas", self)
         self.unirBoton.setToolTip("Une en una sola parcela las parcelas seleccionadas en el mapa (agregación o agrupación).\n"
+                                  "Para juntar varios ficheros GML ya hechos en uno, use Utilidades › 1. Juntar ficheros GML.\n"
                                   "La mayor conserva sus datos. La capa queda en edición: Ctrl+Z deshace la unión")
         self.unirBoton.setEnabled(False)
         botones.addWidget(self.unirBoton)
