@@ -507,6 +507,8 @@ class PestanaValidar(QWidget):
             f"NPO {comparacion.npo} · NPP {comparacion.npp} → {comparacion.operacion}"
         #Para la barra, una línea que quepa: la operación sin su explicación (NPO, NPP y el resto ya están en la lista)
         corto = comparacion.operacion.split(':')[0].split(' (')[0]
+        if corto == 'ninguna':  #«2 avisos · ninguna» no se entendía (prueba a mano del 28/10)
+            corto = 'igual al Catastro vigente'
         if comparacion.edificio and not errores:
             errores = [i for i in comparacion.incidencias if i.nivel == AVISO]  #En parte fuera: se avisa en naranja
         if errores:

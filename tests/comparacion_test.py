@@ -223,7 +223,7 @@ pv.esquema_comprobado([])
 dw.messageBar.clearWidgets()
 pv.comparar_catastro(segundo_plano=False)
 _barra = dw.messageBar.currentItem()
-interfaz = (interfaz and _barra is not None and _barra.level() == Qgis.MessageLevel.Warning and 'ninguna' in _barra.text())
+interfaz = (interfaz and _barra is not None and _barra.level() == Qgis.MessageLevel.Warning and 'avisos · igual al Catastro vigente' in _barra.text() and 'ninguna' not in _barra.text())
 
 servicios.pedir = original
 for _n, _f in _originales.items():
