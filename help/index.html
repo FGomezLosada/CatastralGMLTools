@@ -37,10 +37,10 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
   <tr><td>Descargar</td><td>Descarga una parcela concreta, sus colindantes y sus construcciones por referencia catastral.</td></tr>
   <tr><td>Parcela</td><td>Crea el GML de una o varias parcelas a partir de una capa de polígonos, con el asistente de
       alteraciones (segregación, división, agregación…), la unión de parcelas seleccionadas y la división de la parcela
-      seleccionada (bloque «Dividir la parcela seleccionada»).</td></tr>
+      seleccionada («Unir parcelas» y «Dividir parcela»).</td></tr>
   <tr><td>Edificio</td><td>Crea el GML de edificios y otras construcciones (piscinas) para el ICUC.</td></tr>
   <tr><td>Validar</td><td>Abre un GML, lo comprueba como la Sede, lo compara con el Catastro y guarda un informe.</td></tr>
-  <tr><td>Utilidades</td><td>Junta varios GML de parcela en uno (multiparcela), convierte un GML del esquema 3.0 al 4.0
+  <tr><td>Utilidades</td><td>Une varios GML de parcela en uno (multiparcela), convierte un GML del esquema 3.0 al 4.0
       (o repara uno 4.0), hace el informe de superficies y coordenadas, ajusta un levantamiento a la cartografía
       catastral desplazada o girada, compara dos GML y crea parcelas desde un fichero de coordenadas.</td></tr>
 </table>
@@ -55,7 +55,7 @@ notas informativas de la operación se abren con el enlace «ℹ … notas sobre
   <li><strong>Descargar</strong> la parcela por su referencia catastral (o eligiéndola en el mapa): llega con sus
       colindantes y sus construcciones.</li>
   <li><strong>Dibujar la operación</strong> en la capa descargada con las herramientas de QGIS (dividir objetos, mover
-      vértices, añadir polígonos), con «Unir parcelas» o con «Dividir la parcela seleccionada». La tabla de la pestaña Parcela sigue a la capa, también al
+      vértices, añadir polígonos), con «Unir parcelas» o con «Dividir parcela». La tabla de la pestaña Parcela sigue a la capa, también al
       deshacer (Ctrl+Z).</li>
   <li><strong>Elegir la operación</strong> que figurará en la escritura (o dejar «Sin indicar»: el panel dice cuál
       deducirá la Sede) y revisar identificadores y namespaces.</li>
@@ -78,15 +78,23 @@ el contorno de las parcelas resultantes coincida con el de las de origen con ±1
 <ol>
   <li>Dibuje o cargue una capa de polígonos con una parcela por polígono (en cualquier SRC: si no es uno de los que admite la
       Sede, se transforma).</li>
-  <li>En la pestaña <strong>Parcela</strong>, elija la capa y, si quiere, marque «Solo los seleccionados».</li>
-  <li>Elija el campo con la referencia catastral o el identificador. Las parcelas sin identificador se numeran como
-      <code>Parcela_1</code>, <code>Parcela_2</code>…</li>
-  <li>Revise la tabla: <strong>SDGC</strong> para la parcela que existe en el Catastro y conserva su referencia de 14
+  <li><strong>1. Parcelas.</strong> En la pestaña <strong>Parcela</strong>, elija la capa y el campo con la referencia
+      catastral o el identificador (las parcelas sin identificador se numeran como <code>Parcela_1</code>,
+      <code>Parcela_2</code>…). Si al elegir la capa hay parcelas seleccionadas en el mapa, se marca sola «Solo las
+      seleccionadas» y se trabaja solo con ellas: así el GML no lleva, por ejemplo, todas las colindantes. Junto al título
+      se ve con cuántas («2 de 7 seleccionadas»); si selecciona después sin marcar la casilla, se avisa en naranja.</li>
+  <li><strong>2. Operación.</strong> Elija la alteración (o déjela «Sin indicar») y, si hace falta, pulse
+      <strong>Unir parcelas</strong> o <strong>Dividir parcela ▸</strong> (ver más abajo).</li>
+  <li><strong>3. Revisar</strong> la tabla: <strong>SDGC</strong> para la parcela que existe en el Catastro y conserva su referencia de 14
       caracteres; <strong>LOCAL</strong> para las parcelas nuevas, con un identificador propio sin espacios ni tildes
       (por ejemplo <code>Seg_1</code> en una segregación, <code>Div_1</code> en una división o <code>Agrupa_1</code>
       en una agrupación).</li>
-  <li>Indique la fecha y la hora, el SRC (automático por defecto) y el fichero, y pulse <strong>Crear GML</strong>.</li>
+  <li><strong>4. Crear.</strong> Indique el fichero y pulse <strong>Crear GML</strong>.</li>
 </ol>
+<p><strong>Opciones avanzadas</strong> (plegadas, encima de «4. Crear»): el campo con el <strong>nº de parcela</strong> del
+plano (si no, se deduce de la referencia), la <strong>fecha y hora</strong> del GML (por defecto, ahora) y el
+<strong>SRC</strong> (por defecto, automático según la posición). Casi siempre valen los automáticos; si el SRC no se
+puede deducir, se abren solas.</p>
 <p><strong>Alteración.</strong> Elija en el desplegable la operación (segregación, división, agregación, agrupación o
 subsanación) y el plugin propone el identificador y el namespace de cada parcela, muestra el reparto de superficies y avisa
 si la tabla no encaja con la operación. Los nombres que escriba usted se respetan.</p>
@@ -198,8 +206,9 @@ guardada desde QGIS). El informe que emite la Sede va firmado: use solo construc
 alguna está a más de 100 m de la parcela, la Sede no emite el informe.</p>
 
 <h2>Dividir una parcela</h2>
-<p>En la pestaña <strong>Parcela</strong>, seleccione en el mapa <strong>una sola</strong> parcela y abra el bloque
-<strong>Dividir la parcela seleccionada</strong>. Elija cómo dividir (como la división automática del editor de la Sede):</p>
+<p>En la pestaña <strong>Parcela</strong>, seleccione en el mapa <strong>una sola</strong> parcela y pulse
+<strong>Dividir parcela ▸</strong> (paso 2, Operación): sus opciones se abren justo debajo, marcadas con una raya azul, y
+el mismo botón (▾) las pliega. Elija cómo dividir (como la división automática del editor de la Sede):</p>
 <ul>
   <li><strong>Partes iguales</strong>: cuántas (de 2 a 100).</li>
   <li><strong>Porcentajes</strong>: p. ej. <code>40 30 30</code>. Si suman menos de 100, lo que falta es una parcela más al final.</li>
@@ -214,7 +223,8 @@ la vista del GML.</p>
 mapa), y las parcelas salen en orden desde ese lado (o desde el opuesto). Antes de dividir se ven las superficies
 resultantes; si una forma irregular dejara una parcela en varios trozos, se avisa: pruebe con otro lado. Elija también la
 operación de la escritura: <strong>segregación</strong> (la mayor conserva la referencia catastral) o
-<strong>división</strong> (todas son parcelas nuevas).</p>
+<strong>división</strong> (todas son parcelas nuevas). Si la capa tiene más parcelas, la tabla (y el GML) pasa a
+llevar solo las resultantes, como al unir; Ctrl+Z lo deshace todo.</p>
 <p>Las parcelas nuevas no heredan la referencia catastral: en el mapa se rotulan «(nueva)» y la tabla les propone el
 identificador según la operación (<code>Seg_1</code>, <code>Div_1</code>…). En una segregación, la referencia se queda en la
 parcela mayor.</p>
