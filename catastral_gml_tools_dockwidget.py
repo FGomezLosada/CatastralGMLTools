@@ -331,6 +331,10 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.messageBar.pushWidget(mensaje, nivel, 0)
         return mensaje
 
+    def abrir_web(self, url):
+        """Abre una página en el navegador del sistema (p. ej. la Sede Electrónica del Catastro)."""
+        QDesktopServices.openUrl(QUrl(url))
+
     def open_path(self, path):
         """Abre una carpeta o fichero con la aplicación del sistema."""
         QDesktopServices.openUrl(QUrl.fromLocalFile(path))

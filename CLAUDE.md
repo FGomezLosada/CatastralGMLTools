@@ -47,6 +47,7 @@ Detalle del plan en `docs/DESARROLLO.md`; pendientes de usabilidad en `docs/USAB
 - Hecho: identidad gráfica en Validar (AU-58), País Vasco, guarda DOCTYPE, escaneo de seguridad en la publicación,
   U-03, U-05, U-06, panel sin caja gris y capas de identidad gráfica con atributos.
 - Hecho el 28/10: punto 2, **Parcela por pasos (U-01/U-02)** (`parcela_pasos_test.py`). Esperando la prueba a mano.
-- Siguiente: punto 3, **flujo guiado (U-07)** en la ayuda y quizá en la cabecera; quedan U-04, U-08, U-09.
+- Hecho el 28/10: punto 3, **flujo guiado (U-07)**: ayuda con tabla de pasos y botón «Abrir la Sede» en Validar.
+- Quedan de usabilidad: U-04 (capas temporales frente al GML), U-08 (Edificio), U-09 (pestañas).
 - En espera: AU-56 (IVG con XML adjunto, falta un PDF real), AU-54 (división con pivote y puntos de apoyo),
   «doble GML» (ninguna fuente oficial; preguntar al COAM), campaña de pruebas a mano.

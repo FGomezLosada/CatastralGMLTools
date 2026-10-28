@@ -15,7 +15,7 @@ import tempfile
 
 import qgis.utils
 from qgis.core import Qgis, QgsGeometry, QgsPointXY, QgsProject, QgsRectangle
-from qgis.PyQt.QtWidgets import QLabel, QMessageBox
+from qgis.PyQt.QtWidgets import QLabel, QMessageBox, QPushButton
 
 qgis.utils.reloadPlugin('catastral_gml_tools')
 import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa: E402
@@ -24,7 +24,7 @@ from catastral_gml_tools.core import gml_edificio as ge  # noqa: E402
 from catastral_gml_tools.core import gml_lector as gl  # noqa: E402
 from catastral_gml_tools.core import gml_parcela as gp  # noqa: E402
 from catastral_gml_tools.core import servicios  # noqa: E402
-from catastral_gml_tools.core.incidencias import ERROR, codigos  # noqa: E402
+from catastral_gml_tools.core.incidencias import ERROR, INFO, Incidencia, codigos  # noqa: E402
 from catastral_gml_tools.core.info import RAIZ  # noqa: E402
 
 spec = importlib.util.spec_from_file_location('simulador_catastro', os.path.join(RAIZ, 'tests', 'simulador_catastro.py'))
@@ -194,7 +194,7 @@ dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
 pv = dw.pestanaValidar
 desactivado = not pv.cmpBoton.isEnabled()
 pv.fichero.setFilePath(os.path.join(carpeta, 'segregacion.gml'))
-pv.esquema_comprobado([])
+pv.esquema_comprobado([Incidencia(INFO, 'XSD-VALIDO', "Cumple el esquema XSD")])  #Como si la tarea XSD lo aprobara
 activo = pv.cmpBoton.isEnabled()
 pv.comparar_catastro(segundo_plano=False)
 lista = [pv.lista.item(i).text() for i in range(pv.lista.count())]
@@ -204,6 +204,15 @@ barra = ' | '.join(e.text() for item in dw.messageBar.items() for e in item.find
 interfaz = (desactivado and activo and any('NPO 1' in t and 'Segregación' in t for t in lista)
             and grupo is not None and [n.name() for n in grupo.children()] == ['Catastro vigente (parcelas afectadas)']
             and 'Segregación' in barra and pv.cmpBoton.isEnabled())
+#Sin errores y con el esquema comprobado: el siguiente paso es la Sede, con un botón que la abre (U-07)
+_webs = []
+dw.abrir_web = _webs.append
+_botones = {b.text(): b for item in dw.messageBar.items() for b in item.findChildren(QPushButton)}
+if 'Abrir la Sede' in _botones:
+    _botones['Abrir la Sede'].click()
+siguiente = ('Siguiente paso: súbalo a la Sede Electrónica del Catastro' in barra and 'Abrir carpeta' in _botones
+             and _webs == ['https://www.sedecatastro.gob.es/Accesos/SECAccValidacionesGraficas.aspx'])
+interfaz = interfaz and siguiente
 pv.fichero.setFilePath(os.path.join(carpeta, 'parcial.gml'))
 pv.esquema_comprobado([])
 dw.messageBar.clearWidgets()
