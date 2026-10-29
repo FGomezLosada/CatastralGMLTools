@@ -211,6 +211,23 @@ def src_sin_deducir():
 caso("si no se deduce el SRC, se abren las opciones avanzadas y el aviso dice dónde elegirlo", src_sin_deducir)
 
 
+def cambios_sin_guardar():
+    capa = capa_siete('Edición')
+    pt.capaCombo.setLayer(capa)
+    limpia = 'sin guardar' not in pt.paso1.estado.text()
+    capa.startEditing()
+    capa.changeGeometry(1, QgsGeometry.fromWkt(rect(X0 + 20, Y0, 25, 30)))
+    marcada = 'con cambios sin guardar' in pt.paso1.estado.text() and 'el GML los incluye' in pt.paso1.estado.toolTip()
+    capa.commitChanges()
+    guardada = 'sin guardar' not in pt.paso1.estado.text()
+    QgsProject.instance().removeMapLayer(capa.id())
+    return limpia and marcada and guardada, (limpia, marcada, guardada, pt.paso1.estado.text())
+
+
+caso("U-04: «con cambios sin guardar» junto a «1. Parcelas» mientras la capa tiene ediciones sin guardar",
+     cambios_sin_guardar)
+
+
 def sin_capa():
     pt.capaCombo.setLayer(None)
     return pt.paso1.estado.text() == '' and not pt.unirBoton.isEnabled(), pt.paso1.estado.text()

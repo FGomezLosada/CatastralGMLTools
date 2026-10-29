@@ -41,6 +41,8 @@ Detalle del plan en `docs/DESARROLLO.md`; pendientes de usabilidad en `docs/USAB
 - Despliegue al PC: copiar a la salida y escribir con el puente con force; comprobar md5 (sin `\r`).
   `.github/workflows` no se puede escribir a distancia: se deja una copia `_nombre.yml` y Francisco la mueve.
 - Las capas temporales que crea el plugin llevan atributos que las expliquen (se pueden guardar y consultar).
+- Capturas de la ayuda: `tools\capturas.bat` (tests/capturas_ayuda.py, datos sintéticos del simulador, letra de
+  Windows) escribe help/img/*.png. Rehacerlas cuando cambie el panel.
 - Las fuentes en offscreen son más anchas que las reales: las pruebas de tamaño deben ser relativas.
 
 ## Estado (28/10/2026)
@@ -48,6 +50,7 @@ Detalle del plan en `docs/DESARROLLO.md`; pendientes de usabilidad en `docs/USAB
   U-03, U-05, U-06, panel sin caja gris y capas de identidad gráfica con atributos.
 - Hecho el 28/10: punto 2, **Parcela por pasos (U-01/U-02)** (`parcela_pasos_test.py`). Esperando la prueba a mano.
 - Hecho el 28/10: punto 3, **flujo guiado (U-07)**: ayuda con tabla de pasos y botón «Abrir la Sede» en Validar.
-- Quedan de usabilidad: U-04 (capas temporales frente al GML), U-08 (Edificio), U-09 (pestañas).
+- U-04 en curso: hecho el aviso «con cambios sin guardar»; falta distinguir capas temporales del GML.
+- Quedan de usabilidad: U-04 (resto), U-08 (Edificio), U-09 (pestañas).
 - En espera: AU-56 (IVG con XML adjunto, falta un PDF real), AU-54 (división con pivote y puntos de apoyo),
   «doble GML» (ninguna fuente oficial; preguntar al COAM), campaña de pruebas a mano.
