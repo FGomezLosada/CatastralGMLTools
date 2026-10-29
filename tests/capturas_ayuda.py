@@ -16,9 +16,9 @@ import tempfile
 import time
 
 import qgis.utils
-from qgis.core import QgsApplication, QgsMapRendererParallelJob, QgsMapSettings, QgsProject, QgsVectorLayer
+from qgis.core import QgsApplication, QgsMapRendererCustomPainterJob, QgsMapSettings, QgsProject, QgsVectorLayer
 from qgis.PyQt.QtCore import QEvent, QSize, Qt
-from qgis.PyQt.QtGui import QColor
+from qgis.PyQt.QtGui import QColor, QImage, QPainter
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -135,14 +135,24 @@ def mapa(nombre, centro, factor=1.15, ancho=760, alto=440):
         if c.crs() == centro.crs() and c.extent().width() < 20 * max(centro.extent().width(), 1):
             extension.combineExtentWith(c.extent())
     extension.scale(factor)
-    ajustes.setOutputSize(QSize(2 * ancho, 2 * alto))  #A doble resolución, como el panel: se ve nítido en la ayuda
-    ajustes.setDevicePixelRatio(2)
+    #A doble resolución, como el panel: el doble de píxeles y el doble de ppp, para que rótulos y líneas tengan el tamaño
+    #de siempre (con setDevicePixelRatio los rótulos salían diminutos: prueba a mano del 29/10/2026)
+    ajustes.setOutputSize(QSize(2 * ancho, 2 * alto))
+    ajustes.setOutputDpi(2 * 96)
     ajustes.setExtent(extension)
     ajustes.setBackgroundColor(QColor('white'))
-    trabajo = QgsMapRendererParallelJob(ajustes)
+    #En una imagen propia de 2 × ancho píxeles: la del trabajo en paralelo salía al cuádruple en Windows (multiplicada otra
+    #vez por la escala de QT_SCALE_FACTOR), con los rótulos diminutos (prueba a mano del 29/10/2026)
+    imagen = QImage(2 * ancho, 2 * alto, QImage.Format.Format_ARGB32)
+    imagen.setDotsPerMeterX(int(2 * 96 / 0.0254))
+    imagen.setDotsPerMeterY(int(2 * 96 / 0.0254))
+    imagen.fill(QColor('white'))
+    pintor = QPainter(imagen)
+    trabajo = QgsMapRendererCustomPainterJob(ajustes, pintor)
     trabajo.start()
     trabajo.waitForFinished()
-    trabajo.renderedImage().save(os.path.join(SALIDA, nombre), 'PNG')
+    pintor.end()
+    imagen.save(os.path.join(SALIDA, nombre), 'PNG')
     for c in capas:
         c.selectByIds(seleccion[c.id()])
         c.blockSignals(False)
