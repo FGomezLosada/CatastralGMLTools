@@ -246,6 +246,37 @@ caso("U-04: junto a «1. Parcelas», «capa temporal» o «vista de fichero.gml�
      temporal_y_vista)
 
 
+def edificio_por_pasos():
+    #U-08: la pestaña Edificio, por pasos como Parcela
+    pe = dw.pestanaEdificio
+    titulos = [x.titulo.text() for x in pe.findChildren(desplazable.TituloPaso)]
+    pasos_ok = titulos == ['<b>1. Construcciones</b>', '<b>2. Parcela</b>', '<b>3. Revisar</b>', '<b>4. Crear</b>']
+    avanzadas = (pe.avanzadas.isCollapsed()
+                 and all(pe.avanzadas.isAncestorOf(w) for w in (pe.campoPlantas, pe.fecha, pe.precision, pe.srcCombo))
+                 and not any(pe.avanzadas.isAncestorOf(w) for w in (pe.capaCombo, pe.referencia, pe.destino)))
+    pe.capaCombo.setLayer(None)
+    sin = 'Dibujar huellas' in pe.paso1.estado.text()
+    capa = QgsVectorLayer("Polygon?crs=EPSG:25830&field=plantas:integer", "Huellas", "memory")
+    for k in range(2):
+        f = QgsFeature(capa.fields())
+        f.setGeometry(QgsGeometry.fromWkt(rect(X0 + 2 + 8 * k, Y0 + 2, 6, 6)))
+        f.setAttributes([2])
+        capa.dataProvider().addFeature(f)
+    QgsProject.instance().addMapLayer(capa)
+    pe.capaCombo.setLayer(capa)
+    con = '2 construcciones' in pe.paso1.estado.text() and 'capa temporal' in pe.paso1.estado.text()
+    capa.selectByIds([1])
+    pe.soloSeleccion.setChecked(True)
+    seleccion = '1 de 2 seleccionada' in pe.paso1.estado.text() and pe.tabla.rowCount() == 1
+    QgsProject.instance().removeMapLayer(capa.id())
+    ok = pasos_ok and avanzadas and sin and con and seleccion
+    return ok, (titulos, avanzadas, sin, con, seleccion, pe.paso1.estado.text())
+
+
+caso("U-08: Edificio por pasos (Construcciones, Parcela, Revisar, Crear), opciones avanzadas plegadas y recuento junto "
+     "a «1. Construcciones»", edificio_por_pasos)
+
+
 def sin_capa():
     pt.capaCombo.setLayer(None)
     return pt.paso1.estado.text() == '' and not pt.unirBoton.isEnabled(), pt.paso1.estado.text()

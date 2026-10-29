@@ -180,9 +180,10 @@ gráficas» de la Sede Electrónica del Catastro (el plugin no envía nada: el f
 
 <h2 id="edificio">Crear el GML de edificio (ICUC)</h2>
 <p>El GML de edificio sirve para el Informe Catastral de Ubicación de las Construcciones (ICUC). En la pestaña
-<strong>Edificio</strong> elija la capa con la <strong>huella</strong> de cada construcción (el contorno a nivel del suelo,
+<strong>Edificio</strong>, que va por pasos como Parcela (1. Construcciones, 2. Parcela, 3. Revisar, 4. Crear), elija
+la capa con la <strong>huella</strong> de cada construcción (el contorno a nivel del suelo,
 sin vuelos, terrazas ni balcones). Tras descargar una parcela con sus construcciones, la capa «Construcciones» pasa sola a
-esta pestaña. Escriba la referencia catastral de la parcela (o, si aún no existe, su identificador en la escritura): los
+esta pestaña. En «2. Parcela» escriba la referencia catastral de la parcela (o, si aún no existe, su identificador en la escritura): los
 identificadores se proponen como pide la Dirección General del Catastro, la referencia si hay un solo edificio y
 <code>RC_Edificio_1</code>, <code>RC_Edificio_2</code>… si hay varios; las piscinas, <code>RC_Piscina_1</code>…</p>
 <figure><img src="img/edificio.png" class="panel" alt="Pestaña Edificio con las construcciones de la parcela descargada."><figcaption>Pestaña Edificio con las construcciones de la parcela descargada.</figcaption></figure>
@@ -201,13 +202,16 @@ plantas. La tabla se actualiza sola. No elija la capa de la parcela: sus polígo
   es una huella; las abiertas (cotas, ejes…) no se usan y se avisa de cuántas hay. Si la capa de dibujo se llama algo
   como «PISCINA», esas huellas se proponen como piscinas. Un DXF no guarda el SRC: si QGIS lo abre en uno que no encaja
   con las coordenadas, el panel lo avisa y hay que asignarle el correcto (p. ej. EPSG:25830) en sus propiedades. Para
-  quedarse solo con algunas líneas, selecciónelas y marque «Solo los seleccionados», o pulse
+  quedarse solo con algunas líneas, selecciónelas y marque «Solo las seleccionadas», o pulse
   <strong>Editar una copia</strong>.</li>
 </ul>
 <p>En la tabla puede cambiar el <strong>tipo</strong> (edificio o piscina), las <strong>plantas sobre rasante</strong> (la
 máxima si varía; son obligatorias en los edificios) y el identificador. Un edificio puede tener varias partes (toda su huella); cada piscina, una sola.
 Cada edificio lleva su <strong>estado</strong> en la tabla (terminado, en construcción, proyectado…; las piscinas no lo
-llevan). Elija la fecha, el SRC y el fichero, y pulse <strong>Crear GML</strong>. El fichero se escribe en ISO-8859-1, como el ejemplo oficial.</p>
+llevan). En «4. Crear» elija el fichero y pulse <strong>Crear GML</strong>. El campo de plantas de la capa, la fecha, la
+<strong>precisión</strong> de las huellas (0,1 m si salen de un levantamiento, del proyecto o de un DXF; 10 m si se han
+medido sobre la ortofoto) y el SRC están en <strong>Opciones avanzadas</strong>, plegadas: casi siempre valen los
+automáticos. El fichero se escribe en ISO-8859-1, como el ejemplo oficial.</p>
 <p>Con el botón <strong>Validar</strong> del resultado se abre en la pestaña Validar. Allí, <strong>Comparar con el
 Catastro</strong> sitúa cada construcción respecto a la parcela catastral vigente, como el ICUC: entera dentro (informe
 positivo), en parte fuera (informe negativo: el ICUC exige que esté «en su integridad» dentro de la parcela, sin

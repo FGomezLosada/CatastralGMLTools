@@ -39,7 +39,7 @@ Cada batería recorre las categorías que le apliquen:
 | Validar: comparación con el Catastro | `comparacion_casos_test.py` (44 casos) | ✅ 19/10/2026: una RC inexistente en un GML de edificio decía «no se ha podido comparar»; si la red caía a mitad, una referencia se daba por inexistente; con geometría inválida, GEOS fallaba por dentro |
 | Parcela: crear GML desde una capa y asistente de alteraciones | `parcela_casos_test.py` (25 capas + interacción) | ✅ 19/10/2026: quitar la capa en uso pasaba a otra sin avisar; mensajes de astilla y de elemento sin geometría que no se entendían; más de 30 parcelas sin aviso al crear |
 | Parcela: dividir y unir seleccionadas | `division_casos_test.py` (9 formas × modos × valores × lados: 1404 divisiones; unión con rendijas, huecos y patios) | ✅ 19/10/2026 |
-| Parcela por pasos (U-01/U-02): pasos, opciones avanzadas, «Unir parcelas» y «Dividir parcela ▸», solo las seleccionadas | `parcela_pasos_test.py` (8 casos) | ✅ 28/10/2026 |
+| Parcela y Edificio por pasos (U-01/U-02/U-04/U-08): pasos, opciones avanzadas, «Unir parcelas» y «Dividir parcela ▸», solo las seleccionadas, capa temporal, vista del GML y cambios sin guardar | `parcela_pasos_test.py` (11 casos) | ✅ 29/10/2026 |
 | Edificio: GML de construcciones (ICUC) | `edificio_casos_test.py` (20 capas + sin referencia) | ✅ 19/10/2026 |
 | Descargar: por referencia y en el mapa | `descargar_casos_test.py` (22 casos + pestaña) | ✅ 19/10/2026: una RC inexistente decía «…no se ha encontrado la parcela X para el huso 25830» (el huso confundía) |
 | Utilidades «1. Unir ficheros GML» | `unir_casos_test.py` | ✅ |
