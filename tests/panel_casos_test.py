@@ -19,7 +19,7 @@ from qgis.core import Qgis, QgsApplication, QgsProject
 from qgis.gui import QgsMapToolPan
 from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QFontMetrics, QTextDocument
-from qgis.PyQt.QtWidgets import QAbstractButton, QLabel, QMessageBox, QTextBrowser
+from qgis.PyQt.QtWidgets import QAbstractButton, QApplication, QLabel, QMessageBox, QTextBrowser
 
 import catastral_gml_tools  # noqa: E402
 import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa: E402
@@ -320,6 +320,27 @@ def capas_quitadas():
 
 
 caso("quitar todas las capas del proyecto con el panel abierto", capas_quitadas)
+
+
+def mensaje_ancho():
+    #Prueba a mano del 29/10/2026: el icono dejaba un hueco a su izquierda y el texto y los botones, apretados a la derecha
+    dw.messageBar.clearWidgets()
+    dw.resize(540, 700)
+    mensaje = dw.success("GML creado: Parcela_1907401VK4810H.gml · 2 parcelas · EPSG:25830 · Segregación",
+                         [("Validar", dw.messageBar.clearWidgets)])
+    for _ in range(5):
+        QApplication.processEvents()
+    disposicion = mensaje.layout()
+    widgets = [disposicion.itemAt(i).widget() for i in range(disposicion.count()) if disposicion.itemAt(i).widget()]
+    icono = next((w for w in widgets if isinstance(w, QLabel) and w.pixmap() is not None and not w.pixmap().isNull()), None)
+    contenido = next((w for w in widgets if w.layout() is not None), None)
+    ok = (icono is not None and contenido is not None and icono.width() <= icono.pixmap().width() + 8
+          and contenido.width() >= 0.75 * mensaje.width())
+    dw.messageBar.clearWidgets()
+    return ok, [(type(w).__name__, w.width()) for w in widgets] + [mensaje.width()]
+
+
+caso("los mensajes finales usan todo el ancho: el icono no deja un hueco a su izquierda", mensaje_ancho)
 
 
 # 4. Que se entienda en un panel estrecho

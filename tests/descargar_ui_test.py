@@ -69,12 +69,18 @@ comprobacion = integrada and vacia and corta and foral and rustica and inmueble 
 # 2. Descarga: grupo, capas en orden, estilo y fuente (sin fondo: se prueba aparte, depende de la conexión)
 sin_capa_parcela = dw.pestanaParcela.capa() is None  #La pestaña Parcela puede quedarse sin capa
 pes.fondo.setChecked(False)
+raiz.insertGroup(0, pd.GRUPO_DESCARGAS_ANTIGUO)  #Un proyecto guardado con el nombre anterior del grupo
 capas = pes.descargar(segundo_plano=False)
 grupo = raiz.findGroup(f'Catastro {sim.RC}')
+#El grupo dice que son temporales (U-04), y el de un proyecto anterior se renombra en lugar de duplicarse
+temporales = (pd.GRUPO_DESCARGAS == 'Descargas del Catastro (temporales)'
+              and raiz.findGroup(pd.GRUPO_DESCARGAS_ANTIGUO) is None
+              and len([g for g in raiz.children() if g.name() == pd.GRUPO_DESCARGAS]) == 1)
 nombres = [n.name() for n in grupo.children()] if grupo else []
 #Dentro de «Descargas del Catastro», arriba del proyecto (USABILIDAD U-06)
 orden = (nombres == ['Construcciones', f'Parcela {sim.RC}', 'Colindantes', 'Entorno']
-         and raiz.children()[0].name() == pd.GRUPO_DESCARGAS and raiz.children()[0].children()[0] is grupo)
+         and raiz.children()[0].name() == pd.GRUPO_DESCARGAS and raiz.children()[0].children()[0] is grupo
+         and temporales)
 parcela = capas['parcela'] if capas else None
 fuente = (parcela is not None and all('Dirección General del Catastro' in c.metadata().rights()[0]
                                       and 'descargado el' in c.customProperty(pd.PROPIEDAD_FUENTE) for c in capas.values())

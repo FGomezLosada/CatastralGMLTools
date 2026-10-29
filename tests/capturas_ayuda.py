@@ -19,7 +19,14 @@ import qgis.utils
 from qgis.core import QgsApplication, QgsMapRendererParallelJob, QgsMapSettings, QgsProject, QgsVectorLayer
 from qgis.PyQt.QtCore import QEvent, QSize, Qt
 from qgis.PyQt.QtGui import QColor
-from qgis.PyQt.QtWidgets import QAbstractItemView, QApplication, QMessageBox
+from qgis.PyQt.QtWidgets import (
+    QAbstractItemView,
+    QApplication,
+    QListWidget,
+    QMessageBox,
+    QScrollArea,
+    QTableWidget,
+)
 
 qgis.utils.reloadPlugin('catastral_gml_tools')
 import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa: E402
@@ -60,11 +67,51 @@ def esperar():
         QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
+def alto_lista(vista):
+    """Alto justo para ver sus filas (al menos dos), sin el hueco en blanco de debajo."""
+    marco = 2 * vista.frameWidth()
+    barra = vista.horizontalScrollBar().sizeHint().height() if vista.horizontalScrollBar().isVisible() else 0
+    if isinstance(vista, QTableWidget):
+        filas = sum(vista.rowHeight(r) for r in range(vista.rowCount()))
+        minimo = 2 * vista.verticalHeader().defaultSectionSize()
+        return vista.horizontalHeader().height() + max(filas, minimo) + marco + barra + 2
+    vista.doItemsLayout()  #Con el texto partido en líneas al ancho de ahora
+    filas = sum(vista.visualItemRect(vista.item(r)).height() + vista.spacing() for r in range(vista.count()))
+    return max(filas, 3 * vista.fontMetrics().height() + 12) + marco + barra + 2
+
+
+def compactar():
+    """
+    Tablas y listas al alto de su contenido y el panel al alto de lo que se ve (prueba a mano del 29/10/2026: en las
+    capturas, las tablas estiradas dejaban grandes cuadros en blanco que no aportaban nada). Devuelve lo cambiado.
+    """
+    pagina = dw.tabWidget.currentWidget()
+    cambiadas = []
+    for vista in pagina.findChildren(QAbstractItemView):
+        if isinstance(vista, (QTableWidget, QListWidget)) and vista.isVisibleTo(pagina):
+            cambiadas.append((vista, vista.minimumHeight(), vista.maximumHeight()))
+            vista.setFixedHeight(alto_lista(vista))
+    esperar()
+    zona = next((z for z in pagina.findChildren(QScrollArea) if z.widget() is not None and z.parent() is pagina), None)
+    if zona is not None:
+        necesario = pagina.height() - zona.viewport().height() + zona.widget().sizeHint().height()
+    else:
+        necesario = pagina.sizeHint().height()
+    dw.resize(ANCHO, dw.height() - pagina.height() + necesario + 4)
+    return cambiadas
+
+
 def captura(nombre, widget=None):
     esperar()
-    imagen = (widget or dw.widget()).grab()
+    cambiadas = compactar() if widget is None else []
+    esperar()
+    imagen = (widget or dw.widget()).grab()  #A doble resolución (QT_SCALE_FACTOR=2 en tools\capturas.bat)
     imagen.save(os.path.join(SALIDA, nombre), 'PNG')
     hechas.append((nombre, imagen.width(), imagen.height()))
+    for vista, minimo, maximo in cambiadas:
+        vista.setMinimumHeight(minimo)
+        vista.setMaximumHeight(maximo)
+    dw.resize(ANCHO, ALTO)
 
 
 def capas_visibles():
@@ -88,7 +135,8 @@ def mapa(nombre, centro, factor=1.15, ancho=760, alto=440):
         if c.crs() == centro.crs() and c.extent().width() < 20 * max(centro.extent().width(), 1):
             extension.combineExtentWith(c.extent())
     extension.scale(factor)
-    ajustes.setOutputSize(QSize(ancho, alto))
+    ajustes.setOutputSize(QSize(2 * ancho, 2 * alto))  #A doble resolución, como el panel: se ve nítido en la ayuda
+    ajustes.setDevicePixelRatio(2)
     ajustes.setExtent(extension)
     ajustes.setBackgroundColor(QColor('white'))
     trabajo = QgsMapRendererParallelJob(ajustes)
