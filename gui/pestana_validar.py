@@ -541,9 +541,10 @@ class PestanaValidar(QWidget):
             if comparacion.edificio or any(i.nivel == ERROR for i in self.informe.incidencias):
                 self.dock.success(texto)
             elif 'XSD-VALIDO' in codigos:
-                #Último paso del trabajo (U-07): subirlo a la Sede, que es la que emite el informe que vale
-                self.dock.success(f"{texto}. Siguiente paso: súbalo a la Sede Electrónica del Catastro («Validaciones "
-                                  f"gráficas»), que emite el informe de validación gráfica: {os.path.basename(self.ruta)}",
+                #Último paso del trabajo (U-07): subirlo a la Sede, que es la que emite el informe que vale. Corto (la
+                #operación sin NPO/NPP ni explicación, que ya están en la lista): eran cinco líneas (prueba del 28/10)
+                self.dock.success(f"Comparación con el Catastro: {corto}, contorno coincidente. Siguiente paso: súbalo a "
+                                  f"la Sede Electrónica del Catastro («Validaciones gráficas»): {os.path.basename(self.ruta)}",
                                   [("Abrir carpeta", self.abrir_carpeta_gml), ("Abrir la Sede", self.abrir_sede)])
             else:
                 falta = ("aún se está comprobando el esquema XSD: espere a que termine" if self.tarea is not None

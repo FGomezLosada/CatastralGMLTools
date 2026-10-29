@@ -350,7 +350,8 @@ class PestanaParcela(QWidget):
         """Señales de la capa que sigue la tabla: selección y ediciones (dibujar, dividir, deshacer…)."""
         return [(capa.selectionChanged, self.seleccion_cambiada), (capa.featureAdded, self.capa_editada),
                 (capa.featuresDeleted, self.capa_editada), (capa.geometryChanged, self.capa_editada),
-                (capa.attributeValueChanged, self.capa_editada), (capa.afterRollBack, self.capa_editada)]
+                (capa.attributeValueChanged, self.capa_editada), (capa.afterRollBack, self.capa_editada),
+                (capa.afterCommitChanges, self.capa_editada), (capa.layerModified, self.capa_modificada)]
 
     def activar_capa(self):
         """
@@ -401,11 +402,18 @@ class PestanaParcela(QWidget):
         capa = self.capa()
         n = capa.selectedFeatureCount() if capa is not None else 0
         self.unirBoton.setEnabled(n >= 2)
-        self.unirInfo.setVisible(n >= 2)
+        #La explicación, solo antes de unir o dividir: justo después, las piezas quedan seleccionadas y sugerir unirlas
+        #confundía (prueba a mano del 28/10)
+        self.unirInfo.setVisible(n >= 2 and self.antes_union is None)
         if n >= 2:
             self.unirInfo.setText(f"<small style='color:#666'>«Unir parcelas» une en una las {n} seleccionadas, al "
                                   "momento; Ctrl+Z lo deshace.</small>")
         self.actualizar_paso1()
+
+    def capa_modificada(self, *args):
+        """La capa pasa a tener cambios sin guardar (llega después de cada edición): se dice junto a «1. Parcelas»."""
+        if not sip.isdeleted(self):
+            self.actualizar_paso1()
 
     def actualizar_paso1(self):
         """Junto al título «1. Parcelas», con cuántas se trabaja; en naranja si hay una selección que no se usa (U-02)."""
@@ -422,6 +430,15 @@ class PestanaParcela(QWidget):
                                     "«Solo las seleccionadas» si son las de la operación", '#e67700')
         else:
             self.paso1.poner_estado(f"{miles(total)} parcela{'' if total == 1 else 's'}", '#495057')
+        #U-04: la capa es la que va al GML tal como está, también con lo editado antes y sin guardar (prueba a mano del
+        #28/10: una unión de una prueba anterior acabó en el GML)
+        if capa.isModified():
+            self.paso1.estado.setText(self.paso1.estado.text() + " <span style='color:#e67700'>· con cambios sin "
+                                      "guardar</span>")
+            self.paso1.estado.setToolTip("La capa está en edición con cambios sin guardar, y el GML los incluye. Si son "
+                                         "de una prueba anterior, deshágalos (Ctrl+Z) o descarte la edición")
+        else:
+            self.paso1.estado.setToolTip('')
 
     def abrir_division(self, abierto):
         """Botón «Dividir parcela»: abre o pliega sus opciones, justo debajo."""

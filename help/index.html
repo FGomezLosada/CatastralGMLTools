@@ -16,6 +16,11 @@
   th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--suave); vertical-align: top; }
   th { background: var(--suave); }
   small { opacity: .8; }
+  figure { margin: 14px 0; }
+  figure img { max-width: 100%; height: auto; border: 1px solid var(--suave); border-radius: 4px; }
+  figure img.panel { max-width: 440px; }
+  figcaption { font-size: .88em; opacity: .8; }
+  .capturas { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
 </style>
 </head>
 <body>
@@ -34,6 +39,7 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
 <h2 id="flujo">Flujo de trabajo: de la referencia catastral a la Sede</h2>
 <p>El trabajo habitual tiene cinco pasos. Al terminar cada uno, el mensaje verde de arriba del panel lleva el botón del
 siguiente, así que se puede seguir sin buscar la pestaña.</p>
+<p><small>Las capturas de esta ayuda están hechas con el panel real y parcelas <strong>inventadas</strong> (datos de ejemplo, no del Catastro).</small></p>
 <table>
   <tr><th>Paso</th><th>Dónde</th><th>Qué hacer</th><th>Botón al terminar</th></tr>
   <tr><td>1. Descargar</td><td>Descargar</td><td>Escriba la referencia catastral (o elija la parcela en el mapa) y pulse
@@ -71,6 +77,7 @@ huellas de las construcciones, plantas y estado, Crear GML, Validar y subirlo a 
       (o repara uno 4.0), hace el informe de superficies y coordenadas, ajusta un levantamiento a la cartografía
       catastral desplazada o girada, compara dos GML y crea parcelas desde un fichero de coordenadas.</td></tr>
 </table>
+<figure><img src="img/utilidades.png" class="panel" alt="Pestaña Utilidades: una lista numerada; solo se abre la que se usa."><figcaption>Pestaña Utilidades: una lista numerada; solo se abre la que se usa.</figcaption></figure>
 
 <p>La pestaña <strong>Utilidades</strong> es una lista numerada: pulse el nombre de una para abrirla (al pasar el ratón se
 ve qué hace). Si la pestaña Parcela no cabe en la pantalla, se desplaza con su barra (o con la rueda del ratón). La rueda no
@@ -101,6 +108,7 @@ el contorno de las parcelas resultantes coincida con el de las de origen con ±1
       en una agrupación).</li>
   <li><strong>4. Crear.</strong> Indique el fichero y pulse <strong>Crear GML</strong>.</li>
 </ol>
+<div class="capturas"><figure><img src="img/parcela.png" class="panel" alt="Pestaña Parcela por pasos, con la parcela seleccionada en el mapa: «1 de 1 seleccionada»."><figcaption>Pestaña Parcela por pasos, con la parcela seleccionada en el mapa: «1 de 1 seleccionada».</figcaption></figure><figure><img src="img/parcela_creado.png" class="panel" alt="Tras dividirla y pulsar Crear GML: el mensaje lleva el botón «Validar»."><figcaption>Tras dividirla y pulsar Crear GML: el mensaje lleva el botón «Validar».</figcaption></figure></div>
 <p><strong>Opciones avanzadas</strong> (plegadas, encima de «4. Crear»): el campo con el <strong>nº de parcela</strong> del
 plano (si no, se deduce de la referencia), la <strong>fecha y hora</strong> del GML (por defecto, ahora) y el
 <strong>SRC</strong> (por defecto, automático según la posición). Casi siempre valen los automáticos; si el SRC no se
@@ -108,6 +116,9 @@ puede deducir, se abren solas.</p>
 <p><strong>Alteración.</strong> Elija en el desplegable la operación (segregación, división, agregación, agrupación o
 subsanación) y el plugin propone el identificador y el namespace de cada parcela, muestra el reparto de superficies y avisa
 si la tabla no encaja con la operación. Los nombres que escriba usted se respetan.</p>
+<p><strong>Cambios sin guardar.</strong> El GML se crea con la capa tal como está, también con lo que se editó antes y no
+se ha guardado: mientras la capa tenga cambios sin guardar, junto a «1. Parcelas» se avisa en naranja «con cambios sin
+guardar». Si son de una prueba anterior, deshágalos (Ctrl+Z) o descarte la edición antes de crear el GML.</p>
 <p><strong>El fichero que se sube a la Sede es el que crea el botón Crear GML</strong> (el de la casilla «Fichero»). Las capas
 que el plugin añade al mapa (la descargada o la «vista del GML») son temporales, solo para ver y editar: no las guarde con
 «Guardar como» GML de QGIS, que escribe un GML genérico y no el INSPIRE CadastralParcels 4.0 que pide la Sede.</p>
@@ -132,6 +143,7 @@ Además, en segundo plano, se comprueba contra el esquema XSD oficial de INSPIRE
 se usan los esquemas guardados). Un GML grande (una manzana o un polígono entero) se lee y se valida en segundo plano:
 QGIS no se queda esperando. El resultado sale en verde, naranja o rojo con la lista de errores y avisos; al elegir uno
 se marca su parcela. Recuerde que la validación definitiva es la de la Sede: hay reglas que la DGC no publica.</p>
+<figure><img src="img/validar.png" class="panel" alt="Validar tras «Comparar con el Catastro» sin errores: «Siguiente paso» y el botón «Abrir la Sede»."><figcaption>Validar tras «Comparar con el Catastro» sin errores: «Siguiente paso» y el botón «Abrir la Sede».</figcaption></figure>
 <p>El botón <strong>Comparar con el Catastro</strong> (necesita internet) descarga las parcelas catastrales vigentes que hay
 bajo el GML y hace las comprobaciones del informe de validación gráfica de la Sede: cuántas parcelas catastrales se ven afectadas
 (NPO) y cuántas trae el GML (NPP), qué operación resulta (segregación, división, agregación, agrupación o subsanación), si el
@@ -173,6 +185,7 @@ sin vuelos, terrazas ni balcones). Tras descargar una parcela con sus construcci
 esta pestaña. Escriba la referencia catastral de la parcela (o, si aún no existe, su identificador en la escritura): los
 identificadores se proponen como pide la Dirección General del Catastro, la referencia si hay un solo edificio y
 <code>RC_Edificio_1</code>, <code>RC_Edificio_2</code>… si hay varios; las piscinas, <code>RC_Piscina_1</code>…</p>
+<figure><img src="img/edificio.png" class="panel" alt="Pestaña Edificio con las construcciones de la parcela descargada."><figcaption>Pestaña Edificio con las construcciones de la parcela descargada.</figcaption></figure>
 <p>Si la parcela no tiene construcciones en el Catastro (o son otras), pulse <strong>Dibujar huellas</strong>: se crea una
 capa temporal en edición y se activa la herramienta de dibujo; al cerrar cada polígono elija si es edificio o piscina y sus
 plantas. La tabla se actualiza sola. No elija la capa de la parcela: sus polígonos son parcelas, no huellas.</p>
@@ -230,6 +243,7 @@ el mismo botón (▾) las pliega. Elija cómo dividir (como la división automá
   <li><strong>Cuotas</strong>: proporciones; <code>1 1 2</code> es lo mismo que <code>25 25 50</code> %.</li>
   <li><strong>Franjas</strong> de ancho fijo en metros, medido en perpendicular a los linderos nuevos; lo que sobra es una parcela más.</li>
 </ul>
+<div class="capturas"><figure><img src="img/parcela_dividir.png" class="panel" alt="«Dividir parcela ▾» abierto: en dos partes iguales, con las superficies antes de dividir."><figcaption>«Dividir parcela ▾» abierto: en dos partes iguales, con las superficies antes de dividir.</figcaption></figure><figure><img src="img/mapa_division.png" alt="En el mapa, la parcela dividida: la nueva se rotula «(nueva)»."><figcaption>En el mapa, la parcela dividida: la nueva se rotula «(nueva)».</figcaption></figure></div>
 <p>Debajo de «Valores» se recuerda qué escribir en el modo elegido. Al volver a la pestaña Parcela (por ejemplo, después
 de validar), su capa pasa a ser la capa activa de QGIS: así la selección en el mapa y Ctrl+Z actúan sobre ella y no sobre
 la vista del GML.</p>
@@ -398,6 +412,7 @@ están en zonas separadas, la Sede trata el fichero como una sola operación y n
       se usa la de su parcela) y pulse <strong>Descargar</strong>. No hace falta tener ningún mapa cargado.</li>
   <li><strong>En el mapa:</strong> pulse <strong>Elegir en el mapa</strong>, acérquese a la zona y haga clic sobre la parcela.</li>
 </ul>
+<div class="capturas"><figure><img src="img/descargar.png" class="panel" alt="Pestaña Descargar tras descargar una parcela: el mensaje lleva «Ir a Parcela» e «Ir a Edificio»."><figcaption>Pestaña Descargar tras descargar una parcela: el mensaje lleva «Ir a Parcela» e «Ir a Edificio».</figcaption></figure><figure><img src="img/mapa_descarga.png" alt="En el mapa: la parcela (naranja), sus construcciones (rojo), las colindantes (gris) y un camino de dominio público (azul)."><figcaption>En el mapa: la parcela (naranja), sus construcciones (rojo), las colindantes (gris) y un camino de dominio público (azul).</figcaption></figure></div>
 <p>Con la casilla <strong>Mapa de fondo</strong> se añade, si no está, la cartografía del Catastro (la de la DGC y, para Navarra, la del
 Gobierno de Navarra) sobre la ortofoto PNOA del IGN (servicios WMS públicos), para localizar la parcela aunque el proyecto esté vacío. Si alguno de esos servicios no responde o está en
 mantenimiento, debajo de las casillas se dice qué capa falta y por qué (con el horario o el aviso que dé el propio
