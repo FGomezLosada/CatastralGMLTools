@@ -51,6 +51,7 @@ Detalle del plan en `docs/DESARROLLO.md`; pendientes de usabilidad en `docs/USAB
 - Hecho el 28/10: punto 2, **Parcela por pasos (U-01/U-02)** (`parcela_pasos_test.py`). Esperando la prueba a mano.
 - Hecho el 28/10: punto 3, **flujo guiado (U-07)**: ayuda con tabla de pasos y botón «Abrir la Sede» en Validar.
 - U-04 hecho el 29/10 (capas temporales, vista del GML y cambios sin guardar junto a «1. Parcelas»).
-- Quedan de usabilidad: U-08 (Edificio), U-09 (pestañas).
+- Revisión de usabilidad terminada el 29/10 (U-08 Edificio por pasos; U-09 confirmado). Lo siguiente: campaña de
+  pruebas a mano y lo que salga de ella; luego AU-56/AU-54 cuando haya datos.
 - En espera: AU-56 (IVG con XML adjunto, falta un PDF real), AU-54 (división con pivote y puntos de apoyo),
   «doble GML» (ninguna fuente oficial; preguntar al COAM), campaña de pruebas a mano.

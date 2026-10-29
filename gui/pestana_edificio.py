@@ -2,8 +2,9 @@
 Pestaña «Edificio»: crea el GML de edificio (modelo simplificado de la DGC: edificios y piscinas) para el Informe
 Catastral de Ubicación de las Construcciones (ICUC), a partir de una capa con las huellas.
 
-Flujo: capa (dibujada o la «Construcciones» descargada) → referencia de la parcela → tabla con una fila por
-construcción (tipo y plantas) → estado, fecha, SRC y fichero → Crear GML. Los identificadores se proponen según el
+Por pasos (USABILIDAD U-08): 1. Construcciones (la capa dibujada o la «Construcciones» descargada) → 2. Parcela (su
+referencia) → 3. Revisar (tabla con una fila por construcción: tipo, plantas y estado) → 4. Crear (fichero); el campo de
+plantas, la fecha, la precisión y el SRC, en «Opciones avanzadas». Los identificadores se proponen según el
 formato de la DGC (RC, RC_Edificio_N, RC_Piscina_N) y se pueden cambiar en la tabla.
 
 copyright : (C) 2026 by Francisco Gómez Losada
@@ -14,7 +15,7 @@ import os
 import re
 
 from qgis.core import Qgis, QgsApplication, QgsCoordinateReferenceSystem, QgsProject
-from qgis.gui import QgsFieldComboBox, QgsFileWidget, QgsMapLayerComboBox
+from qgis.gui import QgsCollapsibleGroupBox, QgsFieldComboBox, QgsFileWidget, QgsMapLayerComboBox
 from qgis.PyQt import sip
 from qgis.PyQt.QtCore import QDateTime, Qt, QTime, QTimer
 from qgis.PyQt.QtWidgets import (
@@ -70,8 +71,15 @@ class PestanaEdificio(QWidget):
     # ------------------------------------------------------------------ Interfaz
 
     def construir(self):
+        """
+        Por pasos, como Parcela (USABILIDAD U-08): 1. Construcciones (capa o «Dibujar huellas») → 2. Parcela (su
+        referencia) → 3. Revisar (tabla) → 4. Crear; el campo de plantas, la fecha, la precisión y el SRC, en «Opciones
+        avanzadas», plegadas.
+        """
         principal = QVBoxLayout(self)
         principal.setContentsMargins(0, 0, 0, 0)
+        self.paso1 = desplazable.TituloPaso(1, "Construcciones", self)
+        principal.addWidget(self.paso1)
         formulario = QFormLayout()
 
         self.capaCombo = QgsMapLayerComboBox(self)
@@ -90,23 +98,22 @@ class PestanaEdificio(QWidget):
         fila_capa.addWidget(self.nuevaBoton)
         formulario.addRow("Capa", fila_capa)
 
-        self.soloSeleccion = QCheckBox("Solo los seleccionados", self)
-        self.soloSeleccion.setToolTip("Solo los elementos seleccionados en el mapa (o en la tabla de atributos) de la capa")
+        self.soloSeleccion = QCheckBox("Solo las seleccionadas en el mapa", self)
+        self.soloSeleccion.setToolTip("Solo las construcciones seleccionadas en el mapa (o en la tabla de atributos) de la capa")
         formulario.addRow("", self.soloSeleccion)
+        principal.addLayout(formulario)
 
+        principal.addWidget(desplazable.TituloPaso(2, "Parcela", self))
+        parcela = QFormLayout()
         self.referencia = QLineEdit(self)
         self.referencia.setPlaceholderText("Referencia catastral de la parcela (14 caracteres)")
         self.referencia.setToolTip("Referencia de la parcela donde están las construcciones: es la base de los "
                                    "identificadores (RC, RC_Edificio_1, RC_Piscina_1…).\nSi la parcela aún no existe en el "
                                    "Catastro, el identificador que tenga en la escritura")
-        formulario.addRow("Parcela", self.referencia)
+        parcela.addRow("Referencia", self.referencia)
+        principal.addLayout(parcela)
 
-        self.campoPlantas = QgsFieldComboBox(self)
-        self.campoPlantas.setAllowEmptyFieldName(True)
-        self.campoPlantas.setToolTip("Campo con el número de plantas sobre rasante (opcional; se puede escribir en la tabla)")
-        formulario.addRow("Campo de plantas", self.campoPlantas)
-        principal.addLayout(formulario)
-
+        principal.addWidget(desplazable.TituloPaso(3, "Revisar", self))
         self.tabla = desplazable.TablaFlexible(0, len(CABECERAS), self)
         self.tabla.setHorizontalHeaderLabels(CABECERAS)
         self.tabla.verticalHeader().setVisible(False)
@@ -125,7 +132,16 @@ class PestanaEdificio(QWidget):
         self.resumen.setWordWrap(True)
         principal.addWidget(self.resumen)
 
-        salida = QFormLayout()
+        #Opciones avanzadas (plegadas): casi siempre valen las automáticas
+        self.avanzadas = QgsCollapsibleGroupBox("Opciones avanzadas", self)
+        self.avanzadas.setSaveCollapsedState(False)
+        self.avanzadas.setToolTip("Campo de plantas, fecha y hora, precisión de las huellas y SRC del GML: casi siempre "
+                                  "valen los automáticos")
+        salida = QFormLayout(self.avanzadas)
+        self.campoPlantas = QgsFieldComboBox(self)
+        self.campoPlantas.setAllowEmptyFieldName(True)
+        self.campoPlantas.setToolTip("Campo con el número de plantas sobre rasante (opcional; se puede escribir en la tabla)")
+        salida.addRow("Campo de plantas", self.campoPlantas)
 
         ahora = QDateTime.currentDateTime()
         ahora.setTime(QTime(ahora.time().hour(), ahora.time().minute()))
@@ -148,7 +164,11 @@ class PestanaEdificio(QWidget):
                              (32628, 'WGS84 / UTM 28N (Canarias)')):
             self.srcCombo.addItem(f"EPSG:{epsg} · {nombre}", epsg)
         salida.addRow("SRC", self.srcCombo)
+        self.avanzadas.setCollapsed(True)
+        principal.addWidget(self.avanzadas)
 
+        principal.addWidget(desplazable.TituloPaso(4, "Crear", self))
+        salida = QFormLayout()
         self.destino = QgsFileWidget(self)
         self.destino.setStorageMode(QgsFileWidget.StorageMode.SaveFile)
         self.destino.setFilter("GML (*.gml)")
@@ -237,7 +257,36 @@ class PestanaEdificio(QWidget):
     def senales(self, capa):
         return [(capa.selectionChanged, self.seleccion_cambiada), (capa.featureAdded, self.capa_editada),
                 (capa.featuresDeleted, self.capa_editada), (capa.attributeValueChanged, self.capa_editada),
-                (capa.geometryChanged, self.capa_editada), (capa.afterRollBack, self.capa_editada)]
+                (capa.geometryChanged, self.capa_editada), (capa.afterRollBack, self.capa_editada),
+                (capa.afterCommitChanges, self.capa_editada), (capa.layerModified, self.capa_modificada)]
+
+    def capa_modificada(self, *args):
+        if not sip.isdeleted(self):
+            self.actualizar_paso1()
+
+    def actualizar_paso1(self):
+        """Junto a «1. Construcciones»: cuántas, si la capa es temporal y si tiene cambios sin guardar (U-04, U-08)."""
+        capa = self.capa()
+        if capa is None:
+            self.paso1.poner_estado("elija la capa o pulse «Dibujar huellas»", '#495057')
+            self.paso1.estado.setToolTip('')
+            return
+        total, sel = capa.featureCount(), capa.selectedFeatureCount()
+        if self.soloSeleccion.isChecked():
+            self.paso1.poner_estado(f"{miles(sel)} de {miles(total)} seleccionada{'' if sel == 1 else 's'}")
+        else:
+            self.paso1.poner_estado(f"{miles(len(self.filas))} construcci{'ón' if len(self.filas) == 1 else 'ones'}",
+                                    '#495057')
+        texto, ayuda = self.paso1.estado.text(), []
+        if capa.providerType() == 'memory':
+            texto += " <span style='color:#495057'>· capa temporal</span>"
+            ayuda.append("Capa temporal (en memoria): se pierde al cerrar QGIS si no la guarda. El GML que se sube a la "
+                         "Sede es el fichero que cree en «4. Crear», no esta capa")
+        if capa.isModified():
+            texto += " <span style='color:#e67700'>· con cambios sin guardar</span>"
+            ayuda.append("La capa está en edición con cambios sin guardar, y el GML los incluye")
+        self.paso1.estado.setText(texto)
+        self.paso1.estado.setToolTip("\n".join(ayuda))
 
     def capa_editada(self, *args):
         """Al editar la capa (dibujar, mover vértices…) se recarga la tabla conservando lo escrito en ella (AU-17)."""
@@ -254,8 +303,12 @@ class PestanaEdificio(QWidget):
         return valores
 
     def seleccion_cambiada(self, *args):
-        if not sip.isdeleted(self) and self.soloSeleccion.isChecked():
+        if sip.isdeleted(self):
+            return
+        if self.soloSeleccion.isChecked():
             self.recargar()
+        else:
+            self.actualizar_paso1()
 
     def recargar(self, *args, conservar=False):
         anteriores = self.valores_tabla() if conservar else {}
@@ -324,6 +377,7 @@ class PestanaEdificio(QWidget):
         self.tabla.resizeColumnsToContents()
         self.tabla.setColumnWidth(COL_ID, max(self.tabla.columnWidth(COL_ID), 160))
         self.actualizar_superficies()
+        self.actualizar_paso1()
 
     def tipo_fila(self, i):
         combo = self.tabla.cellWidget(i, COL_TIPO)
@@ -380,7 +434,7 @@ class PestanaEdificio(QWidget):
                          "la capa «Construcciones» de la descarga o pulse «Dibujar huellas».</span>")
             elif self.demasiadas:
                 texto = (f"<i>Demasiadas construcciones: seleccione en el mapa las de la parcela (máximo {MAX_FILAS}) y "
-                         "marque «Solo los seleccionados».</i>")
+                         "marque «Solo las seleccionadas».</i>")
             else:
                 texto = ("<i>La capa no tiene polígonos (o no hay ninguno seleccionado). Dibuje la huella de cada "
                          "construcción con la herramienta de añadir polígono.</i>")
