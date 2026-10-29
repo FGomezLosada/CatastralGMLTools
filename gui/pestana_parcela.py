@@ -43,7 +43,7 @@ from ..core.ficheros import misma_ruta
 from ..core.incidencias import AVISO, ERROR, INFO
 from . import desplazable
 from .bloque_division import BloqueDivision
-from .pestana_validar import cargar
+from .pestana_validar import PROPIEDAD_GML, cargar
 
 COL_N, COL_ID, COL_NS, COL_LABEL, COL_AREA, COL_ESTADO = range(6)
 CABECERAS = ['Nº', 'Identificador (localId)', 'Namespace', 'Nº parcela', 'Sup. m²', 'Estado']
@@ -432,13 +432,22 @@ class PestanaParcela(QWidget):
             self.paso1.poner_estado(f"{miles(total)} parcela{'' if total == 1 else 's'}", '#495057')
         #U-04: la capa es la que va al GML tal como está, también con lo editado antes y sin guardar (prueba a mano del
         #28/10: una unión de una prueba anterior acabó en el GML)
+        texto, ayuda = self.paso1.estado.text(), []
+        vista = capa.customProperty(PROPIEDAD_GML)
+        if vista:  #La vista de un GML que cargó Validar: se puede usar, pero el GML de la Sede es el fichero
+            texto += f" <span style='color:#495057'>· vista de {html.escape(os.path.basename(vista))}</span>"
+            ayuda.append(f"Es la vista temporal del fichero {vista} (la carga Validar): el GML que se sube a la Sede es "
+                         "el fichero que cree en «4. Crear», no esta capa")
+        elif capa.providerType() == 'memory':
+            texto += " <span style='color:#495057'>· capa temporal</span>"
+            ayuda.append("Capa temporal (en memoria): se pierde al cerrar QGIS si no la guarda. El GML que se sube a la "
+                         "Sede es el fichero que cree en «4. Crear», no esta capa")
         if capa.isModified():
-            self.paso1.estado.setText(self.paso1.estado.text() + " <span style='color:#e67700'>· con cambios sin "
-                                      "guardar</span>")
-            self.paso1.estado.setToolTip("La capa está en edición con cambios sin guardar, y el GML los incluye. Si son "
-                                         "de una prueba anterior, deshágalos (Ctrl+Z) o descarte la edición")
-        else:
-            self.paso1.estado.setToolTip('')
+            texto += " <span style='color:#e67700'>· con cambios sin guardar</span>"
+            ayuda.append("La capa está en edición con cambios sin guardar, y el GML los incluye. Si son de una prueba "
+                         "anterior, deshágalos (Ctrl+Z) o descarte la edición")
+        self.paso1.estado.setText(texto)
+        self.paso1.estado.setToolTip("\n".join(ayuda))
 
     def abrir_division(self, abierto):
         """Botón «Dividir parcela»: abre o pliega sus opciones, justo debajo."""

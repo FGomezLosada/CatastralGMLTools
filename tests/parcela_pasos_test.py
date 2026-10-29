@@ -21,6 +21,7 @@ import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa
 from catastral_gml_tools.core import alteraciones as alt  # noqa: E402
 from catastral_gml_tools.gui import desplazable  # noqa: E402
 from catastral_gml_tools.gui import pestana_parcela as pp  # noqa: E402
+from catastral_gml_tools.gui.pestana_validar import PROPIEDAD_GML  # noqa: E402
 
 ventanas = []
 _originales = {n: getattr(QMessageBox, n) for n in ('warning', 'information', 'critical', 'question')}
@@ -226,6 +227,23 @@ def cambios_sin_guardar():
 
 caso("U-04: «con cambios sin guardar» junto a «1. Parcelas» mientras la capa tiene ediciones sin guardar",
      cambios_sin_guardar)
+
+
+def temporal_y_vista():
+    capa = capa_siete('Temporal')
+    pt.capaCombo.setLayer(capa)
+    temporal = 'capa temporal' in pt.paso1.estado.text() and '«4. Crear»' in pt.paso1.estado.toolTip()
+    capa.setCustomProperty(PROPIEDAD_GML, os.path.join(carpeta, 'levantamiento.gml'))  #Como una vista de Validar
+    pt.capaCombo.setLayer(None)
+    pt.capaCombo.setLayer(capa)
+    vista = ('vista de levantamiento.gml' in pt.paso1.estado.text() and 'capa temporal' not in pt.paso1.estado.text()
+             and 'vista temporal del fichero' in pt.paso1.estado.toolTip())
+    QgsProject.instance().removeMapLayer(capa.id())
+    return temporal and vista, (temporal, vista, pt.paso1.estado.text())
+
+
+caso("U-04: junto a «1. Parcelas», «capa temporal» o «vista de fichero.gml», con la explicación al pasar el ratón",
+     temporal_y_vista)
 
 
 def sin_capa():

@@ -17,7 +17,16 @@ from qgis.gui import QgsMessageBar
 from qgis.PyQt import QtWidgets, sip, uic
 from qgis.PyQt.QtCore import QEvent, QObject, Qt, QUrl
 from qgis.PyQt.QtGui import QDesktopServices
-from qgis.PyQt.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTextBrowser, QToolButton, QVBoxLayout, QWidget
+from qgis.PyQt.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QTextBrowser,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .core.ficheros import misma_ruta
 from .core.info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, ruta, version
@@ -63,6 +72,24 @@ class AjusteAltura(QObject):
             if alto > 0 and objeto.minimumHeight() != alto:
                 objeto.setMinimumHeight(alto)
         return False
+
+
+def ajustar_mensaje(mensaje, contenido):
+    """
+    El mensaje a todo el ancho de la barra: el icono se quedaba con un hueco ancho a su izquierda y el texto y los
+    botones, apretados a la derecha (prueba a mano del 29/10/2026). El icono, con su ancho; el contenido, con el resto.
+    """
+    disposicion = mensaje.layout()
+    if disposicion is None:
+        return
+    for i in range(disposicion.count()):
+        widget = disposicion.itemAt(i).widget()
+        if widget is contenido and hasattr(disposicion, 'setStretch'):
+            disposicion.setStretch(i, 1)
+        elif isinstance(widget, QLabel) and widget.pixmap() is not None and not widget.pixmap().isNull():
+            widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+            widget.setFixedWidth(widget.pixmap().width() + 8)
+    contenido.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
 
 def ajustar_altura(caja):
@@ -327,6 +354,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 fila.addWidget(boton)
             columna.addLayout(fila)
         mensaje = self.messageBar.createMessage(contenido)
+        ajustar_mensaje(mensaje, contenido)
         nivel = Qgis.MessageLevel.Warning if detalles else Qgis.MessageLevel.Success
         self.messageBar.pushWidget(mensaje, nivel, 0)
         return mensaje

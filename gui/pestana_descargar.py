@@ -500,7 +500,10 @@ def _con_fuente(capa, descarga, que):
     return capa
 
 
-GRUPO_DESCARGAS = "Descargas del Catastro"  #Todas las descargas, juntas (USABILIDAD U-06)
+#Todas las descargas, juntas (USABILIDAD U-06); «temporales»: son capas en memoria para ver y dibujar, no el GML que se
+#sube a la Sede (U-04)
+GRUPO_DESCARGAS = "Descargas del Catastro (temporales)"
+GRUPO_DESCARGAS_ANTIGUO = "Descargas del Catastro"  #Nombre hasta el 29/10/2026: en un proyecto guardado se renombra
 
 
 def cargar_descarga(descarga, iface=None):
@@ -513,7 +516,11 @@ def cargar_descarga(descarga, iface=None):
     """
     proyecto = QgsProject.instance()
     raiz = proyecto.layerTreeRoot()
-    contenedor = raiz.findGroup(GRUPO_DESCARGAS) or raiz.insertGroup(0, GRUPO_DESCARGAS)
+    contenedor = raiz.findGroup(GRUPO_DESCARGAS) or raiz.findGroup(GRUPO_DESCARGAS_ANTIGUO)
+    if contenedor is None:
+        contenedor = raiz.insertGroup(0, GRUPO_DESCARGAS)
+    contenedor.setName(GRUPO_DESCARGAS)
+    contenedor.setCustomProperty('catastral_gml_tools/temporal', True)
     nombre = f"Catastro {descarga.rc}"
     viejo = raiz.findGroup(nombre)
     if viejo is not None:

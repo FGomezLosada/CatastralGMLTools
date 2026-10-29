@@ -17,8 +17,8 @@
   th { background: var(--suave); }
   small { opacity: .8; }
   figure { margin: 14px 0; }
-  figure img { max-width: 100%; height: auto; border: 1px solid var(--suave); border-radius: 4px; }
-  figure img.panel { max-width: 440px; }
+  figure img { width: 760px; max-width: 100%; height: auto; border: 1px solid var(--suave); border-radius: 4px; }
+  figure img.panel { width: 540px; }  /* Capturas a doble resolución: a su tamaño, nítidas */
   figcaption { font-size: .88em; opacity: .8; }
   .capturas { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
 </style>
@@ -421,10 +421,15 @@ buscarla ni añadirla a mano, se vuelve a probar en cada descarga (o con «Reint
 Con el Catastro en mantenimiento tampoco se puede descargar: el panel lo dice con su horario.</p>
 <p>La parcela se descarga de los servicios públicos de la
 Dirección General del Catastro, en el huso UTM que le corresponde, y se añade al proyecto en un grupo
-«Catastro <em>referencia</em>», dentro de «Descargas del Catastro» (la última descarga arriba y abierta; las anteriores,
+«Catastro <em>referencia</em>», dentro de «Descargas del Catastro (temporales)» (la última descarga arriba y abierta; las anteriores,
 plegadas): la parcela, sus colindantes (las que la tocan, con su número de parcela), el entorno (las
 demás parcelas a menos de 25 m, por ejemplo al otro lado de la calle) y sus edificios y otras construcciones, según las
 casillas marcadas. Si la parcela está rodeada de calles, no tiene colindantes en el Catastro y solo verá el entorno.</p>
+<p><strong>Capas temporales y fichero GML.</strong> Las capas que añade el plugin (las descargas, la «vista del GML» de
+Validar y los grupos «Comparación») son temporales, en memoria: sirven para ver y dibujar, y se pierden al cerrar QGIS si
+no las guarda. Lo que se sube a la Sede es siempre el fichero que crea el botón <strong>Crear GML</strong>. En la pestaña
+Parcela, junto a «1. Parcelas», se recuerda si la capa elegida es temporal, si es la vista de un GML o si tiene cambios
+sin guardar.</p>
 <p><strong>Dominio público.</strong> En rústica, los caminos, carreteras, cauces y acequias son parcelas (numeradas del 9001 al
 9999 dentro de su polígono; la 9000 no es dominio público, es suelo que tributa como urbano). El plugin lo confirma con los datos públicos de la Dirección General del Catastro de cada parcela
 (su paraje y su uso, que se guardan en el campo <code>descripcion</code>): se ven en otro color (verde azulado) y, si lindan con
