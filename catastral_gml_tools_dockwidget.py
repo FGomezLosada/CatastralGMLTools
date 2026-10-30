@@ -175,7 +175,9 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         """Pestaña Edificio: GML de edificios y piscinas (ICUC) a partir de una capa con sus huellas."""
         self.tabEdificioPendiente.hide()
         self.pestanaEdificio = PestanaEdificio(self, self.tabEdificio)
-        self.tabEdificioLayout.insertWidget(1, self.pestanaEdificio, 1)
+        #En una zona desplazable, como Parcela: si no, al abrir «Opciones avanzadas» con un mensaje arriba el panel pedía
+        #más alto que la ventana y se metía bajo la barra de Windows (prueba a mano del 30/10/2026)
+        self.tabEdificioLayout.insertWidget(1, desplazable.envolver(self.pestanaEdificio, self.tabEdificio), 1)
 
     def setup_validar(self):
         """Pestaña Validar: abrir un GML, ver su contenido y cargarlo en el mapa."""

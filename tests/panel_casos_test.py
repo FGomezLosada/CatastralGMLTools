@@ -343,6 +343,23 @@ def mensaje_ancho():
 caso("los mensajes finales usan todo el ancho: el icono no deja un hueco a su izquierda", mensaje_ancho)
 
 
+def panel_bajo():
+    #Prueba a mano del 30/10/2026: con «Opciones avanzadas» abiertas en Edificio y un mensaje arriba, el panel pedía más
+    #alto que la ventana y se metía bajo la barra de Windows. Cada pestaña se desplaza: su alto mínimo es pequeño
+    limite = 18 * dw.fontMetrics().height()
+    dw.pestanaEdificio.avanzadas.setCollapsed(False)
+    dw.pestanaParcela.avanzadas.setCollapsed(False)
+    QApplication.processEvents()
+    altos = {dw.tabWidget.tabText(i): dw.tabWidget.widget(i).minimumSizeHint().height() for i in range(dw.tabWidget.count())}
+    dw.pestanaEdificio.avanzadas.setCollapsed(True)
+    dw.pestanaParcela.avanzadas.setCollapsed(True)
+    return all(a <= limite for a in altos.values()), (limite, altos)
+
+
+caso("cabe en una pantalla baja: ninguna pestaña pide más alto del que hay (se desplaza), también con opciones abiertas",
+     panel_bajo)
+
+
 # 4. Que se entienda en un panel estrecho
 def botones():
     sin_texto = []

@@ -57,9 +57,11 @@ pt = dw.pestanaParcela
 proyecto = QgsProject.instance()
 
 # 1. Contenido desplazable en todas las pestañas; tabla con alto mínimo
-#Solo Parcela (la larga) se desplaza si no cabe; las demás, sin zona desplazable (con ella parecían una página web: 15/10)
-otras = (dw.pestanaDescargar, dw.pestanaEdificio, dw.pestanaValidar, dw.pestanaUtilidades)
+#Parcela y Edificio (las largas, por pasos) se desplazan si no caben; las demás, sin zona desplazable (con ella parecían
+#una página web: 15/10). Edificio desde el 30/10: con las opciones abiertas se metía bajo la barra de Windows
+otras = (dw.pestanaDescargar, dw.pestanaValidar, dw.pestanaUtilidades)
 desplazables = (isinstance(pt.parentWidget().parentWidget(), QScrollArea)
+                and isinstance(dw.pestanaEdificio.parentWidget().parentWidget(), QScrollArea)
                 and not any(isinstance(p.parentWidget().parentWidget(), QScrollArea) for p in otras))
 #Utilidades: lista numerada, una abierta cada vez, sin la línea descriptiva; mensajes con las notas recortadas
 caja = dw.pestanaUtilidades.utilidades
@@ -115,7 +117,7 @@ for _n, _f in _originales.items():
 dw.deleteLater()
 
 checks = {
-    "Parcela se desplaza si no cabe (las demás no); la tabla no se aplasta": desplazables and alto_tabla,
+    "Parcela y Edificio se desplazan si no caben (las demás no); la tabla no se aplasta": desplazables and alto_tabla,
     "Utilidades numeradas, una abierta cada vez; notas del mensaje recortadas": utilidades,
     "la rueda sin foco no cambia listas (identificador, modo, namespace)": rueda_ok,
     "identificador sin RC y otro campo con ellas: aviso y enlace para usarlo": aviso_campo,
