@@ -53,6 +53,8 @@ def corto(texto, largo=LARGO_LISTA):
         return texto
     corte = texto.rfind(' ', 0, largo - 4)
     return texto[:corte if corte > largo // 2 else largo - 4].rstrip(' ,;:(') + ' … ▸'
+
+
 ICONOS = {ERROR: '/mIconCritical.svg', AVISO: '/mIconWarning.svg', INFO: '/mIconInfo.svg'}
 ICONOS_CODIGO = {'XSD-VALIDO': '/mIconSuccess.svg', 'CMP-CONTORNO-OK': '/mIconSuccess.svg', 'CMP-BU-DENTRO': '/mIconSuccess.svg'}  #Marca verde para lo que está bien
 TEXTO_ESTADO = {ERROR: 'Con errores', AVISO: 'Con avisos', 'correcta': 'Correcta'}

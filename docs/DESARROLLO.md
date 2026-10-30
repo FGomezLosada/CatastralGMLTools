@@ -90,10 +90,10 @@ Decisiones técnicas:
 | 9 | Conversor 3.0 → 4.0 y reparación | ✅ |
 | 10 | División de parcelas (dentro de la pestaña Parcela, junto a «Unir seleccionadas»; USABILIDAD U-09) | ✅ |
 | 11 | Informe de superficies y coordenadas | ✅ |
-| 12 | Manual de usuario detallado con capturas reales (mejora 28) y campaña de pruebas a mano de todo el plugin | — |
-| 13 | Revisión de usabilidad: reorganizar el panel para que sea sencillo y se entienda (docs/USABILIDAD.md), con lo aprendido en las pruebas | — |
-| 14 | Opcionales, según se decida tras la revisión: Processing (26) y traducción (27) | — |
-| 15 | README con capturas, ZIP para compañeros y publicación estable (mejora 29) | — |
+| 12 | Manual de usuario detallado con capturas reales (mejora 28) y campaña de pruebas a mano de todo el plugin | ✅ (29/10/2026: capturas reales generadas con `tools\capturas.bat`; pruebas a mano en cada entrega) |
+| 13 | Revisión de usabilidad: reorganizar el panel para que sea sencillo y se entienda (docs/USABILIDAD.md), con lo aprendido en las pruebas | ✅ (29/10/2026) |
+| 14 | Opcionales, según se decida tras la revisión: Processing (26) y traducción (27) | Aplazado (después de la 1.0.0) |
+| 15 | README con capturas, ZIP para compañeros y publicación estable (mejora 29) | ✅ 1.0.0 (30/10/2026) |
 
 ---
 
@@ -128,8 +128,8 @@ Decisiones técnicas:
 | 25 | Informe de superficies y coordenadas (HTML/CSV), con superficie gráfica y diferencia con la catastral | Documentación técnica | ✅ HTML (`core/superficies.py`, Utilidades «3.»); CSV pendiente |
 | 26 | Proveedor de Processing con los algoritmos principales | Modelos y lotes | |
 | 27 | Traducción al inglés (Qt Linguist) | Publicación internacional | |
-| 28 | Manual de usuario detallado en la ayuda local (help/), una sección por pestaña y por operación (segregación, división, agregación, agrupación, subsanación, comparación, descarga, Navarra), con capturas reales hechas en QGIS 3.40 y 4.x con datos públicos; también en PDF para compañeros. Se hace al final, con la interfaz ya cerrada, para que las capturas no queden viejas | Uso sin conexión y formación | |
-| 29 | README con capturas reales, ZIP de prueba y publicación estable (`experimental=False` en 1.0.0) | Cierre | |
+| 28 | Manual de usuario detallado en la ayuda local (help/), una sección por pestaña y por operación (segregación, división, agregación, agrupación, subsanación, comparación, descarga, Navarra), con capturas reales hechas en QGIS 3.40 y 4.x con datos públicos; también en PDF para compañeros. Se hace al final, con la interfaz ya cerrada, para que las capturas no queden viejas | Uso sin conexión y formación | ✅ (capturas reales generadas; el PDF, más adelante) |
+| 29 | README con capturas reales, ZIP de prueba y publicación estable (`experimental=False` en 1.0.0) | Cierre | ✅ 1.0.0 |
 | 30 | Navarra: investigar el formato y los servicios del Registro de la Riqueza Territorial (IDENA) e incorporar lo que admita (descarga y GML) | El plugin es para toda España | ✅ |
 | 32 | Lector del XML del informe de validación gráfica (IVG): cargar en QGIS las parcelas propuestas y las afectadas total y parcialmente (`parcelasGML`, `parcelasAfecT`, `parcelasAfectP`, ZIP en base64) | Revisar un IVG negativo sobre el mapa | |
 | 33 | Exportar los vértices como puntos de apoyo para el editor parcelario de la Sede (.txt «x y» por línea) | Usar el editor en línea con datos de campo | |
@@ -161,7 +161,7 @@ Decisiones técnicas:
 | E-04 | El GML de parcela usa UTF-8 y el de edificio ISO-8859-1 según los documentos oficiales; mantener cada uno | Decisión |
 | E-05 | El esquema BU de la DGC es un borrador modificado localmente; la validación XSD de edificios debe usar la copia de la DGC | Por resolver (fase 8) |
 | E-06 | Las reglas de la SEC no están publicadas de forma completa: el validador avisa de lo conocido y siempre remite a la Sede | Limitación asumida |
-| E-07 | `metadata.txt` lleva `experimental=True` durante el desarrollo; se cambia a `False` en la 1.0.0, que será la primera que se suba a plugins.qgis.org | Decisión |
+| E-07 | `metadata.txt` lleva `experimental=True` durante el desarrollo; se cambia a `False` en la 1.0.0, que será la primera que se suba a plugins.qgis.org | Hecho en la 1.0.0 (30/10/2026) |
 | E-09 | QGIS 4.2.2 no abría el panel: el uic de PyQt6 genera `QSpacerItem(Policy, Policy)` para los espaciadores del .ui sin `sizeHint`. Todos los espaciadores llevan ahora `sizeHint` y `package_test.py` lo comprueba en cualquier versión | Resuelto (0.1.0) |
 | E-10 | libxml2 (lxml) no descarga por https ni sigue redirecciones: si no encuentra un esquema importado, **valida sin comprobar nada y da «válido»**. El validador XSD (mejora 10) descargará los esquemas con la red de QGIS (`QgsBlockingNetworkRequest` con redirecciones), los guardará en una caché del perfil y avisará si falta alguno. Comprobado el 06/10/2026: el GML de `gml_parcela.py` es válido contra WFS 2.0 + CP 4.0 (81 esquemas) y un fichero alterado se rechaza | Decisión (mejora 10) |
 | E-11 | La Sede rechazaba nuestro GML de parcela («no cumple el esquema Inspire GML») aunque era válido contra los XSD públicos. Con 9 ficheros de control subidos a la Sede (06/10/2026) se aisló la causa: **la raíz debe declarar `xmlns:xlink`** aunque no se use. No influyen la codificación (UTF-8 o ISO-8859-1), los saltos de línea, la sangría, `count`, la fecha, el punto de referencia ni el formato de las coordenadas. `gml_parcela.py` declara xlink y la prueba lo comprueba | Resuelto |

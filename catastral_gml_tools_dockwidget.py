@@ -99,7 +99,6 @@ def ajustar_altura(caja):
     caja.setFixedHeight(max(min(alto, ALTO_MAXIMO_AVISO), 24))
 
 
-
 class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
     def __init__(self, iface, parent=None):
         super().__init__(parent)

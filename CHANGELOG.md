@@ -4,6 +4,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 
 ## [Sin publicar]
 
+## [1.0.0] - 2026-10-30
+
+Primera versión estable, la primera que se sube al repositorio oficial de complementos de QGIS (plugins.qgis.org). `experimental=False`.
+Antes de la etiqueta se pasa la prueba final a mano de `docs/PRUEBA_FINAL.md` (ZIP instalado en un perfil limpio y GML subidos a la Sede).
+
 ### Añadido
 - **Identidad gráfica (simulación)** (AU-58), en la comparación con el Catastro de **Validar**: si el GML es una sola parcela y no es igual a la catastral, una línea con el criterio del anexo II de la Resolución de 23/09/2020 (BOE-A-2020-12111): el contorno dentro de ±0,50 m del perímetro catastral en cartografía urbana o ±2,00 m en rústica (según la cartografía de la parcela, deducida de su referencia) y la superficie con una diferencia de como mucho el 5 %. Dice cuánto se separa el contorno, la diferencia de superficie y si cumpliría; si no, dónde sale del margen y, si todo el contorno está desplazado, el desplazamiento que lo metería. El **Informe** de Validar lleva una sección con el resultado, un croquis con el margen, la parcela catastral, el GML y lo que queda fuera, y otro ampliado en el tramo que más se separa; y el grupo «Comparación» del mapa, el margen y lo que sale de él. Responde a otra pregunta que el resto de la comparación (±1 cm, para cambiar la cartografía): si el levantamiento y la parcela catastral pueden considerarse la misma finca; un levantamiento a 30 cm puede «afectar en parte» a la vecina y cumplir la identidad. Simulación no oficial: el resultado válido es el de la Sede. Primero se hizo como utilidad aparte («7.»); tras la prueba a mano (21/10/2026) se integró en Validar para no repetir funciones. Batería `identidad_casos_test.py` (23 casos: igual, desplazada 0,49 y 0,51 m, un vértice fuera en diagonal o 0,70 m, todo el contorno 0,45 m fuera —las esquinas quedan a 0,64 m—, 0,40 y 0,20 m hacia dentro para la superficie, patio, rústica con 1,5 m, margen urbano o rústico forzado, dos parcelas catastrales, segregación, lejos, EPSG:4326, parcela de 1,2 km, edificios, mal formado, sin red, y en Validar).
 - **Revisión de usabilidad, primeros pasos** (`docs/USABILIDAD.md`):
