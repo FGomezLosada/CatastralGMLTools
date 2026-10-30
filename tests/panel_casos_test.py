@@ -346,7 +346,9 @@ caso("los mensajes finales usan todo el ancho: el icono no deja un hueco a su iz
 def panel_bajo():
     #Prueba a mano del 30/10/2026: con «Opciones avanzadas» abiertas en Edificio y un mensaje arriba, el panel pedía más
     #alto que la ventana y se metía bajo la barra de Windows. Cada pestaña se desplaza: su alto mínimo es pequeño
-    limite = 18 * dw.fontMetrics().height()
+    #En píxeles, no en líneas de letra: en Windows la letra es más baja y Validar (333 px) pasaba de 18 líneas sin que el
+    #panel dejara de caber. 420 px dejan sitio, en una pantalla de 768 px, a QGIS, la cabecera y un mensaje
+    limite = 420
     dw.pestanaEdificio.avanzadas.setCollapsed(False)
     dw.pestanaParcela.avanzadas.setCollapsed(False)
     QApplication.processEvents()
