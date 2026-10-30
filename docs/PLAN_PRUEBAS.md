@@ -81,3 +81,5 @@ publicar:
 
 `tools\probar.bat` (las dos versiones) o `tools\probar.bat validar_casos_test.py` (una). Cada batería imprime un caso
 por línea (OK / FALLO); si algo lanza una excepción, se imprime la traza del caso.
+
+Antes de publicar una versión: recorrido a mano con el ZIP instalado y subida a la Sede, en [PRUEBA_FINAL.md](PRUEBA_FINAL.md).

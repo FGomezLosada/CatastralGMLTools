@@ -16,13 +16,17 @@ Plugin de QGIS para preparar los ficheros GML que pide la Sede Electrónica del 
 - **Unir** parcelas seleccionadas y varios GML en uno (multiparcela), e **informe** HTML de la comprobación.
 - **Dividir** una parcela (partes iguales, porcentajes, superficies, cuotas o franjas), **convertir** un GML del esquema 3.0 al 4.0 o repararlo, **informe de superficies y coordenadas** (linderos, superficies, vértices y lados) y **ajuste a la cartografía catastral desplazada o girada** (parámetros de transformación de la Sede y GML ajustado) y **comparar dos GML** (desplazamiento de vértices, superficies, redondeo; iguales a efectos de la Sede).
 
-> Estado: **versión 0.2.0** (en desarrollo). Próximas: ajuste de cartografía desplazada. Ver [CHANGELOG](CHANGELOG.md) y [docs/DESARROLLO.md](docs/DESARROLLO.md).
+- **Panel por pasos** (Parcela y Edificio: 1 capa → 2 operación → 3 revisar → 4 crear), con la ayuda integrada: flujo de trabajo de la referencia catastral a la Sede y capturas reales.
+
+<p align="center"><img src="help/img/parcela.png" width="420" alt="Pestaña Parcela por pasos"> <img src="help/img/validar.png" width="420" alt="Validar tras comparar con el Catastro"></p>
+
+> Estado: **versión 1.0.0** (estable). Ver [CHANGELOG](CHANGELOG.md) y [docs/DESARROLLO.md](docs/DESARROLLO.md).
 
 ### Requisitos
 QGIS 3.34 o posterior, incluido QGIS 4 (Qt6). Sin dependencias externas.
 
 ### Instalación
-- Desde el repositorio oficial de QGIS (cuando se publique): *Complementos → Administrar e instalar complementos* → buscar «Catastral GML Tools».
+- Desde el repositorio oficial de QGIS: *Complementos → Administrar e instalar complementos* → buscar «Catastral GML Tools».
 - Desde ZIP: descarga el ZIP de la última [versión](https://github.com/FGomezLosada/CatastralGMLTools/releases) y usa *Complementos → Instalar a partir de ZIP*.
 
 El panel se abre desde el botón de la barra de herramientas o desde *Vectorial → Catastral GML Tools*.
@@ -49,7 +53,7 @@ QGIS plugin to prepare the GML files required by the Spanish Cadastre electronic
 - **Split** a parcel and **convert** a parcel GML from schema 3.0 to 4.0 (or repair a 4.0 one).
 - **Merge** selected parcels and several GML files, and save an HTML check report.
 
-> Status: **version 0.2.0** (under development).
+> Status: **version 1.0.0** (stable).
 
 Requires QGIS 3.34 or later, including QGIS 4 (Qt6). Covers the territory managed by the Spanish Directorate General for Cadastre; Navarre and the Basque Country have their own cadastres. **Not an official tool**: always validate the result in the Sede Electrónica del Catastro. Cadastral data: Dirección General del Catastro. User interface in Spanish. Licence: GPL-2.0-or-later.
 
