@@ -42,6 +42,8 @@ from ..core import unir as un
 from ..core.incidencias import AVISO, ERROR, Incidencia
 from . import desplazable
 from .bloque_ajuste import BloqueAjuste
+from .bloque_apoyo import ICONO as ICONO_APOYO
+from .bloque_apoyo import BloqueApoyo
 from .bloque_comparar import ICONO as ICONO_COMPARAR
 from .bloque_comparar import BloqueComparar
 from .bloque_coordenadas import EXTENSIONES as EXTENSIONES_COORDENADAS
@@ -103,12 +105,20 @@ class PestanaUtilidades(QWidget):
                  "Las parcelas de un fichero de puntos (TXT o CSV del levantamiento: X Y, o nombre X Y), en una capa que se "
                  "abre en la pestaña Parcela para crear el GML. Varias parcelas: separadas por una línea en blanco o un "
                  "título, o con una columna con el identificador de cada una."),
+                (self.pagina_apoyo(), "Puntos de apoyo para el editor de la Sede", ICONO_APOYO,
+                 "Los vértices de una capa (puntos del levantamiento, la parcela dibujada, líneas…) en un TXT «x y» por "
+                 "línea, en el huso de la Sede, para cargarlos como puntos de apoyo en el editor parcelario de la Sede "
+                 "y dibujar allí con ellos."),
         ), start=1):
             indice = self.utilidades.addItem(widget, QgsApplication.getThemeIcon(icono), f"{numero}. {titulo}")
             self.utilidades.setItemToolTip(indice, ayuda)
         principal.addWidget(self.utilidades, 1)
         self.utilidades.currentChanged.connect(self.ajuste.mostrar_en_mapa)
         desplazable.soltar_en(self)  #Un GML soltado en cualquier punto (también sobre una casilla) va a la utilidad abierta
+
+    def pagina_apoyo(self):
+        self.apoyo = BloqueApoyo(self, self)
+        return self.apoyo
 
     def pagina_coordenadas(self):
         self.coordenadas = BloqueCoordenadas(self, self)
@@ -437,13 +447,15 @@ class PestanaUtilidades(QWidget):
         try:
             destino = su.escribir(lectura, ruta, lista, inscrita=self.cabida_inscrita(), autor=self.autor.text().strip(),
                                   consulta=consulta, vecinas=vecinas, ortofoto=ortofoto)
+            self.ultimos_csv = su.escribir_csv(lista, ruta)  #Para una hoja de cálculo (mejora 25)
         except (OSError, ValueError) as e:
             self.dock.warn(f"No se ha podido escribir el informe: {e}")
             return None
         self.ultimo_informe = destino
         avisos = ([f"Sin linderos con el Catastro: {fallo_catastro[0].mensaje}"] if fallo_catastro else []) + [
             f"Sin ortofoto: {e.mensaje}" for e in errores if e.codigo == 'SUP-ORTOFOTO']
-        self.dock.success(f"Informe de superficies: {os.path.basename(destino)}",
+        self.dock.success(f"Informe de superficies: {os.path.basename(destino)}, y para una hoja de cálculo "
+                          f"{os.path.basename(self.ultimos_csv[0])} y {os.path.basename(self.ultimos_csv[1])}",
                           [("Abrir", self.abrir_informe), ("Abrir carpeta", self.abrir_carpeta_informe)], detalles=avisos)
         return destino
 

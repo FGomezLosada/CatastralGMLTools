@@ -484,16 +484,17 @@ class PestanaParcela(QWidget):
             self.soloSeleccion.blockSignals(False)
             self.recargar()
             self.poner_alteracion(tipo, False)
-            vista = (". La tabla muestra solo la parcela unida (desmarque «Solo las seleccionadas» para ver "
-                     "todas)")
+            vista = ''  #«Solo las seleccionadas» marcada y «1 de 1 seleccionada» ya lo dicen (mensaje más corto)
             propuesta = f" · propuesta: {alt.NOMBRES[tipo]}"
         else:
             self.recargar()  #Retoque del dibujo: la tabla sigue con todas sus parcelas y la operación se vuelve a deducir
             vista, propuesta = '', ''
         self.actualizar_unir()
         notas = ''.join(f". {i.mensaje}" for i in incidencias[1:] if i.nivel == INFO)
-        texto = (incidencias[0].mensaje + f"{propuesta}{notas}{vista}. La capa queda en edición (Ctrl+Z deshace también "
-                 "la tabla; guarde la capa para conservarla)")
+        #Corto (prueba final del 30/10/2026: siete líneas que se cortaban): los cambios sin guardar ya se ven junto a
+        #«1. Parcelas»
+        texto = incidencias[0].mensaje + f"{propuesta}{notas}{vista}. Ctrl+Z lo deshace"
+
         avisos = [i.mensaje for i in incidencias if i.nivel == AVISO]
         if avisos:  #El dibujo no encaja: aviso en naranja, no en verde
             self.dock.notify(" ".join(avisos) + ". " + texto, Qgis.MessageLevel.Warning, 0)

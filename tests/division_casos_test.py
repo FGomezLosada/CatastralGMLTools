@@ -1,7 +1,8 @@
 """
 Batería de casos de «Dividir la parcela seleccionada» y «Unir seleccionadas» (pestaña Parcela; plan de pruebas,
 docs/PLAN_PRUEBAS.md). La división se prueba en todas las combinaciones de forma de parcela × modo × valores × lado
-(paralelo y perpendicular, desde un extremo y desde el otro), con estas reglas para cada resultado:
+(paralelo y perpendicular, desde un extremo y desde el otro) y × vértice (linderos en abanico desde un pivote), con
+estas reglas para cada resultado:
 
   - no falla nunca: o da las parcelas o da un error que se entiende;
   - las parcelas cubren exactamente la original (suman su superficie y no se solapan);
@@ -74,13 +75,13 @@ resultados, detalles = {}, {}
 ejecuciones = fallos_formas = 0
 
 
-def comprobar(geometria, modo, texto, lado, perpendicular, invertir):
+def comprobar(geometria, modo, texto, lado, perpendicular, invertir, pivote=False):
     """None si todo cuadra; el texto del problema si no."""
     try:
         valores = dv.leer_valores(texto)
     except ValueError:
         return None  #La interfaz lo dice antes de dividir (se prueba en ERRONEOS)
-    piezas, inc = dv.dividir(geometria, modo, valores, lado, perpendicular, invertir)
+    piezas, inc = dv.dividir(geometria, modo, valores, lado, perpendicular, invertir, pivote)
     errores = [i for i in inc if i.nivel == ERROR]
     if errores:
         return None if all(i.mensaje for i in errores) else "error sin mensaje"
@@ -136,6 +137,16 @@ for nombre, geometria in FORMAS.items():
                     if problema:
                         problemas.append(f"{modo} «{texto}» lado {lado} {'perp.' if perpendicular else 'par.'}"
                                          f"{' inv.' if invertir else ''}: {problema}")
+            #Con pivote: el mismo lado es el vértice del que salen los linderos
+            for invertir in (False, True):
+                ejecuciones += 1
+                try:
+                    problema = comprobar(geometria, modo, texto, lado, False, invertir, pivote=True)
+                except Exception:  # noqa: BLE001
+                    problema = traceback.format_exc()[-400:]
+                if problema:
+                    problemas.append(f"{modo} «{texto}» pivote en el vértice {lado}{' inv.' if invertir else ''}: "
+                                     f"{problema}")
     resultados[f"dividir: {nombre}"] = not problemas
     if problemas:
         detalles[nombre] = problemas[:4] + ([f"… y {len(problemas) - 4} más"] if len(problemas) > 4 else [])
@@ -171,6 +182,26 @@ for nombre, g in (("vacía", QgsGeometry()), ("multiparte", wkt(f"MULTIPOLYGON((
 resultados["geometría vacía, multiparte o lado inexistente: error claro"] = not raras
 if raras:
     detalles['raras'] = raras
+
+#Pivote: todas las parcelas tocan el vértice elegido; sin franjas; la U desde un vértice que no la ve entera, avisa
+piv = []
+rect = poligono((X0, Y0), (X0, Y0 + 30), (X0 + 40, Y0 + 30), (X0 + 40, Y0))
+for v, (a, _, _, _) in enumerate(dv.lados(rect)):
+    piezas, inc = dv.dividir(rect, dv.PARTES, [3], v, pivote=True)
+    punto = QgsGeometry.fromPointXY(a).buffer(0.01, 4)
+    if len(piezas) != 3 or not all(p.intersects(punto) for p in piezas):
+        piv.append(f"vértice {v}: las parcelas no salen todas del vértice")
+    if any(abs(p.area() - 400) > 0.01 for p in piezas):
+        piv.append(f"vértice {v}: superficies {[round(p.area(), 2) for p in piezas]}")
+_, inc = dv.dividir(rect, dv.FRANJAS, [5], 0, pivote=True)
+if not any(i.codigo == 'DIV-PIVOTE' for i in inc):
+    piv.append("franjas con pivote: no da DIV-PIVOTE")
+_, inc = dv.dividir(FORMAS["en U"], dv.PARTES, [2], 0, pivote=True)
+if not any(i.codigo == 'DIV-PARTES' for i in inc):
+    piv.append("U desde la esquina: no avisa de los trozos")
+resultados["pivote: abanico desde el vértice, sin franjas, avisa si no ve toda la parcela"] = not piv
+if piv:
+    detalles['pivote'] = piv
 
 
 #Unir seleccionadas

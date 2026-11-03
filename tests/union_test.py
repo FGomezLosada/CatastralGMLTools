@@ -1,6 +1,6 @@
 """
 Prueba de la unión de parcelas seleccionadas (mejora 17): capa_parcelas.unir_seleccionadas() y el botón «Unir
-seleccionadas» de la pestaña Parcela. Agregación (la mayor conserva su referencia y es el 80 % o más), agrupación,
+seleccionadas» de la pestaña Parcela. Agregación (la mayor conserva su referencia y es más del quíntuplo de las demás, ≈ 83 %), agrupación,
 parcelas no colindantes, deshacer con la pila de edición de QGIS y menos de dos seleccionadas. Sin internet.
 
 Uso: tools\\probar.bat (o tools\\run_tests.py union_test.py)
@@ -53,16 +53,16 @@ def ids(c, rcs):
     return [f.id() for f in c.getFeatures() if f['refcat'] in rcs]
 
 
-# 1. Núcleo: agregación (la mayor tiene el 80 %), deshacer, no colindantes, pocas
-agregar = capa('agregar', [(rect(X0, Y0, 20, 30), '1907401VK4810H'), (rect(X0 + 20, Y0, 5, 30), '1907402VK4810H'),
+# 1. Núcleo: agregación (la mayor tiene el 85 %, más del quíntuplo), deshacer, no colindantes, pocas
+agregar = capa('agregar', [(rect(X0, Y0, 20, 30), '1907401VK4810H'), (rect(X0 + 20, Y0, 3.5, 30), '1907402VK4810H'),
                            (rect(X0 + 100, Y0, 10, 10), 'Lejos')])
 agregar.selectByIds(ids(agregar, ['1907401VK4810H', '1907402VK4810H']))
 fid, tipo, inc = cp.unir_seleccionadas(agregar, 'refcat')
 resultante = agregar.getFeature(fid) if fid is not None else None
 nucleo = (fid is not None and tipo == alt.AGREGACION and agregar.featureCount() == 2 and agregar.isEditable()
-          and resultante['refcat'] == '1907401VK4810H' and abs(resultante.geometry().area() - 750) < 0.01
+          and resultante['refcat'] == '1907401VK4810H' and abs(resultante.geometry().area() - 705) < 0.01
           and not resultante.geometry().isMultipart() and agregar.selectedFeatureIds() == [fid]
-          and codigos(inc) == ['UNION-HECHA', 'UNION-UMBRAL'])  #80 %: guía del IVG sí, quíntuplo del RH no
+          and codigos(inc) == ['UNION-HECHA'])
 agregar.undoStack().undo()
 deshacer = agregar.featureCount() == 3
 agregar.selectByIds(ids(agregar, ['1907401VK4810H', 'Lejos']))
@@ -141,7 +141,7 @@ filas = [(pt.tabla.item(i, pp.COL_ID).text(), pt.namespace_fila(i)) for i in ran
 barra = ' '.join(e.text() for e in dw.messageBar.currentItem().findChildren(QLabel)) if dw.messageBar.currentItem() else ''
 interfaz = (desactivado and activado and agrupar.featureCount() == 2 and pt.soloSeleccion.isChecked() and pt.tipo_alteracion() == alt.AGRUPACION
             and filas == [('Agrupa_1', 'LOCAL')] and 'Unidas 2 parcelas en una de 1200 m²' in barra
-            and 'propuesta: Agrupación' in barra and 'no llega al 80 %' in barra and not pt.unirBoton.isEnabled()
+            and 'propuesta: Agrupación' in barra and 'no llega al quíntuplo' in barra and not pt.unirBoton.isEnabled()
             and dw.messageBar.currentItem().level() == Qgis.MessageLevel.Success
             and 'Agrupación · 1 parcela (0 SDGC)' in pt.alteracionInfo.text())
 agrupar.rollBack()

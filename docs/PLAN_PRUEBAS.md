@@ -38,7 +38,7 @@ Cada batería recorre las categorías que le apliquen:
 | Validar: lectura del GML y comprobaciones | `validar_casos_test.py` (38 ficheros + «Reparar» + pestaña) | ✅ 19/10/2026: faltaba avisar de vértices repetidos seguidos (ANILLO-REPETIDO, ahora reparable) |
 | Validar: comparación con el Catastro | `comparacion_casos_test.py` (44 casos) | ✅ 19/10/2026: una RC inexistente en un GML de edificio decía «no se ha podido comparar»; si la red caía a mitad, una referencia se daba por inexistente; con geometría inválida, GEOS fallaba por dentro |
 | Parcela: crear GML desde una capa y asistente de alteraciones | `parcela_casos_test.py` (25 capas + interacción) | ✅ 19/10/2026: quitar la capa en uso pasaba a otra sin avisar; mensajes de astilla y de elemento sin geometría que no se entendían; más de 30 parcelas sin aviso al crear |
-| Parcela: dividir y unir seleccionadas | `division_casos_test.py` (9 formas × modos × valores × lados: 1404 divisiones; unión con rendijas, huecos y patios) | ✅ 19/10/2026 |
+| Parcela: dividir y unir seleccionadas | `division_casos_test.py` (9 formas × modos × valores × lados y vértices de pivote: 2106 divisiones; unión con rendijas, huecos y patios) | ✅ 03/11/2026 |
 | Parcela y Edificio por pasos (U-01/U-02/U-04/U-08): pasos, opciones avanzadas, «Unir parcelas» y «Dividir parcela ▸», solo las seleccionadas, capa temporal, vista del GML y cambios sin guardar | `parcela_pasos_test.py` (11 casos) | ✅ 29/10/2026 |
 | Edificio: GML de construcciones (ICUC) | `edificio_casos_test.py` (20 capas + sin referencia) | ✅ 19/10/2026 |
 | Descargar: por referencia y en el mapa | `descargar_casos_test.py` (22 casos + pestaña) | ✅ 19/10/2026: una RC inexistente decía «…no se ha encontrado la parcela X para el huso 25830» (el huso confundía) |
@@ -49,6 +49,7 @@ Cada batería recorre las categorías que le apliquen:
 | Panel: avisos, pestañas, cerrar y recargar | `panel_casos_test.py` | ✅ |
 | Ficheros rotos a mano (cualquier carácter quitado, de más o cortado) | `xml_roto_casos_test.py` | ✅ |
 | Utilidades «6. Parcela desde coordenadas» (AU-57) | `coordenadas_casos_test.py` | ✅ |
+| Utilidades «7. Puntos de apoyo para el editor de la Sede» (mejora 33) | `apoyo_casos_test.py` (6 casos) | ✅ 03/11/2026 |
 | Validar: simulación de identidad gráfica en la comparación con el Catastro (AU-58) | `identidad_casos_test.py` | ✅ |
 
 Las pruebas que ya hay (`*_test.py`) cubren el uso normal y los fallos encontrados hasta ahora; las baterías añaden
