@@ -26,6 +26,7 @@ from catastral_gml_tools.core import gml_parcela as gp  # noqa: E402
 from catastral_gml_tools.core import servicios  # noqa: E402
 from catastral_gml_tools.core.incidencias import ERROR, INFO, Incidencia, codigos  # noqa: E402
 from catastral_gml_tools.core.info import RAIZ  # noqa: E402
+from catastral_gml_tools.gui import pestana_validar as pv_mod  # noqa: E402
 
 spec = importlib.util.spec_from_file_location('simulador_catastro', os.path.join(RAIZ, 'tests', 'simulador_catastro.py'))
 sim = importlib.util.module_from_spec(spec)
@@ -225,6 +226,8 @@ interfaz = (interfaz and grupo is not None
             == ['Defecto: parcela catastral sin cubrir', 'Catastro vigente (parcelas afectadas)']
             and grupo.children()[0].name().startswith('Identidad gráfica')
             and 'error' in textos and '1 error' in pv.estado.text()
+            #La barra dice que afecta en parte a una vecina, no una «operación» sacada de contarla (prueba final 30/10)
+            and 'afecta en parte a 1 parcela vecina' in textos and pv_mod.superficie(11646) == '11.646'
             and any(i.codigo == 'CMP-PARCIAL' for i in pv.informe.incidencias))
 #Sin errores pero con avisos (GML igual al Catastro): la barra en naranja, no en verde con ✔ (prueba a mano del 15/10)
 pv.fichero.setFilePath(os.path.join(carpeta, 'igual.gml'))

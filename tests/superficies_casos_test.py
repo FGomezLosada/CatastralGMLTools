@@ -323,6 +323,28 @@ def utilidad():
 
 caso("utilidad: cabida con millares, informe que no se puede escribir, GML borrado, sin red y cerrar a mitad", utilidad)
 
+
+def hoja_de_calculo():
+    #Mejora 25: además del HTML, dos CSV para Excel o LibreOffice (UTF-8 con BOM, «;» y coma decimal)
+    ruta = gml('csv', [('Seg_1', rect(X0 + 300, Y0, 20, 30)), ('Seg_2', poligono([(X0 + 320, Y0), (X0 + 320, Y0 + 30),
+                                                                                      (X0 + 330.5, Y0)]))])
+    lista = su.fichas(gl.leer(ruta), None)
+    rutas = su.escribir_csv(lista, ruta)
+    with open(rutas[0], 'rb') as f:
+        bom = f.read(3) == b'\xef\xbb\xbf'
+    with open(rutas[0], encoding='utf-8-sig') as f:
+        parcelas = f.read().splitlines()
+    with open(rutas[1], encoding='utf-8-sig') as f:
+        vertices = f.read().splitlines()
+    ok = (bom and rutas[0].endswith('csv_parcelas.csv') and rutas[1].endswith('csv_vertices.csv') and len(parcelas) == 3
+          and parcelas[1].startswith('Seg_1;ES.LOCAL.CP;') and ';600,00;' in parcelas[1]
+          and parcelas[2].startswith('Seg_2;') and su._csv_texto('a;b') == '"a;b"' and len(vertices) == 1 + 4 + 3
+          and vertices[1].split(';')[3].endswith(',00') and vertices[1].split(';')[5] in ('20,00', '30,00'))
+    return ok, (bom, rutas, parcelas[:3], vertices[:3])
+
+
+caso("hoja de cálculo: CSV de parcelas y de vértices junto al GML, con coma decimal y tildes", hoja_de_calculo)
+
 pu_module.cmp.servicios.pedir = original
 for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)

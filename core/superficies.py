@@ -385,6 +385,51 @@ los números de los vértices son los del croquis de cada parcela (en él se omi
 """
 
 
+def _csv_num(valor, decimales=2):
+    """Número para una hoja de cálculo en castellano: coma decimal, sin separador de miles."""
+    return f"{valor:.{decimales}f}".replace('.', ',')
+
+
+def _csv_texto(valor):
+    texto = str(valor or '')
+    return f'"{texto.replace(chr(34), chr(34) * 2)}"' if any(c in texto for c in ';"\n') else texto
+
+
+def textos_csv(lista):
+    """
+    Los dos CSV del informe (mejora 25): parcelas (una fila por parcela) y vértices (una por vértice, con el lado hasta
+    el siguiente). Separados por «;» y con coma decimal, como los abre Excel o LibreOffice en castellano.
+    """
+    parcelas = ["Identificador;Namespace;N parcela;Superficie UTM (m2);Superficie en el elipsoide (m2);Perimetro (m);"
+                "Vertices;Linderos"]
+    vertices = ["Identificador;Anillo;N;X;Y;Lado hasta el siguiente (m)"]
+    for ficha in lista:
+        n_vertices = sum(len(p) for _, p in ficha.anillos)
+        linderos_txt = ' | '.join(f"{li.rumbo} {li.con} ({_csv_num(li.longitud)} m)" for li in ficha.linderos)
+        parcelas.append(';'.join([_csv_texto(ficha.local_id), _csv_texto(ficha.namespace), _csv_texto(ficha.label),
+                                  _csv_num(ficha.area_utm), _csv_num(ficha.area_elipsoide), _csv_num(ficha.perimetro),
+                                  str(n_vertices), _csv_texto(linderos_txt)]))
+        primero = 1
+        for rol, puntos in ficha.anillos:
+            for k, (x, y) in enumerate(puntos):
+                sx, sy = puntos[(k + 1) % len(puntos)]
+                vertices.append(';'.join([_csv_texto(ficha.local_id), rol, str(primero + k), geo.formatear(x).replace('.', ','),
+                                          geo.formatear(y).replace('.', ','), _csv_num(math.hypot(sx - x, sy - y))]))
+            primero += len(puntos)
+    return '\n'.join(parcelas) + '\n', '\n'.join(vertices) + '\n'
+
+
+def escribir_csv(lista, ruta_gml):
+    """Escribe <GML>_parcelas.csv y <GML>_vertices.csv junto al GML (UTF-8 con BOM, para que Excel lea las tildes)."""
+    base, _ = os.path.splitext(ruta_gml)
+    rutas = (f"{base}_parcelas.csv", f"{base}_vertices.csv")
+    for ruta, texto in zip(rutas, textos_csv(lista)):
+        problema = escribir_texto(ruta, texto, 'utf-8-sig')
+        if problema is not None:
+            raise OSError(problema.mensaje)
+    return rutas
+
+
 def escribir(lectura, ruta_gml, lista, ruta=None, inscrita=None, autor='', consulta=None, vecinas=(), ortofoto=b''):
     """Escribe el informe (por defecto junto al GML) y devuelve su ruta; lanza OSError si no se puede escribir."""
     ruta = ruta or ruta_por_defecto(ruta_gml)

@@ -19,6 +19,7 @@ from qgis.PyQt.QtWidgets import QLabel, QMessageBox
 qgis.utils.reloadPlugin('catastral_gml_tools')
 import catastral_gml_tools.catastral_gml_tools_dockwidget as dock_module  # noqa: E402
 from catastral_gml_tools.core import alteraciones as alt  # noqa: E402
+from catastral_gml_tools.core import division as dv  # noqa: E402
 from catastral_gml_tools.gui import desplazable  # noqa: E402
 from catastral_gml_tools.gui import pestana_parcela as pp  # noqa: E402
 from catastral_gml_tools.gui.pestana_validar import PROPIEDAD_GML  # noqa: E402
@@ -275,6 +276,61 @@ def edificio_por_pasos():
 
 caso("U-08: Edificio por pasos (Construcciones, Parcela, Revisar, Crear), opciones avanzadas plegadas y recuento junto "
      "a «1. Construcciones»", edificio_por_pasos)
+
+
+def muchas_partes():
+    #Prueba final del 30/10/2026: «Partes iguales» con 40 (se quería un 40 %) listaba 40 superficies sin más
+    capa = capa_siete('Muchas')
+    pt.capaCombo.setLayer(capa)
+    capa.selectByIds([1])
+    pt.division.setCollapsed(False)
+    pt.division.modo.setCurrentIndex(0)  #Partes iguales
+    pt.division.valores.setText("40")
+    vista = pt.division.vista.text()
+    resumida = '40 parcelas de 15.00 m²' in vista and vista.count('m²') == 1
+    aviso = 'Más de 30 parcelas' in vista and '«Porcentajes»' in vista
+    pt.division.valores.setText("3")
+    pocas = '3 parcelas: 200.00 m²' in pt.division.vista.text() and 'Más de 30' not in pt.division.vista.text()
+    pt.division.valores.clear()
+    pt.division.setCollapsed(True)
+    QgsProject.instance().removeMapLayer(capa.id())
+    return resumida and aviso and pocas, (resumida, aviso, pocas, vista[:300])
+
+
+caso("dividir en muchas partes: la vista previa resume y avisa de que la Sede no tramita más de 30", muchas_partes)
+
+
+def pivote():
+    #AU-54: linderos en abanico desde un vértice; la lista pasa de lados a vértices y vuelve
+    capa = capa_siete('Pivote')
+    pt.capaCombo.setLayer(capa)
+    capa.selectByIds([1])
+    d = pt.division
+    d.setCollapsed(False)
+    d.modo.setCurrentIndex(0)  #Partes iguales
+    d.direccion.setCurrentIndex(0)
+    lados = d.lado.itemText(0).startswith('Lado 1')
+    d.direccion.setCurrentIndex(2)
+    vertices = d.lado.itemText(0).startswith('Vértice 1') and d.lado.count() == 4
+    texto_invertir = 'vértice' in d.invertir.text()
+    d.lado.setCurrentIndex(2)
+    d.valores.setText("3")
+    vista = d.vista.text()
+    tres = '3 parcelas: 200.00 m²' in vista and d.dividirBoton.isEnabled()
+    d.modo.setCurrentIndex(d.modo.findData(dv.FRANJAS))
+    d.valores.setText("5")
+    sin_franjas = 'franjas' in d.vista.text() and not d.dividirBoton.isEnabled()
+    d.direccion.setCurrentIndex(0)
+    vuelve = d.lado.itemText(0).startswith('Lado 1') and 'opuesto' in d.invertir.text()
+    d.valores.clear()
+    d.modo.setCurrentIndex(0)
+    d.setCollapsed(True)
+    QgsProject.instance().removeMapLayer(capa.id())
+    ok = (lados, vertices, texto_invertir, tres, sin_franjas, vuelve)
+    return all(ok), (ok, vista[:200])
+
+
+caso("dividir desde un vértice (pivote): la lista muestra vértices, 3 partes iguales y sin franjas", pivote)
 
 
 def sin_capa():

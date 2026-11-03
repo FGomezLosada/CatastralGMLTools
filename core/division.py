@@ -8,6 +8,9 @@ editor parcelario de la Sede (auditoría ED-01, AU-54; mejoras 22 y 23):
   cuotas       proporciones: «10 10 20» es lo mismo que «1 1 2»
   franjas      anchos en metros medidos en perpendicular a los linderos: «5 5»; lo que sobra es una parcela más
 
+Con pivote (mejora 23), los linderos salen todos de un vértice de la parcela, en abanico, girando desde uno de los lados
+que llegan a él: «40» deja un 40 % junto a ese lado y el resto al otro (sin franjas: no tienen sentido en abanico).
+
 Las parcelas salen en orden desde el lado elegido (o desde el opuesto). Cada lindero nuevo se busca por bisección hasta
 que la superficie quede a menos de 1 cm² de la pedida. La división no redondea: las coordenadas van al centímetro al
 escribir el GML (y los vértices sobre el contorno se ajustan a él, AU-61).
@@ -121,7 +124,77 @@ def _semiplano(origen, direccion, normal, t, alcance):
     return QgsGeometry.fromPolygonXY([puntos + [puntos[0]]])
 
 
-def dividir(geometria, modo, valores, lado=0, perpendicular=False, invertir=False):
+def _cuna(pivote, angulo_inicio, barrido, alcance):
+    """Cuña desde el pivote: del ángulo de inicio (radianes) girando «barrido» (con signo), con radio «alcance»."""
+    pasos = max(2, int(abs(barrido) / (math.pi / 12)) + 2)
+    puntos = [QgsPointXY(pivote)]
+    for k in range(pasos + 1):
+        ang = angulo_inicio + barrido * k / pasos
+        puntos.append(QgsPointXY(pivote.x() + alcance * math.cos(ang), pivote.y() + alcance * math.sin(ang)))
+    puntos.append(QgsPointXY(pivote))
+    return QgsGeometry.fromPolygonXY([puntos])
+
+
+def dividir_pivote(geometria, metas, vertice, invertir=False):
+    """
+    Linderos en abanico desde un vértice: las parcelas, en orden desde el lado que sale del vértice (o desde el que llega,
+    con invertir). metas: superficies en m². Devuelve (piezas, incidencias).
+    """
+    anillo = [a for a, _, _, _ in lados(geometria)]  #Sin vértices repetidos: el índice es el mismo que en lados()
+    n = len(anillo)
+    p, siguiente, anterior = anillo[vertice % n], anillo[(vertice + 1) % n], anillo[(vertice - 1) % n]
+    a_sig = math.atan2(siguiente.y() - p.y(), siguiente.x() - p.x())
+    a_ant = math.atan2(anterior.y() - p.y(), anterior.x() - p.x())
+    barrido = (a_ant - a_sig) % (2 * math.pi)  #Giro antihorario de un lado al otro
+    caja = geometria.boundingBox()
+    alcance = 10 * max(caja.width(), caja.height(), 1.0)
+    medio = a_sig + barrido / 2
+    prueba = QgsGeometry.fromPointXY(QgsPointXY(p.x() + 0.01 * math.cos(medio), p.y() + 0.01 * math.sin(medio)))
+    if not geometria.contains(prueba):  #El interior está girando hacia el otro lado
+        barrido = barrido - 2 * math.pi
+    inicio = a_sig
+    if invertir:
+        inicio, barrido = a_ant, -barrido
+
+    def area_hasta(giro):
+        return geometria.intersection(_cuna(p, inicio, giro, alcance)).area()
+
+    giros, acumulada = [], 0.0
+    for meta in metas[:-1]:
+        acumulada += meta
+        b_bajo, b_alto = (giros[-1] if giros else 0.0), barrido
+        for _ in range(200):
+            mitad = (b_bajo + b_alto) / 2
+            diferencia = area_hasta(mitad) - acumulada
+            if abs(diferencia) < PRECISION_AREA:
+                break
+            #El área crece con el giro, sea cual sea su signo
+            b_bajo, b_alto = (mitad, b_alto) if diferencia < 0 else (b_bajo, mitad)
+        giros.append(mitad)
+    piezas, desde, resto = [], 0.0, QgsGeometry(geometria)
+    for giro, meta in zip(giros, metas):
+        cuna = _cuna(p, inicio + desde, giro - desde, alcance)
+        pieza = resto.intersection(cuna)
+        if abs(pieza.area() - meta) > PRECISION_AREA * 10:
+            return [], [Incidencia(ERROR, 'DIV-PIVOTE-ALCANCE', f"Desde el vértice {vertice + 1} no se llega a la "
+                                                                f"superficie pedida para la parcela {len(piezas) + 1} "
+                                                                "(parte de la parcela no se ve desde él): pruebe con otro "
+                                                                "vértice")]
+        piezas.append(pieza)
+        resto = resto.difference(cuna)
+        desde = giro
+    #La última: todo lo que queda, también lo que no se ve desde el vértice (en una U, el otro brazo)
+    piezas.append(resto)
+    incidencias = []
+    for i, pieza in enumerate(piezas, start=1):
+        if pieza.isMultipart() and len(pieza.asGeometryCollection()) > 1:
+            incidencias.append(Incidencia(AVISO, 'DIV-PARTES', f"La parcela {i} queda en {len(pieza.asGeometryCollection())} "
+                                                               "trozos (desde ese vértice no se ve toda la parcela): "
+                                                               "pruebe con otro vértice"))
+    return piezas, incidencias
+
+
+def dividir(geometria, modo, valores, lado=0, perpendicular=False, invertir=False, pivote=False):
     """
     Divide la geometría (polígono, en un SRC proyectado) en parcelas con linderos paralelos al lado indicado (índice en
     lados(); con perpendicular=True, perpendiculares a él). Devuelve (lista de QgsGeometry en orden, incidencias).
@@ -134,6 +207,14 @@ def dividir(geometria, modo, valores, lado=0, perpendicular=False, invertir=Fals
     if not 0 <= lado < len(todos):
         return [], [Incidencia(ERROR, 'DIV-LADO', "Elija un lado de la parcela")]
     total = geometria.area()
+    if pivote:  #lado es el índice del vértice (el inicio de ese lado)
+        if modo == FRANJAS:
+            return [], [Incidencia(ERROR, 'DIV-PIVOTE', "Con pivote no hay franjas de ancho fijo: elija superficies, "
+                                                        "porcentajes, partes o cuotas")]
+        metas, inc = objetivos(modo, valores, total)
+        if not metas:
+            return [], inc
+        return dividir_pivote(geometria, metas, lado, invertir)
     if modo == FRANJAS:
         if not valores or any(v <= 0 for v in valores):
             return [], [Incidencia(ERROR, 'DIV-VALORES', f"Escriba los anchos en metros (p. ej. «{EJEMPLOS[FRANJAS]}»)")]

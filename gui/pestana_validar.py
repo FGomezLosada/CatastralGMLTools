@@ -55,6 +55,13 @@ def corto(texto, largo=LARGO_LISTA):
     return texto[:corte if corte > largo // 2 else largo - 4].rstrip(' ,;:(') + ' … ▸'
 
 
+def superficie(valor):
+    """m² con punto de miles, como en Parcela («11.646»; aquí salía «11646»: prueba final del 30/10/2026)."""
+    if valor is None:
+        return ''
+    return f"{valor:,}".replace(',', '.') if isinstance(valor, int) else str(valor)
+
+
 ICONOS = {ERROR: '/mIconCritical.svg', AVISO: '/mIconWarning.svg', INFO: '/mIconInfo.svg'}
 ICONOS_CODIGO = {'XSD-VALIDO': '/mIconSuccess.svg', 'CMP-CONTORNO-OK': '/mIconSuccess.svg', 'CMP-BU-DENTRO': '/mIconSuccess.svg'}  #Marca verde para lo que está bien
 TEXTO_ESTADO = {ERROR: 'Con errores', AVISO: 'Con avisos', 'correcta': 'Correcta'}
@@ -294,7 +301,7 @@ class PestanaValidar(QWidget):
         for i, e in enumerate(r.elementos):
             calculada = informe.superficie(i) if informe is not None else None  #En metros, también si viene en grados
             valores = [e.tipo.capitalize(), e.local_id, e.namespace,
-                       '' if e.area_declarada is None else str(e.area_declarada), '' if calculada is None else str(calculada), '']
+                       superficie(e.area_declarada), superficie(calculada), '']
             for col, valor in enumerate(valores):
                 item = QTableWidgetItem(valor)
                 if col in (3, 4):
@@ -511,6 +518,12 @@ class PestanaValidar(QWidget):
         corto = comparacion.operacion.split(':')[0].split(' (')[0]
         if corto == 'ninguna':  #«2 avisos · ninguna» no se entendía (prueba a mano del 28/10)
             corto = 'igual al Catastro vigente'
+        parciales = sum(1 for i in comparacion.incidencias if i.codigo == 'CMP-PARCIAL')
+        if parciales:
+            #Con colindantes afectadas en parte, la «operación» (agregación…) sale de contarlas, y no es lo que se quería
+            #hacer: la barra dice lo que pasa (prueba final del 30/10/2026: un vértice movido daba «2 errores · Agregación»)
+            corto = (f"afecta en parte a {parciales} parcela{'s' if parciales != 1 else ''} vecina"
+                     f"{'s' if parciales != 1 else ''}")
         if comparacion.edificio and not errores:
             errores = [i for i in comparacion.incidencias if i.nivel == AVISO]  #En parte fuera: se avisa en naranja
         if errores:

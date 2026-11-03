@@ -1,6 +1,7 @@
 """
 Bloque «Dividir parcela» de la pestaña Parcela (fase 10, AU-54; USABILIDAD U-01 y U-09): divide la parcela
-seleccionada en el mapa con linderos paralelos o perpendiculares a uno de sus lados (core/division.py), muestra antes el
+seleccionada en el mapa con linderos paralelos o perpendiculares a uno de sus lados, o en abanico desde un vértice
+(pivote; core/division.py), muestra antes el
 resultado, la sustituye en la capa (Ctrl+Z lo deshace) y propone la operación (segregación o división) en el asistente.
 
 copyright : (C) 2026 by Francisco Gómez Losada
@@ -9,7 +10,7 @@ license   : GNU GPL v2 or later
 from qgis.core import Qgis, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsGeometry, QgsProject
 from qgis.gui import QgsRubberBand
 from qgis.PyQt import sip
-from qgis.PyQt.QtCore import pyqtSignal
+from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import QCheckBox, QComboBox, QFormLayout, QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton
 
@@ -18,7 +19,12 @@ from ..core import capa_parcelas as cp
 from ..core import division as dv
 from ..core import geometria as geo
 from ..core.incidencias import AVISO, ERROR
+from ..core.validador import MAX_PARCELAS
 
+PIVOTE = 'pivote'
+TIP_LADO = "Lado de la parcela que marca la dirección de los linderos nuevos (se ve en rojo en el mapa)"
+TIP_VERTICE = "Vértice del que salen los linderos nuevos (en rojo en el mapa, con sus dos lados)"
+MAX_LISTA = 8  #Superficies que se listan en la vista previa; más, se resumen
 OPERACIONES = ((alt.SEGREGACION, "Segregación (la mayor conserva la referencia)"),
                (alt.DIVISION, "División (todas son parcelas nuevas)"))
 
@@ -43,7 +49,7 @@ class BloqueDivision(QFrame):
         self.setCollapsed(True)
         self.modo.currentIndexChanged.connect(self.modo_cambiado)
         self.valores.textChanged.connect(self.previsualizar)
-        self.direccion.currentIndexChanged.connect(self.previsualizar)
+        self.direccion.currentIndexChanged.connect(self.direccion_cambiada)
         self.lado.currentIndexChanged.connect(self.previsualizar)
         self.invertir.toggled.connect(self.previsualizar)
         self.dividirBoton.clicked.connect(self.dividir)
@@ -80,8 +86,11 @@ class BloqueDivision(QFrame):
         self.direccion = QComboBox(self)
         self.direccion.addItem("Linderos paralelos al lado", False)
         self.direccion.addItem("Linderos perpendiculares al lado", True)
+        self.direccion.addItem("Linderos desde un vértice (pivote)", PIVOTE)
+        self.direccion.setItemData(2, "Todos los linderos nuevos salen del mismo vértice, en abanico (p. ej. desde una "
+                                      "esquina hacia el lado de enfrente)", Qt.ItemDataRole.ToolTipRole)
         self.lado = QComboBox(self)
-        self.lado.setToolTip("Lado de la parcela que marca la dirección de los linderos nuevos (se ve en rojo en el mapa)")
+        self.lado.setToolTip(TIP_LADO)
         fila = QHBoxLayout()
         fila.addWidget(self.direccion, 1)
         fila.addWidget(self.lado, 1)
@@ -136,13 +145,26 @@ class BloqueDivision(QFrame):
         anterior = self.lado.currentIndex()
         self.lado.blockSignals(True)
         self.lado.clear()
+        pivote = self.es_pivote()
+        self.lado.setToolTip(TIP_VERTICE if pivote else TIP_LADO)
+        self.invertir.setText("Empezar por el otro lado del vértice" if pivote else "Empezar por el lado opuesto")
         if g is not None:
-            for i, (_, _, largo, azimut) in enumerate(dv.lados(g), start=1):
-                self.lado.addItem(f"Lado {i} · {largo:.2f} m · {azimut:.0f}°")
+            todos = dv.lados(g)
+            for i, (_, _, largo, azimut) in enumerate(todos, start=1):
+                if pivote:  #El vértice i es el inicio del lado i: entre el lado anterior y ese
+                    self.lado.addItem(f"Vértice {i} · entre los lados {(i - 2) % len(todos) + 1} y {i}")
+                else:
+                    self.lado.addItem(f"Lado {i} · {largo:.2f} m · {azimut:.0f}°")
             if 0 <= anterior < self.lado.count():
                 self.lado.setCurrentIndex(anterior)
         self.lado.blockSignals(False)
         self.previsualizar()
+
+    def es_pivote(self):
+        return self.direccion.currentData() == PIVOTE
+
+    def direccion_cambiada(self, *args):
+        self.actualizar()  #Lados o vértices en la lista
 
     def poner_ayuda(self):
         modo = self.modo.currentData()
@@ -171,14 +193,28 @@ class BloqueDivision(QFrame):
             valores = dv.leer_valores(self.valores.text())
         except ValueError:
             return [], "Escriba solo números separados por espacios."
+        pivote = self.es_pivote()
         piezas, incidencias = dv.dividir(g, self.modo.currentData(), valores, self.lado.currentIndex(),
-                                         self.direccion.currentData(), self.invertir.isChecked())
+                                         self.direccion.currentData() is True, self.invertir.isChecked(), pivote)
         errores = [i.mensaje for i in incidencias if i.nivel == ERROR]
         if errores or not piezas:
             return [], errores[0] if errores else "No se ha podido dividir."
         total = sum(p.area() for p in piezas) or 1
-        texto = f"{len(piezas)} parcelas: " + " · ".join(f"{p.area():.2f} m² ({100 * p.area() / total:.0f} %)" for p in piezas)
+        areas = [p.area() for p in piezas]
+        if len(piezas) > MAX_LISTA and max(areas) - min(areas) < 0.01:
+            #Muchas iguales: una línea, no una lista de 40 superficies (prueba final del 30/10/2026)
+            texto = f"{len(piezas)} parcelas de {areas[0]:.2f} m² ({100 * areas[0] / total:.1f} % cada una)"
+        else:
+            lista = [f"{a:.2f} m² ({100 * a / total:.0f} %)" for a in areas]
+            if len(lista) > MAX_LISTA:
+                lista = lista[:MAX_LISTA] + [f"… y {len(lista) - MAX_LISTA} más"]
+            texto = f"{len(piezas)} parcelas: " + " · ".join(lista)
         avisos = [i.mensaje for i in incidencias if i.nivel == AVISO]
+        if len(piezas) > MAX_PARCELAS:  #Lo que diría Validar después: mejor saberlo antes de dividir
+            avisos.append(f"Más de {MAX_PARCELAS} parcelas resultantes: la Sede no tramita la operación de forma "
+                          "automática. ¿Quería «Porcentajes» o «Superficies» en lugar de «Partes iguales»?"
+                          if self.modo.currentData() == dv.PARTES else
+                          f"Más de {MAX_PARCELAS} parcelas resultantes: la Sede no tramita la operación de forma automática")
         return piezas, texto + ''.join(f"<br><span style='color:#e67700'>⚠ {a}</span>" for a in avisos)
 
     def previsualizar(self, *args):
@@ -211,7 +247,9 @@ class BloqueDivision(QFrame):
         i = self.lado.currentIndex()
         if 0 <= i < len(todos):
             a, b = todos[i][0], todos[i][1]
-            linea = QgsGeometry.fromPolylineXY([a, b])
+            #Con pivote, el vértice con sus dos lados (el que llega y el que sale)
+            puntos = [todos[i - 1][0], a, b] if self.es_pivote() else [a, b]
+            linea = QgsGeometry.fromPolylineXY(puntos)
             destino = lienzo.mapSettings().destinationCrs()
             if destino.isValid() and destino != capa.crs():
                 linea.transform(QgsCoordinateTransform(capa.crs(), destino, QgsProject.instance()))
@@ -272,10 +310,10 @@ class BloqueDivision(QFrame):
             self.pestana.soloSeleccion.blockSignals(True)
             self.pestana.soloSeleccion.setChecked(True)
             self.pestana.soloSeleccion.blockSignals(False)
-            vista = ". La tabla muestra solo las parcelas resultantes (desmarque «Solo las seleccionadas» para ver todas)"
+            vista = ". La tabla muestra solo las parcelas resultantes"
         self.pestana.recargar()
         self.pestana.poner_alteracion(self.operacion.currentData(), False)
-        self.pestana.dock.success(f"Parcela dividida en {len(fids)}: {superficies} m² · propuesta: {alt.NOMBRES[self.operacion.currentData()]}{vista}. La capa queda "
-                                  "en edición (Ctrl+Z deshace también la tabla; guarde la capa para conservarla)")
+        self.pestana.dock.success(f"Parcela dividida en {len(fids)}: {superficies} m² · propuesta: "
+                                  f"{alt.NOMBRES[self.operacion.currentData()]}{vista}. Ctrl+Z lo deshace")
         self.valores.clear()
         return fids

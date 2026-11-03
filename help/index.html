@@ -17,10 +17,10 @@
   th { background: var(--suave); }
   small { opacity: .8; }
   figure { margin: 14px 0; }
-  figure img { width: 760px; max-width: 100%; height: auto; border: 1px solid var(--suave); border-radius: 4px; }
-  figure img.panel { width: 680px; }  /* Capturas a doble resolución (1080 px), algo más grandes que el panel: se leen bien y nítidas */
+  /* Todas las capturas al mismo ancho y a la misma escala, una debajo de otra (prueba a mano del 30/10/2026: en dos
+     columnas el navegador encogía unas y no otras). Están a doble resolución: se ven nítidas */
+  figure img { width: 600px; max-width: 100%; height: auto; border: 1px solid var(--suave); border-radius: 4px; }
   figcaption { font-size: .88em; opacity: .8; }
-  .capturas { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
 </style>
 </head>
 <body>
@@ -75,7 +75,7 @@ huellas de las construcciones, plantas y estado, Crear GML, Validar y subirlo a 
   <tr><td>Validar</td><td>Abre un GML, lo comprueba como la Sede, lo compara con el Catastro y guarda un informe.</td></tr>
   <tr><td>Utilidades</td><td>Une varios GML de parcela en uno (multiparcela), convierte un GML del esquema 3.0 al 4.0
       (o repara uno 4.0), hace el informe de superficies y coordenadas, ajusta un levantamiento a la cartografía
-      catastral desplazada o girada, compara dos GML y crea parcelas desde un fichero de coordenadas.</td></tr>
+      catastral desplazada o girada, compara dos GML, crea parcelas desde un fichero de coordenadas y guarda puntos de apoyo para el editor de la Sede.</td></tr>
 </table>
 <figure><img src="img/utilidades.png" class="panel" alt="Pestaña Utilidades: una lista numerada; solo se abre la que se usa."><figcaption>Pestaña Utilidades: una lista numerada; solo se abre la que se usa.</figcaption></figure>
 
@@ -126,7 +126,7 @@ que el plugin añade al mapa (la descargada o la «vista del GML») son temporal
 parcelas</strong>: se unen en una sola (las rendijas de digitalización de menos de 1 cm entre ellas se cierran, y los
 huecos o cuñas de hasta 20 cm se rellenan con un aviso para que compruebe el resultado) y la mayor conserva sus datos. Si
 son parcelas catastrales distintas (dos referencias o más), el asistente propone agregación (si la mayor conserva su
-referencia y es al menos el 80 % del total) o agrupación, y la tabla muestra solo la parcela unida. Si no (por ejemplo, un
+referencia y es más del quíntuplo de las demás, ≈ 83 % del total, el umbral con el que la Sede propone agregación) o agrupación, y la tabla muestra solo la parcela unida. Si no (por ejemplo, un
 trozo dibujado que se pega a una parcela), es un retoque del dibujo y la operación no cambia. La capa queda en edición:
 Ctrl+Z deshace la unión, también en la tabla.</p>
 <p><strong>Vértices sobre un lindero.</strong> Las coordenadas van al centímetro. Un vértice nuevo que cae sobre un lindero
@@ -253,7 +253,15 @@ de validar), su capa pasa a ser la capa activa de QGIS: así la selección en el
 la vista del GML.</p>
 <p>Los linderos nuevos son rectos, <strong>paralelos o perpendiculares</strong> al lado elegido (se marca en rojo en el
 mapa), y las parcelas salen en orden desde ese lado (o desde el opuesto). Antes de dividir se ven las superficies
-resultantes; si una forma irregular dejara una parcela en varios trozos, se avisa: pruebe con otro lado. Elija también la
+resultantes; si una forma irregular dejara una parcela en varios trozos, se avisa: pruebe con otro lado.</p>
+<p>Con <strong>Linderos desde un vértice (pivote)</strong>, todos los linderos nuevos salen del mismo vértice, en abanico
+(por ejemplo, desde una esquina hacia el lado de enfrente, o para que todas las parcelas den a un mismo punto). La lista
+de al lado muestra entonces los vértices («Vértice 3 · entre los lados 2 y 3»: en rojo en el mapa, con sus dos lados) y
+las parcelas salen en orden desde el lado que sale del vértice (o desde el que llega). Sirve con partes, porcentajes,
+superficies y cuotas; no con franjas. Si desde ese vértice no se ve toda la parcela (en una U o una L, por el entrante),
+la última se lleva lo que no se ve, en varios trozos, y se avisa; si no se llega a la superficie pedida, también: pruebe
+con otro vértice.</p>
+<p>Elija también la
 operación de la escritura: <strong>segregación</strong> (la mayor conserva la referencia catastral) o
 <strong>división</strong> (todas son parcelas nuevas). Si la capa tiene más parcelas, la tabla (y el GML) pasa a
 llevar solo las resultantes, como al unir; Ctrl+Z lo deshace todo.</p>
@@ -313,6 +321,10 @@ no exceden del 10 % de la inscrita (art. 9.b), constancia sin expediente hasta e
 descriptiva y gráfica de plena coincidencia (art. 201.3.a) y rectificación hasta el 5 % (art. 201.3.b). Es una
 referencia: la valoración corresponde al registrador. El campo <strong>Autor</strong> (opcional) va en la cabecera y se
 recuerda. El informe no es un documento oficial.</p>
+<p><strong>Para una hoja de cálculo.</strong> Junto al informe se guardan dos CSV: <code>…_parcelas.csv</code> (una fila
+por parcela: superficies, perímetro, número de vértices y linderos) y <code>…_vertices.csv</code> (una fila por vértice:
+coordenadas y lado hasta el siguiente). Se abren con doble clic en Excel o LibreOffice en castellano (separados por «;»,
+con coma decimal y las tildes bien).</p>
 
 <h2>Ajustar a la cartografía catastral desplazada o girada</h2>
 <p>Si la cartografía catastral de la zona está desplazada o girada respecto de la realidad, el levantamiento (en su
@@ -397,6 +409,15 @@ código, número de línea y si su parcela se ha podido formar—, etiquetados c
 crea el GML como con cualquier otra capa. Si ninguna parcela se puede formar, el botón pasa a ser <strong>Ver los puntos
 en el mapa</strong>, para ver dónde está lo que falla. Las capas son temporales: si quiere conservarlas, guárdelas
 desde el panel de Capas.</p>
+
+<h2 id="apoyo">Puntos de apoyo para el editor de la Sede</h2>
+<p>El editor parcelario de la Sede Electrónica del Catastro permite dibujar la parcela en línea apoyándose en puntos
+cargados desde un fichero. En <strong>Utilidades › 7. Puntos de apoyo para el editor de la Sede</strong>, elija la capa
+(los puntos de un levantamiento, la parcela dibujada, unas líneas…) y, si quiere, marque «Solo los elementos
+seleccionados» (se marca sola si hay selección). Pulse <strong>Crear TXT</strong>: se guardan sus vértices, sin repetir,
+con una línea «x y» por punto, 2 decimales y punto decimal, en el huso de la Sede (automático según la posición, o el que
+elija). En el editor, cárguelo como puntos de apoyo desde un fichero TXT. El editor también admite un GML de parcela o de
+edificio como apoyo: para eso no hace falta esta utilidad.</p>
 
 <h2>Unir varios GML (multiparcela)</h2>
 <p>No confundir con <strong>Unir parcelas</strong> (pestaña Parcela), que une en una sola parcela las parcelas

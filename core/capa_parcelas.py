@@ -265,7 +265,9 @@ def unir_seleccionadas(capa, campo_id=''):
     #(prueba a mano del 14/10/2026: unir el trozo de una segregación con una franja de vial proponía «Agrupación»)
     referencias = {refcat.parcela_de(_texto(f[campo_id])) for f in seleccion} - {''} if campo_id else set()
     if len(referencias) >= 2:
-        tipo = alt.AGREGACION if con_rc and proporcion >= 0.8 else alt.AGRUPACION
+        #El umbral con el que la Sede preselecciona agregación: la mayor, más del quíntuplo de las demás (art. 48 RH; ayuda
+        #del IVG de la DGC, revisada en la prueba final del 30/10/2026). Antes, el 80 % de la guía antigua (E-17)
+        tipo = alt.AGREGACION if con_rc and proporcion >= alt.UMBRAL_AGREGACION - 1e-9 else alt.AGRUPACION
     else:
         tipo = alt.SIN_INDICAR
     incidencias = [Incidencia(INFO, 'UNION-HECHA', f"Unidas {len(seleccion)} parcelas en una de {round(total)} m²; la mayor "
@@ -293,12 +295,9 @@ def unir_seleccionadas(capa, campo_id=''):
         incidencias.append(Incidencia(INFO, 'UNION-DIBUJO', "No son parcelas catastrales distintas: es un retoque del dibujo y "
                                                             "no cambia la operación"))
     elif con_rc and tipo == alt.AGRUPACION:
-        incidencias.append(Incidencia(INFO, 'UNION-AGRUPACION', "La mayor no llega al 80 % del total: se propone agrupación "
-                                                                "(parcela nueva). Si conserva su referencia, elija agregación"))
-    elif tipo == alt.AGREGACION and proporcion < alt.UMBRAL_AGREGACION:
-        incidencias.append(Incidencia(INFO, 'UNION-UMBRAL', "La mayor llega al 80 % de la guía del IVG, pero no al quíntuplo "
-                                                            "de lo agregado del Reglamento Hipotecario (≈ 83 %): manda la "
-                                                            "escritura"))
+        incidencias.append(Incidencia(INFO, 'UNION-AGRUPACION', "La mayor no llega al quíntuplo de las demás (≈ 83 % del "
+                                                                "total), como pide la Sede para proponer agregación: se "
+                                                                "propone agrupación. Si la escritura dice agregación, elíjala"))
     return principal.id(), tipo, incidencias
 
 

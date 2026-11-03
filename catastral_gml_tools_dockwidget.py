@@ -15,7 +15,7 @@ import os
 from qgis.core import Qgis, QgsApplication
 from qgis.gui import QgsMessageBar
 from qgis.PyQt import QtWidgets, sip, uic
-from qgis.PyQt.QtCore import QEvent, QObject, Qt, QUrl
+from qgis.PyQt.QtCore import QEvent, QObject, Qt, QTimer, QUrl
 from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtWidgets import (
     QHBoxLayout,
@@ -71,7 +71,16 @@ class AjusteAltura(QObject):
             alto = objeto.layout().totalHeightForWidth(objeto.width())
             if alto > 0 and objeto.minimumHeight() != alto:
                 objeto.setMinimumHeight(alto)
+            #Y que su disposición ocupe el alto que ya tiene: a veces se quedaba con el de antes y el texto, cortado en
+            #la última línea aunque el mensaje tuviera sitio (prueba final del 30/10/2026, «… guarde la capa para»)
+            self.objeto = objeto
+            QTimer.singleShot(0, self.recolocar)
         return False
+
+    def recolocar(self):
+        objeto = getattr(self, 'objeto', None)
+        if objeto is not None and not sip.isdeleted(objeto) and objeto.layout() is not None:
+            objeto.layout().setGeometry(objeto.contentsRect())
 
 
 def ajustar_mensaje(mensaje, contenido):

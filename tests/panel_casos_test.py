@@ -343,6 +343,26 @@ def mensaje_ancho():
 caso("los mensajes finales usan todo el ancho: el icono no deja un hueco a su izquierda", mensaje_ancho)
 
 
+def mensaje_largo_entero():
+    #Prueba final del 30/10/2026: un mensaje verde largo, sin botones, se cortaba en la última línea («… guarde la capa
+    #para») aunque el mensaje tuviera sitio: la disposición se quedaba con el alto de antes
+    dw.messageBar.clearWidgets()
+    dw.resize(470, 900)
+    texto = ("Unidas 2 parcelas en una de 239 m²; la mayor (51 % del total) conserva sus datos · propuesta: Agrupación. "
+             "La mayor no llega al quíntuplo de las demás (≈ 83 % del total): se propone agrupación. Si la escritura "
+             "dice agregación, elíjala. Una frase más para que ocupe muchas líneas en un panel estrecho. Ctrl+Z lo deshace")
+    mensaje = dw.success(texto)
+    for _ in range(10):
+        QApplication.processEvents()
+    etiqueta = next(e for e in mensaje.findChildren(QLabel) if e.text().startswith('Unidas'))
+    ok = etiqueta.height() >= etiqueta.heightForWidth(etiqueta.width()) - 1
+    dw.messageBar.clearWidgets()
+    return ok, (etiqueta.height(), etiqueta.heightForWidth(etiqueta.width()))
+
+
+caso("un mensaje final largo se ve entero, sin cortar la última línea", mensaje_largo_entero)
+
+
 def panel_bajo():
     #Prueba a mano del 30/10/2026: con «Opciones avanzadas» abiertas en Edificio y un mensaje arriba, el panel pedía más
     #alto que la ventana y se metía bajo la barra de Windows. Cada pestaña se desplaza: su alto mínimo es pequeño

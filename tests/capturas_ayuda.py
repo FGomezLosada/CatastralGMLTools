@@ -120,7 +120,7 @@ def capas_visibles():
             and raiz.findLayer(c.id()).isVisible()]
 
 
-def mapa(nombre, centro, factor=1.15, ancho=760, alto=440):
+def mapa(nombre, centro, factor=1.15, ancho=600, alto=350):  #600 px: el ancho de todas las capturas en la ayuda
     """El mapa con las capas visibles (sin fondo ni selección), con la parcela y lo que tiene alrededor."""
     capas = capas_visibles()
     seleccion = {c.id(): c.selectedFeatureIds() for c in capas}
