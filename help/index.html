@@ -21,6 +21,10 @@
      columnas el navegador encogía unas y no otras). Están a doble resolución: se ven nítidas */
   figure img { width: 600px; max-width: 100%; height: auto; border: 1px solid var(--suave); border-radius: 4px; }
   figcaption { font-size: .88em; opacity: .8; }
+  h3 { color: var(--c); margin-top: 24px; }
+  h2 small { font-weight: normal; font-size: .6em; opacity: .75; }
+  nav.indice { background: var(--suave); border-radius: 6px; padding: 10px 16px; margin: 16px 0; }
+  nav.indice ol { margin: 6px 0 0; padding-left: 22px; }
 </style>
 </head>
 <body>
@@ -35,6 +39,21 @@ en cualquier trámite.</div>
 <p>Prepara los ficheros GML que pide la Sede Electrónica del Catastro: el GML de parcela (INSPIRE CadastralParcels 4.0)
 para el informe de validación gráfica y el GML de edificio (INSPIRE BuildingExtended2D) para el informe de ubicación de
 construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p>
+
+<nav class="indice"><strong>Contenido</strong>
+<ol>
+  <li><a href="#flujo">Flujo de trabajo: de la referencia catastral a la Sede</a></li>
+  <li><a href="#pestanas">Pestañas del panel</a></li>
+  <li><a href="#descargar">Descargar una parcela</a> (pestaña Descargar; Navarra y País Vasco)</li>
+  <li><a href="#crear-parcela">Crear el GML de parcela</a> (pestaña Parcela) · <a href="#dividir">Dividir una parcela</a></li>
+  <li><a href="#edificio">Crear el GML de edificio (ICUC)</a> (pestaña Edificio)</li>
+  <li><a href="#validar">Revisar y validar un GML</a> (pestaña Validar)</li>
+  <li><a href="#antes-de-presentar">Antes de presentar el GML</a></li>
+  <li><a href="#utilidades">Utilidades</a>:
+    <a href="#u-coordenadas">1</a> · <a href="#u-ajuste">2</a> · <a href="#apoyo">3</a> · <a href="#u-convertir">4</a> ·
+    <a href="#u-unir">5</a> · <a href="#u-comparar">6</a> · <a href="#u-superficies">7</a> · <a href="#informe-sede">8</a></li>
+  <li><a href="#legal">Marco legal, ámbito y datos</a></li>
+</ol></nav>
 
 <h2 id="flujo">Flujo de trabajo: de la referencia catastral a la Sede</h2>
 <p>El trabajo habitual tiene cinco pasos. Al terminar cada uno, el mensaje verde de arriba del panel lleva el botón del
@@ -64,35 +83,82 @@ siguiente, así que se puede seguir sin buscar la pestaña.</p>
 huellas de las construcciones, plantas y estado, Crear GML, Validar y subirlo a la Sede.
 <a href="#edificio">Más</a></p>
 
-<h2>Pestañas del panel</h2>
+<h2 id="pestanas">Pestañas del panel</h2>
 <table>
   <tr><th>Pestaña</th><th>Qué hace</th></tr>
-  <tr><td>Descargar</td><td>Descarga una parcela concreta, sus colindantes y sus construcciones por referencia catastral.</td></tr>
-  <tr><td>Parcela</td><td>Crea el GML de una o varias parcelas a partir de una capa de polígonos, con el asistente de
+  <tr><td><a href="#descargar">Descargar</a></td><td>Descarga una parcela concreta, sus colindantes y sus construcciones por referencia catastral.</td></tr>
+  <tr><td><a href="#crear-parcela">Parcela</a></td><td>Crea el GML de una o varias parcelas a partir de una capa de polígonos, con el asistente de
       alteraciones (segregación, división, agregación…), la unión de parcelas seleccionadas y la división de la parcela
       seleccionada («Unir parcelas» y «Dividir parcela»).</td></tr>
-  <tr><td>Edificio</td><td>Crea el GML de edificios y otras construcciones (piscinas) para el ICUC.</td></tr>
-  <tr><td>Validar</td><td>Abre un GML, lo comprueba como la Sede, lo compara con el Catastro y guarda un informe.</td></tr>
-  <tr><td>Utilidades</td><td>Une varios GML de parcela en uno (multiparcela), convierte un GML del esquema 3.0 al 4.0
-      (o repara uno 4.0), hace el informe de superficies y coordenadas, ajusta un levantamiento a la cartografía
-      catastral desplazada o girada, compara dos GML, crea parcelas desde un fichero de coordenadas, guarda puntos de apoyo para el editor de la Sede y lee el informe que da
-      la Sede (IVG o ICUC).</td></tr>
+  <tr><td><a href="#edificio">Edificio</a></td><td>Crea el GML de edificios y otras construcciones (piscinas) para el ICUC.</td></tr>
+  <tr><td><a href="#validar">Validar</a></td><td>Abre un GML, lo comprueba como la Sede, lo compara con el Catastro y guarda un informe.</td></tr>
+  <tr><td><a href="#utilidades">Utilidades</a></td><td>Ocho herramientas, en el orden del trabajo: parcela desde coordenadas, ajuste a la
+      cartografía desplazada o girada, puntos de apoyo para el editor de la Sede, convertir a 4.0 o reparar, unir varios GML,
+      comparar dos GML, informe de superficies y coordenadas y leer el informe de la Sede (IVG o ICUC).
+      <a href="#utilidades">Más</a></td></tr>
 </table>
-<figure><img src="img/utilidades.png" class="panel" alt="Pestaña Utilidades: una lista numerada; solo se abre la que se usa."><figcaption>Pestaña Utilidades: una lista numerada; solo se abre la que se usa.</figcaption></figure>
 
-<p>La pestaña <strong>Utilidades</strong> es una lista numerada: pulse el nombre de una para abrirla (al pasar el ratón se
-ve qué hace). Si la pestaña Parcela no cabe en la pantalla, se desplaza con su barra (o con la rueda del ratón). La rueda no
+
+<p>Si la pestaña Parcela no cabe en la pantalla, se desplaza con su barra (o con la rueda del ratón). La rueda no
 cambia las listas desplegables por las que pasa el puntero: para cambiar una con la rueda, haga clic antes en ella. Las
 notas informativas de la operación se abren con el enlace «ℹ … notas sobre la operación»; los avisos se ven siempre.</p>
 
-<h2>Marco legal</h2>
-<p>La representación gráfica alternativa se rige por la Ley Hipotecaria (arts. 9, 10, 199 y 201, en la redacción de la
-Ley 13/2015), la Resolución conjunta de 26/10/2015 (requisitos técnicos), la de 23/09/2020 (criterio de identidad gráfica)
-y la de 29/03/2021 (documentos notariales y cartografía desplazada). El informe de validación gráfica de la Sede exige que
-el contorno de las parcelas resultantes coincida con el de las de origen con ±1 cm en los vértices. Más detalles en
-«Antes de presentar el GML».</p>
+<h2 id="descargar">Descargar una parcela <small>(pestaña Descargar)</small></h2>
+<p>En la pestaña <strong>Descargar</strong> hay dos formas de hacerlo:</p>
+<ul>
+  <li><strong>Con la referencia catastral:</strong> escríbala (de la parcela, 14 caracteres, urbana o rústica, o de un inmueble:
+      se usa la de su parcela) y pulse <strong>Descargar</strong>. No hace falta tener ningún mapa cargado.</li>
+  <li><strong>En el mapa:</strong> pulse <strong>Elegir en el mapa</strong>, acérquese a la zona y haga clic sobre la parcela.</li>
+</ul>
+<div class="capturas"><figure><img src="img/descargar.png" class="panel" alt="Pestaña Descargar tras descargar una parcela: el mensaje lleva «Ir a Parcela» e «Ir a Edificio»."><figcaption>Pestaña Descargar tras descargar una parcela: el mensaje lleva «Ir a Parcela» e «Ir a Edificio».</figcaption></figure><figure><img src="img/mapa_descarga.png" alt="En el mapa: la parcela (naranja), sus construcciones (rojo), las colindantes (gris) y un camino de dominio público (azul)."><figcaption>En el mapa: la parcela (naranja), sus construcciones (rojo), las colindantes (gris) y un camino de dominio público (azul).</figcaption></figure></div>
+<p>Con la casilla <strong>Mapa de fondo</strong> se añade, si no está, la cartografía del Catastro (la de la DGC y, para Navarra, la del
+Gobierno de Navarra) sobre la ortofoto PNOA del IGN (servicios WMS públicos), para localizar la parcela aunque el proyecto esté vacío. Si alguno de esos servicios no responde o está en
+mantenimiento, debajo de las casillas se dice qué capa falta y por qué (con el horario o el aviso que dé el propio
+servicio en ese momento): no hace falta
+buscarla ni añadirla a mano, se vuelve a probar en cada descarga (o con «Reintentar ahora») y se añade sola cuando responde.
+Con el Catastro en mantenimiento tampoco se puede descargar: el panel lo dice con su horario.</p>
+<p>La parcela se descarga de los servicios públicos de la
+Dirección General del Catastro, en el huso UTM que le corresponde, y se añade al proyecto en un grupo
+«Catastro <em>referencia</em>», dentro de «Descargas del Catastro (temporales)» (la última descarga arriba y abierta; las anteriores,
+plegadas): la parcela, sus colindantes (las que la tocan, con su número de parcela), el entorno (las
+demás parcelas a menos de 25 m, por ejemplo al otro lado de la calle) y sus edificios y otras construcciones, según las
+casillas marcadas. Si la parcela está rodeada de calles, no tiene colindantes en el Catastro y solo verá el entorno.</p>
+<p><strong>Capas temporales y fichero GML.</strong> Las capas que añade el plugin (las descargas, la «vista del GML» de
+Validar y los grupos «Comparación») son temporales, en memoria: sirven para ver y dibujar, y se pierden al cerrar QGIS si
+no las guarda. Lo que se sube a la Sede es siempre el fichero que crea el botón <strong>Crear GML</strong>. En la pestaña
+Parcela, junto a «1. Parcelas», se recuerda si la capa elegida es temporal, si es la vista de un GML o si tiene cambios
+sin guardar.</p>
+<p><strong>Dominio público.</strong> En rústica, los caminos, carreteras, cauces y acequias son parcelas (numeradas del 9001 al
+9999 dentro de su polígono; la 9000 no es dominio público, es suelo que tributa como urbano). El plugin lo confirma con los datos públicos de la Dirección General del Catastro de cada parcela
+(su paraje y su uso, que se guardan en el campo <code>descripcion</code>): se ven en otro color (verde azulado) y, si lindan con
+la parcela, el panel lo indica. En urbana las
+calles no son parcelas, por eso una parcela rodeada de calles no tiene colindantes. En los dos casos, la nueva geometría no
+debe ocupar ese suelo. Cada capa lleva en sus metadatos la fuente y la fecha de descarga. Si vuelve a descargar la misma
+parcela, el grupo se sustituye (si ha editado alguna de sus capas, no se borra: la nueva descarga va en «Catastro … (2)»). La parcela descargada queda elegida en la pestaña <strong>Parcela</strong>.</p>
+<p>Es una copia para trabajar (por ejemplo, para dividir la parcela y crear después su GML en la pestaña Parcela), no
+cartografía oficial. Se descarga una parcela cada vez: no es una herramienta de descarga masiva.</p>
 
-<h2 id="crear-parcela">Crear el GML de parcela</h2>
+<h3>Navarra</h3>
+<p>En la pestaña <strong>Descargar</strong> también se pueden bajar parcelas de Navarra: escriba municipio, polígono y parcela
+(por ejemplo <code>201-4-112</code>) o haga clic en el mapa. Se descargan del servicio INSPIRE del Gobierno de Navarra (Registro
+de la Riqueza Territorial; «Servicio proporcionado por el Gobierno de Navarra», licencia CC BY 4.0). Navarra tiene catastro
+propio: el GML de la Sede Electrónica de la Dirección General del Catastro no sirve allí, por eso el plugin no lo genera con esas
+capas.</p>
+
+<h3>País Vasco</h3>
+<p>Álava/Araba, Gipuzkoa y Bizkaia también tienen catastros propios, de sus diputaciones forales. En la pestaña
+<strong>Descargar</strong>, pulse <strong>Elegir en el mapa</strong> y haga clic en la parcela: se descarga (con sus colindantes,
+su entorno y las construcciones que caen dentro de ella) del servicio WFS INSPIRE de su diputación, en EPSG:25830, solo para
+verla. También se puede escribir su identificador: en Bizkaia como <code>48.020.1619.01003</code>, en Gipuzkoa como
+<code>069-8296630-28223</code> y, en cualquiera de los tres, con el namespace delante (<code>ES.AFA.CP.59600921</code>, que es
+lo que escribe el clic). Como en Navarra, el GML de la Sede de la Dirección General del Catastro no sirve allí y el plugin no lo
+genera con esas capas: las alteraciones se tramitan ante cada diputación.</p>
+<p>Fuentes y licencias (van en los metadatos de cada capa): Arabako Foru Aldundia / Diputación Foral de Álava (CC BY 4.0);
+Gipuzkoako Foru Aldundia / Diputación Foral de Gipuzkoa (CC BY-SA 3.0 ES; según la Diputación, estos datos no tienen categoría
+de cartografía oficial y no sirven para ningún certificado); Bizkaiko Foru Aldundia - Diputación Foral de Bizkaia (CC BY 3.0
+ES).</p>
+
+<h2 id="crear-parcela">Crear el GML de parcela <small>(pestaña Parcela)</small></h2>
 <ol>
   <li>Dibuje o cargue una capa de polígonos con una parcela por polígono (en cualquier SRC: si no es uno de los que admite la
       Sede, se transforma).</li>
@@ -136,52 +202,51 @@ mismo en las dos parcelas que lo comparten: así no queda fuera de él al redond
 <p>Si algo impide crear el fichero (una parcela con varias partes, un identificador repetido, SDGC sin referencia
 catastral…), no se crea y la columna <em>Estado</em> indica el problema de cada parcela.</p>
 
-<h2 id="validar">Revisar y validar un GML</h2>
-<p>En la pestaña <strong>Validar</strong>, elija o arrastre un GML de parcela (esquema 3.0 o 4.0) o de edificio. Se comprueba
-al momento como lo hará la Sede: esquema 4.0, declaración <code>xmlns:xlink</code>, sistema de referencia, identificadores y
-namespaces, un recinto por parcela, anillos cerrados y en el sentido correcto, superficie, solapes y huecos entre parcelas.
-Además, en segundo plano, se comprueba contra el esquema XSD oficial de INSPIRE (la primera vez hace falta internet; después
-se usan los esquemas guardados). Un GML grande (una manzana o un polígono entero) se lee y se valida en segundo plano:
-QGIS no se queda esperando. El resultado sale en verde, naranja o rojo con la lista de errores y avisos; al elegir uno
-se marca su parcela. Recuerde que la validación definitiva es la de la Sede: hay reglas que la DGC no publica.</p>
-<figure><img src="img/validar.png" class="panel" alt="Validar tras «Comparar con el Catastro» sin errores: «Siguiente paso» y el botón «Abrir la Sede»."><figcaption>Validar tras «Comparar con el Catastro» sin errores: «Siguiente paso» y el botón «Abrir la Sede».</figcaption></figure>
-<p>El botón <strong>Comparar con el Catastro</strong> (necesita internet) descarga las parcelas catastrales vigentes que hay
-bajo el GML y hace las comprobaciones del informe de validación gráfica de la Sede: cuántas parcelas catastrales se ven afectadas
-(NPO) y cuántas trae el GML (NPP), qué operación resulta (segregación, división, agregación, agrupación o subsanación), si el
-contorno exterior coincide con el de las parcelas afectadas (±1 cm medido como distancia: un vértice movido 2 cm ya no
-coincide), si alguna parcela queda afectada solo en parte (la Sede no emitiría el informe; dice hasta cuántos cm se separa),
-si alguna parcela del GML es igual a la catastral (no cambia nada: hay que quitarla), si el GML ocupa suelo sin parcela (una
-calle) y si las referencias catastrales existen. Con los datos no protegidos de cada parcela afectada avisa también de los
-bienes de características especiales (BICE) y de la urbana en diseminado. Si no hay ninguna parcela catastral debajo y la zona
-parece de Navarra o del País Vasco, lo dice: allí el catastro es propio. En el mapa se añade el grupo
-«Comparación» con el GML arriba (en naranja, «… (vista del GML)», si no estaba ya en el mapa), debajo las parcelas
-catastrales afectadas tal como están hoy (en gris: son el Catastro vigente, no el GML) y las diferencias: en rojo lo que
-sobra y en azul lo que falta.</p>
-<p><strong>Identidad gráfica (simulación).</strong> Si el GML es una sola parcela y no es igual a la catastral, la
-comparación añade una línea con el criterio de identidad gráfica del anexo II de la Resolución de 23 de septiembre de 2020
-(BOE-A-2020-12111): el contorno del GML dentro de ±0,50 m del perímetro catastral en cartografía urbana o de ±2,00 m en
-rústica (según la cartografía de la parcela, no su naturaleza), y una diferencia de superficie de como mucho el 5 %. Dice
-cuánto se separa el contorno, la diferencia de superficie y si cumpliría; si no, dónde sale del margen y, si todo el
-contorno está desplazado, el desplazamiento que lo metería. El <strong>Informe</strong> lleva además una sección con el
-resultado y dos croquis: el general, con el margen (azul), la parcela catastral (gris), el GML (naranja) y lo que queda
-fuera (rojo), y otro ampliado en el tramo que más se separa; en el mapa, el grupo «Comparación» lleva también el margen
-y lo que sale de él, con sus datos en la tabla de atributos (separación, superficies, si cumpliría). Son dos preguntas distintas: las comprobaciones de arriba son
-las del informe de validación gráfica (±1 cm, para cambiar la cartografía), y la identidad dice si el levantamiento y la
-parcela catastral pueden considerarse la misma finca (para el notario o el registro puede bastar entonces la
-certificación catastral). Por eso un levantamiento a 30 cm del Catastro puede «afectar en parte» a la vecina y, a la vez,
-cumplir la identidad. Es una simulación no oficial: el resultado válido es el de la Sede («Identidad de parcela»).</p>
-<p>El botón <strong>Informe</strong> guarda junto al GML un informe en HTML (<code>nombre_informe.html</code>) con el resultado,
-las incidencias, un croquis y las coordenadas de cada recinto, y lo abre en el navegador; se puede imprimir o adjuntar.</p>
-<p>La tabla muestra
-cada parcela o construcción con su identificador, su namespace y su superficie: la declarada en el fichero y la calculada
-a partir de la geometría (en rojo si no coinciden). <strong>Cargar en el mapa</strong> lo añade al proyecto con un estilo
-por tipo y una etiqueta con el identificador, para compararlo con la cartografía.</p>
+<h3 id="dividir">Dividir una parcela</h3>
+<p>En la pestaña <strong>Parcela</strong>, seleccione en el mapa <strong>una sola</strong> parcela y pulse
+<strong>Dividir parcela ▸</strong> (paso 2, Operación): sus opciones se abren justo debajo, marcadas con una raya azul, y
+el mismo botón (▾) las pliega. Elija cómo dividir (como la división automática del editor de la Sede):</p>
+<ul>
+  <li><strong>Partes iguales</strong>: cuántas (de 2 a 100).</li>
+  <li><strong>Porcentajes</strong>: p. ej. <code>40 30 30</code>. Si suman menos de 100, lo que falta es una parcela más al final.</li>
+  <li><strong>Superficies</strong> en m²: p. ej. <code>200 150</code>. Lo que sobra es una parcela más (si sobra menos de 0,5 m², se suma a la última).</li>
+  <li><strong>Cuotas</strong>: proporciones; <code>1 1 2</code> es lo mismo que <code>25 25 50</code> %.</li>
+  <li><strong>Franjas</strong> de ancho fijo en metros, medido en perpendicular a los linderos nuevos; lo que sobra es una parcela más.</li>
+</ul>
+<div class="capturas"><figure><img src="img/parcela_dividir.png" class="panel" alt="«Dividir parcela ▾» abierto: en dos partes iguales, con las superficies antes de dividir."><figcaption>«Dividir parcela ▾» abierto: en dos partes iguales, con las superficies antes de dividir.</figcaption></figure><figure><img src="img/mapa_division.png" alt="En el mapa, la parcela dividida: la nueva se rotula «(nueva)»."><figcaption>En el mapa, la parcela dividida: la nueva se rotula «(nueva)».</figcaption></figure></div>
+<p>Debajo de «Valores» se recuerda qué escribir en el modo elegido. Al volver a la pestaña Parcela (por ejemplo, después
+de validar), su capa pasa a ser la capa activa de QGIS: así la selección en el mapa y Ctrl+Z actúan sobre ella y no sobre
+la vista del GML.</p>
+<p>Los linderos nuevos son rectos, <strong>paralelos o perpendiculares</strong> al lado elegido (se marca en rojo en el
+mapa), y las parcelas salen en orden desde ese lado (o desde el opuesto). Antes de dividir se ven las superficies
+resultantes; si una forma irregular dejara una parcela en varios trozos, se avisa: pruebe con otro lado.</p>
+<p>Con <strong>Linderos desde un vértice (pivote)</strong>, todos los linderos nuevos salen del mismo vértice, en abanico
+(por ejemplo, desde una esquina hacia el lado de enfrente, o para que todas las parcelas den a un mismo punto). La lista
+de al lado muestra entonces los vértices («Vértice 3 · entre los lados 2 y 3»: en rojo en el mapa, con sus dos lados) y
+las parcelas salen en orden desde el lado que sale del vértice (o desde el que llega). Sirve con partes, porcentajes,
+superficies y cuotas; no con franjas. Si desde ese vértice no se ve toda la parcela (en una U o una L, por el entrante),
+la última se lleva lo que no se ve, en varios trozos, y se avisa con los vértices desde los que sale sin trozos (con
+trozos no se puede crear el GML: la Sede solo admite un recinto por parcela); si no se llega a la superficie pedida,
+también: pruebe con otro vértice. Las astillas de menos de 0,05 m² que deja un lindero al rozar un quiebro de pocos
+centímetros pasan solas a la parcela vecina.</p>
+<p>Elija también la
+operación de la escritura: <strong>segregación</strong> (la mayor conserva la referencia catastral) o
+<strong>división</strong> (todas son parcelas nuevas). Si la capa tiene más parcelas, la tabla (y el GML) pasa a
+llevar solo las resultantes, como al unir; Ctrl+Z lo deshace todo.</p>
+<p><strong>Corregir el lindero entre dos colindantes</strong> (la misma superficie total, pasar metros de una a otra):
+seleccione las dos, pulse <strong>Unir parcelas</strong> y después divida la unida con <strong>Superficies</strong> (la
+que debe quedar a un lado), con linderos paralelos al lado que convenga o desde un vértice. En la tabla, escriba en la
+nueva la referencia catastral de la otra (namespace SDGC) y elija la alteración <strong>Subsanación de
+discrepancias</strong>: las dos conservan su referencia y el contorno del conjunto no cambia. Validar lo confirma al
+comparar con el Catastro.</p>
+<p>Las parcelas nuevas no heredan la referencia catastral: en el mapa se rotulan «(nueva)» y la tabla les propone el
+identificador según la operación (<code>Seg_1</code>, <code>Div_1</code>…). En una segregación, la referencia se queda en la
+parcela mayor.</p>
+<p>Al pulsar <strong>Dividir</strong> la parcela se sustituye en la capa por las nuevas (la capa queda en edición; guárdela
+para conservarlas) y el asistente propone la operación elegida. <strong>Ctrl+Z</strong> deshace la división y devuelve la
+tabla y la alteración a como estaban. Si la capa está en coordenadas geográficas, la división se calcula en el huso UTM del GML.</p>
 
-<p><strong>Siguiente paso.</strong> Si la comparación no da errores y el esquema XSD está comprobado, el mensaje dice que
-el GML está listo y lleva el botón <strong>Abrir la Sede</strong>, que abre en el navegador la página de «Validaciones
-gráficas» de la Sede Electrónica del Catastro (el plugin no envía nada: el fichero lo sube usted allí).</p>
-
-<h2 id="edificio">Crear el GML de edificio (ICUC)</h2>
+<h2 id="edificio">Crear el GML de edificio (ICUC) <small>(pestaña Edificio)</small></h2>
 <p>El GML de edificio sirve para el Informe Catastral de Ubicación de las Construcciones (ICUC). En la pestaña
 <strong>Edificio</strong>, que va por pasos como Parcela (1. Construcciones, 2. Parcela, 3. Revisar, 4. Crear), elija
 la capa con la <strong>huella</strong> de cada construcción (el contorno a nivel del suelo,
@@ -239,105 +304,110 @@ guardada desde QGIS). El informe que emite la Sede va firmado: use solo construc
 <p>Las parcelas con bienes de características especiales (BICE) no tienen ICUC. Si hay construcciones solapadas o
 alguna está a más de 100 m de la parcela, la Sede no emite el informe.</p>
 
-<h2 id="dividir">Dividir una parcela</h2>
-<p>En la pestaña <strong>Parcela</strong>, seleccione en el mapa <strong>una sola</strong> parcela y pulse
-<strong>Dividir parcela ▸</strong> (paso 2, Operación): sus opciones se abren justo debajo, marcadas con una raya azul, y
-el mismo botón (▾) las pliega. Elija cómo dividir (como la división automática del editor de la Sede):</p>
+<h2 id="validar">Revisar y validar un GML <small>(pestaña Validar)</small></h2>
+<p>En la pestaña <strong>Validar</strong>, elija o arrastre un GML de parcela (esquema 3.0 o 4.0) o de edificio. Se comprueba
+al momento como lo hará la Sede: esquema 4.0, declaración <code>xmlns:xlink</code>, sistema de referencia, identificadores y
+namespaces, un recinto por parcela, anillos cerrados y en el sentido correcto, superficie, solapes y huecos entre parcelas.
+Además, en segundo plano, se comprueba contra el esquema XSD oficial de INSPIRE (la primera vez hace falta internet; después
+se usan los esquemas guardados). Un GML grande (una manzana o un polígono entero) se lee y se valida en segundo plano:
+QGIS no se queda esperando. El resultado sale en verde, naranja o rojo con la lista de errores y avisos; al elegir uno
+se marca su parcela. Recuerde que la validación definitiva es la de la Sede: hay reglas que la DGC no publica.</p>
+<figure><img src="img/validar.png" class="panel" alt="Validar tras «Comparar con el Catastro» sin errores: «Siguiente paso» y el botón «Abrir la Sede»."><figcaption>Validar tras «Comparar con el Catastro» sin errores: «Siguiente paso» y el botón «Abrir la Sede».</figcaption></figure>
+<p>El botón <strong>Comparar con el Catastro</strong> (necesita internet) descarga las parcelas catastrales vigentes que hay
+bajo el GML y hace las comprobaciones del informe de validación gráfica de la Sede: cuántas parcelas catastrales se ven afectadas
+(NPO) y cuántas trae el GML (NPP), qué operación resulta (segregación, división, agregación, agrupación o subsanación), si el
+contorno exterior coincide con el de las parcelas afectadas (±1 cm medido como distancia: un vértice movido 2 cm ya no
+coincide), si alguna parcela queda afectada solo en parte (la Sede no emitiría el informe; dice hasta cuántos cm se separa),
+si alguna parcela del GML es igual a la catastral (no cambia nada: hay que quitarla), si el GML ocupa suelo sin parcela (una
+calle) y si las referencias catastrales existen. Con los datos no protegidos de cada parcela afectada avisa también de los
+bienes de características especiales (BICE) y de la urbana en diseminado. Si no hay ninguna parcela catastral debajo y la zona
+parece de Navarra o del País Vasco, lo dice: allí el catastro es propio. En el mapa se añade el grupo
+«Comparación» con el GML arriba (en naranja, «… (vista del GML)», si no estaba ya en el mapa), debajo las parcelas
+catastrales afectadas tal como están hoy (en gris: son el Catastro vigente, no el GML) y las diferencias: en rojo lo que
+sobra y en azul lo que falta.</p>
+<p><strong>Identidad gráfica (simulación).</strong> Si el GML es una sola parcela y no es igual a la catastral, la
+comparación añade una línea con el criterio de identidad gráfica del anexo II de la Resolución de 23 de septiembre de 2020
+(BOE-A-2020-12111): el contorno del GML dentro de ±0,50 m del perímetro catastral en cartografía urbana o de ±2,00 m en
+rústica (según la cartografía de la parcela, no su naturaleza), y una diferencia de superficie de como mucho el 5 %. Dice
+cuánto se separa el contorno, la diferencia de superficie y si cumpliría; si no, dónde sale del margen y, si todo el
+contorno está desplazado, el desplazamiento que lo metería. El <strong>Informe</strong> lleva además una sección con el
+resultado y dos croquis: el general, con el margen (azul), la parcela catastral (gris), el GML (naranja) y lo que queda
+fuera (rojo), y otro ampliado en el tramo que más se separa; en el mapa, el grupo «Comparación» lleva también el margen
+y lo que sale de él, con sus datos en la tabla de atributos (separación, superficies, si cumpliría). Son dos preguntas distintas: las comprobaciones de arriba son
+las del informe de validación gráfica (±1 cm, para cambiar la cartografía), y la identidad dice si el levantamiento y la
+parcela catastral pueden considerarse la misma finca (para el notario o el registro puede bastar entonces la
+certificación catastral). Por eso un levantamiento a 30 cm del Catastro puede «afectar en parte» a la vecina y, a la vez,
+cumplir la identidad. Es una simulación no oficial: el resultado válido es el de la Sede («Identidad de parcela»).</p>
+<p>El botón <strong>Informe</strong> guarda junto al GML un informe en HTML (<code>nombre_informe.html</code>) con el resultado,
+las incidencias, un croquis y las coordenadas de cada recinto, y lo abre en el navegador; se puede imprimir o adjuntar.</p>
+<p>La tabla muestra
+cada parcela o construcción con su identificador, su namespace y su superficie: la declarada en el fichero y la calculada
+a partir de la geometría (en rojo si no coinciden). <strong>Cargar en el mapa</strong> lo añade al proyecto con un estilo
+por tipo y una etiqueta con el identificador, para compararlo con la cartografía.</p>
+
+<p><strong>Siguiente paso.</strong> Si la comparación no da errores y el esquema XSD está comprobado, el mensaje dice que
+el GML está listo y lleva el botón <strong>Abrir la Sede</strong>, que abre en el navegador la página de «Validaciones
+gráficas» de la Sede Electrónica del Catastro (el plugin no envía nada: el fichero lo sube usted allí).</p>
+
+<h2 id="antes-de-presentar">Antes de presentar el GML</h2>
+<p>Algunas cosas que el plugin no puede comprobar y que conviene tener presentes (no es asesoramiento jurídico: ante la
+duda, consulte con la notaría, el Registro o el Catastro):</p>
 <ul>
-  <li><strong>Partes iguales</strong>: cuántas (de 2 a 100).</li>
-  <li><strong>Porcentajes</strong>: p. ej. <code>40 30 30</code>. Si suman menos de 100, lo que falta es una parcela más al final.</li>
-  <li><strong>Superficies</strong> en m²: p. ej. <code>200 150</code>. Lo que sobra es una parcela más (si sobra menos de 0,5 m², se suma a la última).</li>
-  <li><strong>Cuotas</strong>: proporciones; <code>1 1 2</code> es lo mismo que <code>25 25 50</code> %.</li>
-  <li><strong>Franjas</strong> de ancho fijo en metros, medido en perpendicular a los linderos nuevos; lo que sobra es una parcela más.</li>
+  <li><strong>La operación es la de la escritura.</strong> Elija en el asistente la que figurará en el documento
+      (segregación, división, agregación…). Si además hay que corregir linderos con los colindantes, primero se presenta un
+      GML de subsanación y, cuando se incorpore al Catastro, el de la operación.</li>
+  <li><strong>Un informe positivo no es una licencia.</strong> El informe de validación gráfica solo dice que el GML encaja
+      con la cartografía catastral. No autoriza la segregación ni comprueba la parcela mínima urbanística o la unidad mínima
+      de cultivo en rústica: eso depende del ayuntamiento y de la comunidad autónoma.</li>
+  <li><strong>Colindantes.</strong> Al inscribir la representación gráfica, el Registro notifica a los titulares de las
+      parcelas colindantes (art. 199 de la Ley Hipotecaria), que pueden oponerse.</li>
+  <li><strong>Diferencias de cabida.</strong> Las diferencias de superficie pequeñas respecto a la inscrita (hasta el 10 %
+      con certificación catastral o el 5 % en general, art. 201.3 de la Ley Hipotecaria) pueden hacerse constar sin
+      expediente; las mayores necesitan el procedimiento que corresponda.</li>
+  <li><strong>Superficie.</strong> La superficie del GML es la de la proyección UTM (plana), no la del terreno medida con
+      sus pendientes: en terrenos inclinados la del terreno es algo mayor.</li>
+  <li><strong>Sistema de referencia.</strong> Si su capa está en ED50 u otro datum antiguo, pásela antes a ETRS89 con la
+      rejilla oficial del IGN: sin ella, la transformación puede mover las coordenadas varios metros (el plugin lo avisa).
+      En Canarias, REGCAN95 y WGS84 se tratan como el mismo: una capa en EPSG:4083 se pasa a 32628 sin cambiar sus
+      coordenadas.</li>
+  <li><strong>Sin tramitación automática.</strong> La Sede puede dar el informe positivo y aun así no tramitar la alteración de
+      forma automática: parcelas de distinto polígono o manzana, urbana y rústica mezcladas, más de 30 parcelas, esbeltez
+      mayor que 15, urbana en diseminado, bienes de características especiales (BICE) o expedientes abiertos sobre las
+      parcelas. La comparación avisa de lo que puede saber.</li>
 </ul>
-<div class="capturas"><figure><img src="img/parcela_dividir.png" class="panel" alt="«Dividir parcela ▾» abierto: en dos partes iguales, con las superficies antes de dividir."><figcaption>«Dividir parcela ▾» abierto: en dos partes iguales, con las superficies antes de dividir.</figcaption></figure><figure><img src="img/mapa_division.png" alt="En el mapa, la parcela dividida: la nueva se rotula «(nueva)»."><figcaption>En el mapa, la parcela dividida: la nueva se rotula «(nueva)».</figcaption></figure></div>
-<p>Debajo de «Valores» se recuerda qué escribir en el modo elegido. Al volver a la pestaña Parcela (por ejemplo, después
-de validar), su capa pasa a ser la capa activa de QGIS: así la selección en el mapa y Ctrl+Z actúan sobre ella y no sobre
-la vista del GML.</p>
-<p>Los linderos nuevos son rectos, <strong>paralelos o perpendiculares</strong> al lado elegido (se marca en rojo en el
-mapa), y las parcelas salen en orden desde ese lado (o desde el opuesto). Antes de dividir se ven las superficies
-resultantes; si una forma irregular dejara una parcela en varios trozos, se avisa: pruebe con otro lado.</p>
-<p>Con <strong>Linderos desde un vértice (pivote)</strong>, todos los linderos nuevos salen del mismo vértice, en abanico
-(por ejemplo, desde una esquina hacia el lado de enfrente, o para que todas las parcelas den a un mismo punto). La lista
-de al lado muestra entonces los vértices («Vértice 3 · entre los lados 2 y 3»: en rojo en el mapa, con sus dos lados) y
-las parcelas salen en orden desde el lado que sale del vértice (o desde el que llega). Sirve con partes, porcentajes,
-superficies y cuotas; no con franjas. Si desde ese vértice no se ve toda la parcela (en una U o una L, por el entrante),
-la última se lleva lo que no se ve, en varios trozos, y se avisa con los vértices desde los que sale sin trozos (con
-trozos no se puede crear el GML: la Sede solo admite un recinto por parcela); si no se llega a la superficie pedida,
-también: pruebe con otro vértice. Las astillas de menos de 0,05 m² que deja un lindero al rozar un quiebro de pocos
-centímetros pasan solas a la parcela vecina.</p>
-<p>Elija también la
-operación de la escritura: <strong>segregación</strong> (la mayor conserva la referencia catastral) o
-<strong>división</strong> (todas son parcelas nuevas). Si la capa tiene más parcelas, la tabla (y el GML) pasa a
-llevar solo las resultantes, como al unir; Ctrl+Z lo deshace todo.</p>
-<p><strong>Corregir el lindero entre dos colindantes</strong> (la misma superficie total, pasar metros de una a otra):
-seleccione las dos, pulse <strong>Unir parcelas</strong> y después divida la unida con <strong>Superficies</strong> (la
-que debe quedar a un lado), con linderos paralelos al lado que convenga o desde un vértice. En la tabla, escriba en la
-nueva la referencia catastral de la otra (namespace SDGC) y elija la alteración <strong>Subsanación de
-discrepancias</strong>: las dos conservan su referencia y el contorno del conjunto no cambia. Validar lo confirma al
-comparar con el Catastro.</p>
-<p>Las parcelas nuevas no heredan la referencia catastral: en el mapa se rotulan «(nueva)» y la tabla les propone el
-identificador según la operación (<code>Seg_1</code>, <code>Div_1</code>…). En una segregación, la referencia se queda en la
-parcela mayor.</p>
-<p>Al pulsar <strong>Dividir</strong> la parcela se sustituye en la capa por las nuevas (la capa queda en edición; guárdela
-para conservarlas) y el asistente propone la operación elegida. <strong>Ctrl+Z</strong> deshace la división y devuelve la
-tabla y la alteración a como estaban. Si la capa está en coordenadas geográficas, la división se calcula en el huso UTM del GML.</p>
 
-<h2>Convertir un GML 3.0 al 4.0 (o repararlo)</h2>
-<p>La Sede solo admite el esquema 4.0. Al abrir en <strong>Validar</strong> un GML de parcela 3.0 aparece el botón
-<strong>Convertir a 4.0</strong>: con un clic se crea a su lado una copia (<code>…_v4.gml</code>) y se abre para revisarla.
-Si es un 4.0 con fallos que se arreglan al reescribirlo (falta <code>xmlns:xlink</code>, anillos abiertos o en el sentido
-contrario, <code>count</code> erróneo, más de 2 decimales, superficie que no coincide con la geometría, geometría que no es
-<code>gml:MultiSurface</code>…), el botón dice <strong>Reparar</strong> y la copia es <code>…_reparado.gml</code>. Lo mismo
-se puede hacer en <strong>Utilidades › 4. Convertir a 4.0 o reparar</strong>, eligiendo el fichero y la salida.</p>
-<p>El fichero se lee y se vuelve a escribir con el mismo escritor que la pestaña Parcela, así que el resultado sigue las
-reglas de la Sede. Se conservan los identificadores, los namespaces, el número de parcela, la referencia y la fecha
-(<code>beginLifespanVersion</code>; si el original no la tiene, se pone la actual y se dice). El mensaje final dice qué ha
-cambiado (esquema, superficies, decimales, fallos corregidos) y qué queda por revisar. Lo que no se puede deducir no se
-inventa: una parcela SDGC sin referencia catastral válida, una parcela con varias partes o un solape hay que corregirlos a
-mano. El original nunca se toca y una copia ya creada no se pisa (la siguiente sería <code>…_v4_2.gml</code>).</p>
-<p>También se convierte un <strong>GML genérico</strong>, como el que escribe «Guardar como» GML de QGIS (no es el formato de
-la Sede): se toman la geometría y los campos <code>localId</code>, <code>namespace</code>, <code>label</code> y
-<code>nationalCadastralReference</code>. Y al reparar se quitan los datos que no son del esquema INSPIRE (por ejemplo,
-<code>Clave_Obra</code> o <code>REFCATASTR</code> en GML de expropiaciones), porque la Sede rechaza el fichero si los lleva.
-Una parcela con varias partes no se convierte: hay que decidir antes cómo se aporta (cada parte, una parcela).</p>
-<p>Un GML en <strong>coordenadas geográficas</strong> (grados, EPSG:4326 o 4258, como el que exportan algunas aplicaciones o
-visores) se pasa al huso UTM de la zona (EPSG:25829, 25830 o 25831, o 32628 en Canarias), que es lo que admite la Sede; en
-Validar sale «Reparar». Otros sistemas no admitidos, como ED50 (EPSG:23030), no se convierten aquí: su paso a ETRS89 necesita
-la rejilla oficial, así que reproyecte la capa en QGIS y cree el GML desde la pestaña Parcela.</p>
+<h2 id="utilidades">Utilidades</h2>
+<p>La pestaña <strong>Utilidades</strong> es una lista numerada en el orden del trabajo: primero lo que prepara los datos (1 a 3), luego lo que trabaja con el GML (4 y 5), lo que lo comprueba y documenta (6 y 7) y, al final, lo que devuelve la Sede (8). Pulse el nombre de una para abrirla (al pasar el ratón se ve qué hace); un fichero arrastrado al panel va a la utilidad abierta.</p>
+<figure><img src="img/utilidades.png" class="panel" alt="Pestaña Utilidades: una lista numerada; solo se abre la que se usa."><figcaption>Pestaña Utilidades: una lista numerada; solo se abre la que se usa.</figcaption></figure>
 
-<h2>Informe de superficies y coordenadas</h2>
-<p>En <strong>Utilidades › 7. Informe de superficies y coordenadas</strong>, elija un GML de parcela (el último creado en
-el plugin se propone solo; también puede arrastrarlo desde el Explorador o desde el panel de Capas) y pulse
-<strong>Crear informe</strong>. Se guarda junto al GML
-(<code>…_superficies.html</code>) y se abre en el navegador, desde donde se puede imprimir o guardar en PDF. Para cada
-parcela da:</p>
+<h3 id="u-coordenadas">1. Parcela desde coordenadas (levantamiento)</h3>
+<p>En <strong>Utilidades › 1. Parcela desde coordenadas</strong> elija (o arrastre) el fichero de puntos del
+levantamiento, un TXT o CSV con una línea por punto, y el sistema de referencia en que están (el huso). Se leen los
+formatos habituales:</p>
 <ul>
-  <li>la superficie en proyección UTM (la del GML y la del Catastro) y sobre el elipsoide GRS80 (la del terreno sin
-      relieve), y el perímetro;</li>
-  <li>los <strong>linderos</strong>: con qué linda cada lado y hacia dónde (N, NE, E…), con su longitud. Con la casilla
-      marcada se consultan las parcelas catastrales colindantes (hace falta internet); la parcela de origen de una
-      segregación no cuenta como colindante, y lo que no linda con ninguna es suelo sin parcela (la vía pública, por
-      ejemplo);</li>
-  <li>los vértices numerados con sus coordenadas y la longitud de cada lado.</li>
+  <li><code>X Y</code>, o un nombre o número de punto delante (<code>V1 421500.25 4070500.10</code>); si llevan Z o un
+      código detrás, se ignoran;</li>
+  <li>separados por espacios, tabuladores, punto y coma o comas; con coma decimal y, en un CSV de Excel con punto y
+      coma, también con punto de millares (<code>V1;421.500,25;4.070.500,10</code>);</li>
+  <li>cabeceras, comentarios y líneas de texto se saltan (la utilidad dice cuáles);</li>
+  <li><strong>varias parcelas</strong>: separadas por una línea en blanco, por una línea de título
+      (<code>Parcela A</code>, <code>P2:</code>), o con una primera columna con el identificador de la parcela de cada
+      punto (<code>P1;421500;4070500</code>).</li>
 </ul>
-<p>El <strong>croquis general</strong> muestra todas las parcelas del GML, sobre la ortofoto PNOA del Instituto Geográfico
-Nacional si se marca su casilla (hace falta internet; CC BY 4.0, se cita en el croquis). Cada parcela tiene además su
-<strong>croquis</strong>, sin ortofoto para que se lea bien impreso, con los vértices numerados por fuera como en la tabla
-de coordenadas y, en gris, las parcelas catastrales de alrededor. Con el Catastro consultado, los linderos de cada
-parcela suman su perímetro (fila «Total»).</p>
-<p>Si escribe la <strong>cabida inscrita</strong> (o la del título), el informe da la diferencia con la superficie del GML
-y recuerda los umbrales de la Ley Hipotecaria: correspondencia de la representación gráfica si las diferencias de cabida
-no exceden del 10 % de la inscrita (art. 9.b), constancia sin expediente hasta el 10 % con certificación catastral
-descriptiva y gráfica de plena coincidencia (art. 201.3.a) y rectificación hasta el 5 % (art. 201.3.b). Es una
-referencia: la valoración corresponde al registrador. El campo <strong>Autor</strong> (opcional) va en la cabecera y se
-recuerda. El informe no es un documento oficial.</p>
-<p><strong>Para una hoja de cálculo.</strong> Junto al informe se guardan dos CSV: <code>…_parcelas.csv</code> (una fila
-por parcela: superficies, perímetro, número de vértices y linderos) y <code>…_vertices.csv</code> (una fila por vértice:
-coordenadas y lado hasta el siguiente). Se abren con doble clic en Excel o LibreOffice en castellano (separados por «;»,
-con coma decimal y las tildes bien).</p>
+<p>Los puntos de cada parcela tienen que ir en el orden del contorno; da igual el sentido y no hace falta repetir el
+primero al final. La utilidad dice cuántas parcelas salen y su superficie, y lo que no se puede formar: coordenadas en
+grados (la Sede pide UTM en metros), un contorno que se cruza (los puntos no van en orden), menos de tres puntos,
+puntos alineados, una coordenada que no es de España (mal escrita: dice la línea) o un huso que no corresponde a la
+zona. Si las coordenadas vienen en el orden Y X, se leen bien y se avisa. Con <strong>Crear capas</strong> se
+añade al proyecto un grupo con el nombre del fichero y dos capas: las <strong>parcelas</strong> (con la lista de sus
+vértices) y <strong>todos los puntos</strong> del fichero con lo que traía cada línea —nombre del vértice, X, Y, Z,
+código, número de línea y si su parcela se ha podido formar—, etiquetados con su nombre. Se abre la pestaña
+<strong>Parcela</strong> con las parcelas, donde se elige el identificador, el namespace y la alteración de cada una y se
+crea el GML como con cualquier otra capa. Si ninguna parcela se puede formar, el botón pasa a ser <strong>Ver los puntos
+en el mapa</strong>, para ver dónde está lo que falla. Las capas son temporales: si quiere conservarlas, guárdelas
+desde el panel de Capas.</p>
 
-<h2>Ajustar a la cartografía catastral desplazada o girada</h2>
+<h3 id="u-ajuste">2. Ajustar a la cartografía catastral (desplazada o girada)</h3>
 <p>Si la cartografía catastral de la zona está desplazada o girada respecto de la realidad, el levantamiento (en su
 posición real) no casa con las parcelas del Catastro. La Resolución conjunta de 29/03/2021 (apartado octavo) pide entonces
 <strong>dos GML</strong> —el del levantamiento y otro ajustado a la cartografía catastral— y los
@@ -368,7 +438,53 @@ catastral está más al este o al norte que la realidad. En el ICUC con la carto
 desplazamiento, se escriben los parámetros, se sube el GML ajustado y el del levantamiento se adjunta en
 «+ Documentación».</p>
 
-<h2>Comparar dos GML</h2>
+<h3 id="apoyo">3. Puntos de apoyo para el editor de la Sede</h3>
+<p>El editor parcelario de la Sede Electrónica del Catastro permite dibujar la parcela en línea apoyándose en puntos
+cargados desde un fichero. En <strong>Utilidades › 3. Puntos de apoyo para el editor de la Sede</strong>, elija la capa
+(los puntos de un levantamiento, la parcela dibujada, unas líneas…) y, si quiere, marque «Solo los elementos
+seleccionados» (se marca sola si hay selección). Pulse <strong>Crear TXT</strong>: se guardan sus vértices, sin repetir,
+con una línea «x y» por punto, 2 decimales y punto decimal, en el huso de la Sede (automático según la posición, o el que
+elija); el TXT se guarda junto al GML de la capa o, si es temporal, junto al de la pestaña Parcela. En el editor, en
+«Introducir puntos de apoyo», cargue el fichero o copie su contenido y péguelo: el editor pide pares «x y» separados por
+un espacio, uno por línea y con punto decimal, que es lo que tiene el TXT (taller del editor parcelario de la DGC en las
+JIIDE 2019). El editor también admite un GML de parcela o de
+edificio como apoyo: para eso no hace falta esta utilidad.</p>
+
+<h3 id="u-convertir">4. Convertir a 4.0 o reparar</h3>
+<p>La Sede solo admite el esquema 4.0. Al abrir en <strong>Validar</strong> un GML de parcela 3.0 aparece el botón
+<strong>Convertir a 4.0</strong>: con un clic se crea a su lado una copia (<code>…_v4.gml</code>) y se abre para revisarla.
+Si es un 4.0 con fallos que se arreglan al reescribirlo (falta <code>xmlns:xlink</code>, anillos abiertos o en el sentido
+contrario, <code>count</code> erróneo, más de 2 decimales, superficie que no coincide con la geometría, geometría que no es
+<code>gml:MultiSurface</code>…), el botón dice <strong>Reparar</strong> y la copia es <code>…_reparado.gml</code>. Lo mismo
+se puede hacer en <strong>Utilidades › 4. Convertir a 4.0 o reparar</strong>, eligiendo el fichero y la salida.</p>
+<p>El fichero se lee y se vuelve a escribir con el mismo escritor que la pestaña Parcela, así que el resultado sigue las
+reglas de la Sede. Se conservan los identificadores, los namespaces, el número de parcela, la referencia y la fecha
+(<code>beginLifespanVersion</code>; si el original no la tiene, se pone la actual y se dice). El mensaje final dice qué ha
+cambiado (esquema, superficies, decimales, fallos corregidos) y qué queda por revisar. Lo que no se puede deducir no se
+inventa: una parcela SDGC sin referencia catastral válida, una parcela con varias partes o un solape hay que corregirlos a
+mano. El original nunca se toca y una copia ya creada no se pisa (la siguiente sería <code>…_v4_2.gml</code>).</p>
+<p>También se convierte un <strong>GML genérico</strong>, como el que escribe «Guardar como» GML de QGIS (no es el formato de
+la Sede): se toman la geometría y los campos <code>localId</code>, <code>namespace</code>, <code>label</code> y
+<code>nationalCadastralReference</code>. Y al reparar se quitan los datos que no son del esquema INSPIRE (por ejemplo,
+<code>Clave_Obra</code> o <code>REFCATASTR</code> en GML de expropiaciones), porque la Sede rechaza el fichero si los lleva.
+Una parcela con varias partes no se convierte: hay que decidir antes cómo se aporta (cada parte, una parcela).</p>
+<p>Un GML en <strong>coordenadas geográficas</strong> (grados, EPSG:4326 o 4258, como el que exportan algunas aplicaciones o
+visores) se pasa al huso UTM de la zona (EPSG:25829, 25830 o 25831, o 32628 en Canarias), que es lo que admite la Sede; en
+Validar sale «Reparar». Otros sistemas no admitidos, como ED50 (EPSG:23030), no se convierten aquí: su paso a ETRS89 necesita
+la rejilla oficial, así que reproyecte la capa en QGIS y cree el GML desde la pestaña Parcela.</p>
+
+<h3 id="u-unir">5. Unir ficheros GML (multiparcela)</h3>
+<p>No confundir con <strong>Unir parcelas</strong> (pestaña Parcela), que une en una sola parcela las parcelas
+seleccionadas de una capa. Aquí se juntan en un solo fichero varios GML ya hechos, para presentarlos a la vez.</p>
+<p>En la pestaña <strong>Utilidades › 5. Unir ficheros GML</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse
+<strong>Unir GML</strong>. Las parcelas que estén en varios ficheros se incluyen una sola vez. Si dos parcelas nuevas (LOCAL) se
+llaman igual pero son distintas (por ejemplo, el <code>Seg_1</code> de dos segregaciones), la segunda se renombra a un nombre
+libre (<code>Seg_2</code>…) y se indica; si es una referencia catastral (SDGC) con geometrías distintas, no se une. Si los ficheros están en husos distintos, todo se pasa al huso del primero. Con el botón
+<strong>Validar</strong> del resultado se revisa el GML multiparcela (solapes, huecos y comparación con el Catastro, que dice la
+operación de cada zona). Si las parcelas
+están en zonas separadas, la Sede trata el fichero como una sola operación y no la propone: tendrá que elegirla a mano.</p>
+
+<h3 id="u-comparar">6. Comparar dos GML</h3>
 <p>En <strong>Utilidades › 6. Comparar dos GML</strong> elija (o arrastre, los dos a la vez si quiere) dos GML de la
 misma finca o construcción: el presentado y el que le devuelve otro organismo, dos versiones de un mismo trabajo, el de
 dos programas… No importa de dónde salgan. Pulse <strong>Comparar</strong> y el panel resume las diferencias:</p>
@@ -397,46 +513,38 @@ rehace. El informe lleva un croquis de cada recinto con los dos contornos
 superpuestos y la tabla de los vértices que se mueven más de 1 cm. <strong>Ver en el mapa</strong> carga los dos en un
 grupo, el segundo en azul discontinuo encima del primero.</p>
 
-<h2>Parcela desde coordenadas (levantamiento)</h2>
-<p>En <strong>Utilidades › 1. Parcela desde coordenadas</strong> elija (o arrastre) el fichero de puntos del
-levantamiento, un TXT o CSV con una línea por punto, y el sistema de referencia en que están (el huso). Se leen los
-formatos habituales:</p>
+<h3 id="u-superficies">7. Informe de superficies y coordenadas</h3>
+<p>En <strong>Utilidades › 7. Informe de superficies y coordenadas</strong>, elija un GML de parcela (el último creado en
+el plugin se propone solo; también puede arrastrarlo desde el Explorador o desde el panel de Capas) y pulse
+<strong>Crear informe</strong>. Se guarda junto al GML
+(<code>…_superficies.html</code>) y se abre en el navegador, desde donde se puede imprimir o guardar en PDF. Para cada
+parcela da:</p>
 <ul>
-  <li><code>X Y</code>, o un nombre o número de punto delante (<code>V1 421500.25 4070500.10</code>); si llevan Z o un
-      código detrás, se ignoran;</li>
-  <li>separados por espacios, tabuladores, punto y coma o comas; con coma decimal y, en un CSV de Excel con punto y
-      coma, también con punto de millares (<code>V1;421.500,25;4.070.500,10</code>);</li>
-  <li>cabeceras, comentarios y líneas de texto se saltan (la utilidad dice cuáles);</li>
-  <li><strong>varias parcelas</strong>: separadas por una línea en blanco, por una línea de título
-      (<code>Parcela A</code>, <code>P2:</code>), o con una primera columna con el identificador de la parcela de cada
-      punto (<code>P1;421500;4070500</code>).</li>
+  <li>la superficie en proyección UTM (la del GML y la del Catastro) y sobre el elipsoide GRS80 (la del terreno sin
+      relieve), y el perímetro;</li>
+  <li>los <strong>linderos</strong>: con qué linda cada lado y hacia dónde (N, NE, E…), con su longitud. Con la casilla
+      marcada se consultan las parcelas catastrales colindantes (hace falta internet); la parcela de origen de una
+      segregación no cuenta como colindante, y lo que no linda con ninguna es suelo sin parcela (la vía pública, por
+      ejemplo);</li>
+  <li>los vértices numerados con sus coordenadas y la longitud de cada lado.</li>
 </ul>
-<p>Los puntos de cada parcela tienen que ir en el orden del contorno; da igual el sentido y no hace falta repetir el
-primero al final. La utilidad dice cuántas parcelas salen y su superficie, y lo que no se puede formar: coordenadas en
-grados (la Sede pide UTM en metros), un contorno que se cruza (los puntos no van en orden), menos de tres puntos,
-puntos alineados, una coordenada que no es de España (mal escrita: dice la línea) o un huso que no corresponde a la
-zona. Si las coordenadas vienen en el orden Y X, se leen bien y se avisa. Con <strong>Crear capas</strong> se
-añade al proyecto un grupo con el nombre del fichero y dos capas: las <strong>parcelas</strong> (con la lista de sus
-vértices) y <strong>todos los puntos</strong> del fichero con lo que traía cada línea —nombre del vértice, X, Y, Z,
-código, número de línea y si su parcela se ha podido formar—, etiquetados con su nombre. Se abre la pestaña
-<strong>Parcela</strong> con las parcelas, donde se elige el identificador, el namespace y la alteración de cada una y se
-crea el GML como con cualquier otra capa. Si ninguna parcela se puede formar, el botón pasa a ser <strong>Ver los puntos
-en el mapa</strong>, para ver dónde está lo que falla. Las capas son temporales: si quiere conservarlas, guárdelas
-desde el panel de Capas.</p>
+<p>El <strong>croquis general</strong> muestra todas las parcelas del GML, sobre la ortofoto PNOA del Instituto Geográfico
+Nacional si se marca su casilla (hace falta internet; CC BY 4.0, se cita en el croquis). Cada parcela tiene además su
+<strong>croquis</strong>, sin ortofoto para que se lea bien impreso, con los vértices numerados por fuera como en la tabla
+de coordenadas y, en gris, las parcelas catastrales de alrededor. Con el Catastro consultado, los linderos de cada
+parcela suman su perímetro (fila «Total»).</p>
+<p>Si escribe la <strong>cabida inscrita</strong> (o la del título), el informe da la diferencia con la superficie del GML
+y recuerda los umbrales de la Ley Hipotecaria: correspondencia de la representación gráfica si las diferencias de cabida
+no exceden del 10 % de la inscrita (art. 9.b), constancia sin expediente hasta el 10 % con certificación catastral
+descriptiva y gráfica de plena coincidencia (art. 201.3.a) y rectificación hasta el 5 % (art. 201.3.b). Es una
+referencia: la valoración corresponde al registrador. El campo <strong>Autor</strong> (opcional) va en la cabecera y se
+recuerda. El informe no es un documento oficial.</p>
+<p><strong>Para una hoja de cálculo.</strong> Junto al informe se guardan dos CSV: <code>…_parcelas.csv</code> (una fila
+por parcela: superficies, perímetro, número de vértices y linderos) y <code>…_vertices.csv</code> (una fila por vértice:
+coordenadas y lado hasta el siguiente). Se abren con doble clic en Excel o LibreOffice en castellano (separados por «;»,
+con coma decimal y las tildes bien).</p>
 
-<h2 id="apoyo">Puntos de apoyo para el editor de la Sede</h2>
-<p>El editor parcelario de la Sede Electrónica del Catastro permite dibujar la parcela en línea apoyándose en puntos
-cargados desde un fichero. En <strong>Utilidades › 3. Puntos de apoyo para el editor de la Sede</strong>, elija la capa
-(los puntos de un levantamiento, la parcela dibujada, unas líneas…) y, si quiere, marque «Solo los elementos
-seleccionados» (se marca sola si hay selección). Pulse <strong>Crear TXT</strong>: se guardan sus vértices, sin repetir,
-con una línea «x y» por punto, 2 decimales y punto decimal, en el huso de la Sede (automático según la posición, o el que
-elija); el TXT se guarda junto al GML de la capa o, si es temporal, junto al de la pestaña Parcela. En el editor, en
-«Introducir puntos de apoyo», cargue el fichero o copie su contenido y péguelo: el editor pide pares «x y» separados por
-un espacio, uno por línea y con punto decimal, que es lo que tiene el TXT (taller del editor parcelario de la DGC en las
-JIIDE 2019). El editor también admite un GML de parcela o de
-edificio como apoyo: para eso no hace falta esta utilidad.</p>
-
-<h2 id="informe-sede">Leer el informe de la Sede (IVG o ICUC)</h2>
+<h3 id="informe-sede">8. Leer informe de la Sede (IVG o ICUC)</h3>
 <p>El PDF que se descarga de la Sede tras la validación gráfica (informe de validación gráfica, IVG) o tras pedir el
 informe catastral de ubicación de las construcciones (ICUC) lleva dentro, además de lo que se ve impreso, un XML con el
 resultado y los GML. En <strong>Utilidades › 8. Leer informe de la Sede (IVG o ICUC)</strong>, elija (o arrastre) ese
@@ -458,105 +566,20 @@ y lo compara con el Catastro de hoy (útil si ha pasado tiempo desde la validaci
 ni los muestra</strong>, ni los guarda en capas ni en ficheros. Una copia impresa o escaneada del informe no lleva el XML:
 hace falta el PDF descargado de la Sede.</p>
 
-<h2>Unir varios GML (multiparcela)</h2>
-<p>No confundir con <strong>Unir parcelas</strong> (pestaña Parcela), que une en una sola parcela las parcelas
-seleccionadas de una capa. Aquí se juntan en un solo fichero varios GML ya hechos, para presentarlos a la vez.</p>
-<p>En la pestaña <strong>Utilidades › 5. Unir ficheros GML</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse
-<strong>Unir GML</strong>. Las parcelas que estén en varios ficheros se incluyen una sola vez. Si dos parcelas nuevas (LOCAL) se
-llaman igual pero son distintas (por ejemplo, el <code>Seg_1</code> de dos segregaciones), la segunda se renombra a un nombre
-libre (<code>Seg_2</code>…) y se indica; si es una referencia catastral (SDGC) con geometrías distintas, no se une. Si los ficheros están en husos distintos, todo se pasa al huso del primero. Con el botón
-<strong>Validar</strong> del resultado se revisa el GML multiparcela (solapes, huecos y comparación con el Catastro, que dice la
-operación de cada zona). Si las parcelas
-están en zonas separadas, la Sede trata el fichero como una sola operación y no la propone: tendrá que elegirla a mano.</p>
+<h2 id="legal">Marco legal, ámbito y datos</h2>
+<h3>Marco legal</h3>
+<p>La representación gráfica alternativa se rige por la Ley Hipotecaria (arts. 9, 10, 199 y 201, en la redacción de la
+Ley 13/2015), la Resolución conjunta de 26/10/2015 (requisitos técnicos), la de 23/09/2020 (criterio de identidad gráfica)
+y la de 29/03/2021 (documentos notariales y cartografía desplazada). El informe de validación gráfica de la Sede exige que
+el contorno de las parcelas resultantes coincida con el de las de origen con ±1 cm en los vértices. Más detalles en
+«Antes de presentar el GML».</p>
 
-<h2 id="descargar">Descargar una parcela</h2>
-<p>En la pestaña <strong>Descargar</strong> hay dos formas de hacerlo:</p>
-<ul>
-  <li><strong>Con la referencia catastral:</strong> escríbala (de la parcela, 14 caracteres, urbana o rústica, o de un inmueble:
-      se usa la de su parcela) y pulse <strong>Descargar</strong>. No hace falta tener ningún mapa cargado.</li>
-  <li><strong>En el mapa:</strong> pulse <strong>Elegir en el mapa</strong>, acérquese a la zona y haga clic sobre la parcela.</li>
-</ul>
-<div class="capturas"><figure><img src="img/descargar.png" class="panel" alt="Pestaña Descargar tras descargar una parcela: el mensaje lleva «Ir a Parcela» e «Ir a Edificio»."><figcaption>Pestaña Descargar tras descargar una parcela: el mensaje lleva «Ir a Parcela» e «Ir a Edificio».</figcaption></figure><figure><img src="img/mapa_descarga.png" alt="En el mapa: la parcela (naranja), sus construcciones (rojo), las colindantes (gris) y un camino de dominio público (azul)."><figcaption>En el mapa: la parcela (naranja), sus construcciones (rojo), las colindantes (gris) y un camino de dominio público (azul).</figcaption></figure></div>
-<p>Con la casilla <strong>Mapa de fondo</strong> se añade, si no está, la cartografía del Catastro (la de la DGC y, para Navarra, la del
-Gobierno de Navarra) sobre la ortofoto PNOA del IGN (servicios WMS públicos), para localizar la parcela aunque el proyecto esté vacío. Si alguno de esos servicios no responde o está en
-mantenimiento, debajo de las casillas se dice qué capa falta y por qué (con el horario o el aviso que dé el propio
-servicio en ese momento): no hace falta
-buscarla ni añadirla a mano, se vuelve a probar en cada descarga (o con «Reintentar ahora») y se añade sola cuando responde.
-Con el Catastro en mantenimiento tampoco se puede descargar: el panel lo dice con su horario.</p>
-<p>La parcela se descarga de los servicios públicos de la
-Dirección General del Catastro, en el huso UTM que le corresponde, y se añade al proyecto en un grupo
-«Catastro <em>referencia</em>», dentro de «Descargas del Catastro (temporales)» (la última descarga arriba y abierta; las anteriores,
-plegadas): la parcela, sus colindantes (las que la tocan, con su número de parcela), el entorno (las
-demás parcelas a menos de 25 m, por ejemplo al otro lado de la calle) y sus edificios y otras construcciones, según las
-casillas marcadas. Si la parcela está rodeada de calles, no tiene colindantes en el Catastro y solo verá el entorno.</p>
-<p><strong>Capas temporales y fichero GML.</strong> Las capas que añade el plugin (las descargas, la «vista del GML» de
-Validar y los grupos «Comparación») son temporales, en memoria: sirven para ver y dibujar, y se pierden al cerrar QGIS si
-no las guarda. Lo que se sube a la Sede es siempre el fichero que crea el botón <strong>Crear GML</strong>. En la pestaña
-Parcela, junto a «1. Parcelas», se recuerda si la capa elegida es temporal, si es la vista de un GML o si tiene cambios
-sin guardar.</p>
-<p><strong>Dominio público.</strong> En rústica, los caminos, carreteras, cauces y acequias son parcelas (numeradas del 9001 al
-9999 dentro de su polígono; la 9000 no es dominio público, es suelo que tributa como urbano). El plugin lo confirma con los datos públicos de la Dirección General del Catastro de cada parcela
-(su paraje y su uso, que se guardan en el campo <code>descripcion</code>): se ven en otro color (verde azulado) y, si lindan con
-la parcela, el panel lo indica. En urbana las
-calles no son parcelas, por eso una parcela rodeada de calles no tiene colindantes. En los dos casos, la nueva geometría no
-debe ocupar ese suelo. Cada capa lleva en sus metadatos la fuente y la fecha de descarga. Si vuelve a descargar la misma
-parcela, el grupo se sustituye (si ha editado alguna de sus capas, no se borra: la nueva descarga va en «Catastro … (2)»). La parcela descargada queda elegida en la pestaña <strong>Parcela</strong>.</p>
-<p>Es una copia para trabajar (por ejemplo, para dividir la parcela y crear después su GML en la pestaña Parcela), no
-cartografía oficial. Se descarga una parcela cada vez: no es una herramienta de descarga masiva.</p>
-
-<h2>Navarra</h2>
-<p>En la pestaña <strong>Descargar</strong> también se pueden bajar parcelas de Navarra: escriba municipio, polígono y parcela
-(por ejemplo <code>201-4-112</code>) o haga clic en el mapa. Se descargan del servicio INSPIRE del Gobierno de Navarra (Registro
-de la Riqueza Territorial; «Servicio proporcionado por el Gobierno de Navarra», licencia CC BY 4.0). Navarra tiene catastro
-propio: el GML de la Sede Electrónica de la Dirección General del Catastro no sirve allí, por eso el plugin no lo genera con esas
-capas.</p>
-
-<h2>País Vasco</h2>
-<p>Álava/Araba, Gipuzkoa y Bizkaia también tienen catastros propios, de sus diputaciones forales. En la pestaña
-<strong>Descargar</strong>, pulse <strong>Elegir en el mapa</strong> y haga clic en la parcela: se descarga (con sus colindantes,
-su entorno y las construcciones que caen dentro de ella) del servicio WFS INSPIRE de su diputación, en EPSG:25830, solo para
-verla. También se puede escribir su identificador: en Bizkaia como <code>48.020.1619.01003</code>, en Gipuzkoa como
-<code>069-8296630-28223</code> y, en cualquiera de los tres, con el namespace delante (<code>ES.AFA.CP.59600921</code>, que es
-lo que escribe el clic). Como en Navarra, el GML de la Sede de la Dirección General del Catastro no sirve allí y el plugin no lo
-genera con esas capas: las alteraciones se tramitan ante cada diputación.</p>
-<p>Fuentes y licencias (van en los metadatos de cada capa): Arabako Foru Aldundia / Diputación Foral de Álava (CC BY 4.0);
-Gipuzkoako Foru Aldundia / Diputación Foral de Gipuzkoa (CC BY-SA 3.0 ES; según la Diputación, estos datos no tienen categoría
-de cartografía oficial y no sirven para ningún certificado); Bizkaiko Foru Aldundia - Diputación Foral de Bizkaia (CC BY 3.0
-ES).</p>
-
-<h2 id="antes-de-presentar">Antes de presentar el GML</h2>
-<p>Algunas cosas que el plugin no puede comprobar y que conviene tener presentes (no es asesoramiento jurídico: ante la
-duda, consulte con la notaría, el Registro o el Catastro):</p>
-<ul>
-  <li><strong>La operación es la de la escritura.</strong> Elija en el asistente la que figurará en el documento
-      (segregación, división, agregación…). Si además hay que corregir linderos con los colindantes, primero se presenta un
-      GML de subsanación y, cuando se incorpore al Catastro, el de la operación.</li>
-  <li><strong>Un informe positivo no es una licencia.</strong> El informe de validación gráfica solo dice que el GML encaja
-      con la cartografía catastral. No autoriza la segregación ni comprueba la parcela mínima urbanística o la unidad mínima
-      de cultivo en rústica: eso depende del ayuntamiento y de la comunidad autónoma.</li>
-  <li><strong>Colindantes.</strong> Al inscribir la representación gráfica, el Registro notifica a los titulares de las
-      parcelas colindantes (art. 199 de la Ley Hipotecaria), que pueden oponerse.</li>
-  <li><strong>Diferencias de cabida.</strong> Las diferencias de superficie pequeñas respecto a la inscrita (hasta el 10 %
-      con certificación catastral o el 5 % en general, art. 201.3 de la Ley Hipotecaria) pueden hacerse constar sin
-      expediente; las mayores necesitan el procedimiento que corresponda.</li>
-  <li><strong>Superficie.</strong> La superficie del GML es la de la proyección UTM (plana), no la del terreno medida con
-      sus pendientes: en terrenos inclinados la del terreno es algo mayor.</li>
-  <li><strong>Sistema de referencia.</strong> Si su capa está en ED50 u otro datum antiguo, pásela antes a ETRS89 con la
-      rejilla oficial del IGN: sin ella, la transformación puede mover las coordenadas varios metros (el plugin lo avisa).
-      En Canarias, REGCAN95 y WGS84 se tratan como el mismo: una capa en EPSG:4083 se pasa a 32628 sin cambiar sus
-      coordenadas.</li>
-  <li><strong>Sin tramitación automática.</strong> La Sede puede dar el informe positivo y aun así no tramitar la alteración de
-      forma automática: parcelas de distinto polígono o manzana, urbana y rústica mezcladas, más de 30 parcelas, esbeltez
-      mayor que 15, urbana en diseminado, bienes de características especiales (BICE) o expedientes abiertos sobre las
-      parcelas. La comparación avisa de lo que puede saber.</li>
-</ul>
-
-<h2>Ámbito territorial</h2>
+<h3>Ámbito territorial</h3>
 <p>El plugin trabaja con el territorio gestionado por la Dirección General del Catastro. Navarra y los territorios
 forales del País Vasco (Álava/Araba, Gipuzkoa y Bizkaia) tienen catastros propios, con sus propios servicios y
 procedimientos: el plugin los detecta y lo indica, y descarga sus parcelas de sus servicios INSPIRE solo para verlas.</p>
 
-<h2>Datos</h2>
+<h3>Datos</h3>
 <p>Los datos descargados proceden de los servicios públicos de la <strong>Dirección General del Catastro</strong> y se
 citan siempre con esa fuente y la fecha de descarga. El plugin no usa ni muestra datos protegidos (titulares ni
 valores catastrales) y no incluye datos del Catastro en su instalación.</p>

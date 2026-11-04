@@ -16,6 +16,7 @@ Prueba final: la Sede dio **validación positiva, segregación, 322 y 483 m²** 
 Antes de la etiqueta se pasa la prueba final a mano de `docs/PRUEBA_FINAL.md` (ZIP instalado en un perfil limpio y GML subidos a la Sede).
 
 ### Cambiado
+- **Ayuda reorganizada** (petición del 04/11/2026): índice al principio y las secciones en el orden del panel y del trabajo: flujo de trabajo, pestañas, Descargar (con Navarra y País Vasco), Parcela (con Dividir), Edificio, Validar, antes de presentar, Utilidades 1 a 8 (con el mismo número y nombre que en el panel) y, al final, marco legal, ámbito y datos.
 - **Utilidades, en el orden del trabajo** (petición del 04/11/2026): 1. Parcela desde coordenadas, 2. Ajustar a la cartografía catastral, 3. Puntos de apoyo, 4. Convertir a 4.0 o reparar, 5. Unir ficheros GML, 6. Comparar dos GML, 7. Informe de superficies y coordenadas y 8. Leer informe de la Sede: primero preparar los datos, luego el GML, comprobarlo y documentarlo y, al final, lo que devuelve la Sede. Lo que se suelta en la utilidad abierta va donde corresponde según la utilidad, no según su posición (en «Puntos de apoyo», que trabaja con capas, no se toma ningún fichero).
 
 ### Añadido
