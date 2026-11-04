@@ -270,6 +270,12 @@ centímetros pasan solas a la parcela vecina.</p>
 operación de la escritura: <strong>segregación</strong> (la mayor conserva la referencia catastral) o
 <strong>división</strong> (todas son parcelas nuevas). Si la capa tiene más parcelas, la tabla (y el GML) pasa a
 llevar solo las resultantes, como al unir; Ctrl+Z lo deshace todo.</p>
+<p><strong>Corregir el lindero entre dos colindantes</strong> (la misma superficie total, pasar metros de una a otra):
+seleccione las dos, pulse <strong>Unir parcelas</strong> y después divida la unida con <strong>Superficies</strong> (la
+que debe quedar a un lado), con linderos paralelos al lado que convenga o desde un vértice. En la tabla, escriba en la
+nueva la referencia catastral de la otra (namespace SDGC) y elija la alteración <strong>Subsanación de
+discrepancias</strong>: las dos conservan su referencia y el contorno del conjunto no cambia. Validar lo confirma al
+comparar con el Catastro.</p>
 <p>Las parcelas nuevas no heredan la referencia catastral: en el mapa se rotulan «(nueva)» y la tabla les propone el
 identificador según la operación (<code>Seg_1</code>, <code>Div_1</code>…). En una segregación, la referencia se queda en la
 parcela mayor.</p>

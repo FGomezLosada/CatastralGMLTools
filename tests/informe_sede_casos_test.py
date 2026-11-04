@@ -224,7 +224,9 @@ def en_el_panel():
     texto = textos_panel()
     ok = ('Validación positiva · Segregación' in texto and 'CSV SINTETICO0000001' in texto and bloque.tabla.rowCount() == 2
           and f'{RC} (del GML)' in texto and 'en su totalidad' in texto and 'datos personales' in texto
-          and bloque.mapaBoton.isEnabled() and bloque.validarBoton.isEnabled())
+          and bloque.mapaBoton.isEnabled() and bloque.validarBoton.isEnabled()
+          #La tabla, al alto de sus dos filas, sin un recuadro en blanco debajo (prueba a mano del 04/11/2026)
+          and bloque.tabla.maximumHeight() < bloque.tabla.horizontalHeader().sizeHint().height() + 5 * bloque.tabla.rowHeight(0))
     #Cargar en el mapa: lo presentado y las afectadas, sin datos personales en las capas
     capas = bloque.cargar_en_mapa()
     atributos = ' '.join(str(a) for c in capas for f in c.getFeatures() for a in f.attributes())
