@@ -203,7 +203,9 @@ raiz = QgsProject.instance().layerTreeRoot()
 grupo = raiz.findGroup('Comparación segregacion')
 barra = ' | '.join(e.text() for item in dw.messageBar.items() for e in item.findChildren(QLabel))
 interfaz = (desactivado and activo and any('NPO 1' in t and 'Segregación' in t for t in lista)
-            and grupo is not None and [n.name() for n in grupo.children()] == ['Catastro vigente (parcelas afectadas)']
+            #Arriba, el GML (prueba a mano del 04/11/2026: solo con la catastral gris parecía el GML sin dividir)
+            and grupo is not None and [n.name() for n in grupo.children()] == ['segregacion (vista del GML)',
+                                                                                 'Catastro vigente (parcelas afectadas)']
             and 'Segregación' in barra and pv.cmpBoton.isEnabled())
 #Sin errores y con el esquema comprobado: el siguiente paso es la Sede, con un botón que la abre (U-07)
 _webs = []
@@ -223,12 +225,16 @@ textos = ' | '.join(item.text() for item in dw.messageBar.items())
 interfaz = (interfaz and grupo is not None
             #Una parcela frente a la suya: delante, el margen de identidad gráfica (y lo que sale de él, si sale)
             and [n.name() for n in grupo.children() if not n.name().startswith('Identidad gráfica')]
-            == ['Defecto: parcela catastral sin cubrir', 'Catastro vigente (parcelas afectadas)']
-            and grupo.children()[0].name().startswith('Identidad gráfica')
+            == ['parcial (vista del GML)', 'Defecto: parcela catastral sin cubrir', 'Catastro vigente (parcelas afectadas)']
+            and grupo.children()[1].name().startswith('Identidad gráfica')
             and 'error' in textos and '1 error' in pv.estado.text()
             #La barra dice que afecta en parte a una vecina, no una «operación» sacada de contarla (prueba final 30/10)
             and 'afecta en parte a 1 parcela vecina' in textos and pv_mod.superficie(11646) == '11.646'
             and any(i.codigo == 'CMP-PARCIAL' for i in pv.informe.incidencias))
+#«Cargar en el mapa» con la vista ya en el grupo de la comparación: no la duplica
+_antes = len(QgsProject.instance().mapLayers())
+pv.cargar_en_mapa()
+interfaz = interfaz and len(QgsProject.instance().mapLayers()) == _antes
 #Sin errores pero con avisos (GML igual al Catastro): la barra en naranja, no en verde con ✔ (prueba a mano del 15/10)
 pv.fichero.setFilePath(os.path.join(carpeta, 'igual.gml'))
 pv.esquema_comprobado([])

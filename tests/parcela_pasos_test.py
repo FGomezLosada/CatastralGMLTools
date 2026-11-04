@@ -194,6 +194,32 @@ caso("dividir una parcela de una capa de 7: la tabla y el GML solo con las 2 res
      "abrir las opciones avanzadas", dividir_y_crear)
 
 
+def guardar_tras_dividir():
+    #Prueba a mano del 04/11/2026: dividir (Segregación, Seg_1) y guardar los cambios de la capa antes de crear el GML
+    #dejaba la alteración en «Sin indicar» y la nueva como «Parcela_2»: al guardar, las parcelas nuevas cambian de fid y
+    #el plugin lo tomaba por un Ctrl+Z de la división
+    capa = capa_siete('Guardar')
+    pt.capaCombo.setLayer(capa)
+    pt.campoId.setField('referencia')
+    capa.startEditing()
+    capa.selectByIds([1])
+    pt.dividirBoton.click()
+    pt.division.valores.setText("2")
+    fids = pt.division.dividir()
+    antes = (pt.tipo_alteracion(), sorted(pt.tabla.item(i, pp.COL_ID).text() for i in range(pt.tabla.rowCount())))
+    guardada = capa.commitChanges()
+    capa.selectByIds([f.id() for f in capa.getFeatures() if f.id() not in (2, 3, 4, 5, 6, 7)])
+    despues = (pt.tipo_alteracion(), sorted(pt.tabla.item(i, pp.COL_ID).text() for i in range(pt.tabla.rowCount())))
+    pt.dividirBoton.click()
+    QgsProject.instance().removeMapLayer(capa.id())
+    ok = fids is not None and guardada and antes[0] == alt.SEGREGACION and despues == antes
+    return ok, (antes, despues)
+
+
+caso("dividir y guardar la capa antes de crear el GML: se conservan la operación y los identificadores propuestos",
+     guardar_tras_dividir)
+
+
 def src_sin_deducir():
     capa = capa_siete('SRC')
     pt.capaCombo.setLayer(capa)

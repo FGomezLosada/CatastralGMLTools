@@ -59,7 +59,7 @@ class BloqueComparar(QWidget):
         botones.addStretch(1)
         self.compararBoton = QPushButton(QgsApplication.getThemeIcon(ICONO), "Comparar", self)
         self.compararBoton.setToolTip("Compara los dos ficheros (da igual de dónde salgan) y escribe un informe junto al "
-                                      "primero (…_comparacion.html)")
+                                      "primero (…_comparacion_con_….html)")
         botones.addWidget(self.compararBoton)
         caja.addLayout(botones)
         caja.addStretch(1)
@@ -139,13 +139,20 @@ class BloqueComparar(QWidget):
             self.informe = ''
             dock.warn(f"Comparados, pero no se ha podido escribir el informe: {e}")
             return None
-        botones = [("Abrir informe", self.abrir_informe), ("Ver en el mapa", self.ver_en_mapa)]
-        dock.success(f"Comparación: {os.path.basename(self.informe)}", botones)
+        botones = [("Abrir informe", self.abrir_informe), ("Abrir carpeta", self.abrir_carpeta),
+                   ("Ver en el mapa", self.ver_en_mapa)]
+        #Dónde queda el informe (prueba a mano del 04/11/2026: no se decía y costaba encontrarlo)
+        dock.success(f"Comparación: {os.path.basename(self.informe)}, en la carpeta del primer GML "
+                     f"({os.path.basename(os.path.dirname(self.informe)) or os.path.dirname(self.informe)})", botones)
         return self.informe
 
     def abrir_informe(self, *args):
         if self.informe:
             self.pestana.dock.open_path(self.informe)
+
+    def abrir_carpeta(self, *args):
+        if self.informe:
+            self.pestana.dock.open_path(os.path.dirname(self.informe))
 
     def ver_en_mapa(self, *args):
         """

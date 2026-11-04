@@ -504,9 +504,21 @@ def resumen(c):
     return lineas + c.notas
 
 
-def ruta_informe(ruta_a):
+def ruta_informe(ruta_a, ruta_b=''):
+    """
+    Informe junto al primero, con el nombre de los dos: comparar el mismo primero con otro segundo no pisa el informe
+    anterior (prueba a mano del 04/11/2026); si se repite la misma pareja, se rehace. Con el mismo nombre de fichero,
+    el del segundo lleva su carpeta («…_comparacion_con_qgis42_Parcela_X.html»).
+    """
     base, _ = os.path.splitext(ruta_a)
-    return f"{base}_comparacion.html"
+    if not ruta_b:
+        return f"{base}_comparacion.html"
+    nombre_b = os.path.splitext(os.path.basename(ruta_b))[0]
+    if nombre_b == os.path.basename(base):
+        carpeta_b = os.path.basename(os.path.dirname(os.path.abspath(ruta_b)))
+        nombre_b = f"{carpeta_b}_{nombre_b}" if carpeta_b else f"{nombre_b}_2"
+    limpio = ''.join(ch if ch.isalnum() or ch in '-_.' else '_' for ch in nombre_b)
+    return f"{base}_comparacion_con_{limpio}.html"
 
 
 def _num(valor, decimales=2):
@@ -633,7 +645,7 @@ de centímetros no se aprecian en el croquis: están en las tablas.</p>
 
 
 def escribir(c, ruta=None, ahora=None):
-    ruta = ruta or ruta_informe(c.ruta_a)
+    ruta = ruta or ruta_informe(c.ruta_a, c.ruta_b)
     problema = escribir_texto(ruta, html(c, ahora), 'utf-8', origenes=(c.ruta_a, c.ruta_b))
     if problema is not None:
         raise OSError(problema.mensaje)

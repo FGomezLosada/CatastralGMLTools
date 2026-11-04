@@ -351,7 +351,7 @@ class PestanaParcela(QWidget):
         return [(capa.selectionChanged, self.seleccion_cambiada), (capa.featureAdded, self.capa_editada),
                 (capa.featuresDeleted, self.capa_editada), (capa.geometryChanged, self.capa_editada),
                 (capa.attributeValueChanged, self.capa_editada), (capa.afterRollBack, self.capa_editada),
-                (capa.afterCommitChanges, self.capa_editada), (capa.layerModified, self.capa_modificada)]
+                (capa.beforeCommitChanges, self.capa_guardada), (capa.afterCommitChanges, self.capa_guardada), (capa.layerModified, self.capa_modificada)]
 
     def activar_capa(self):
         """
@@ -389,6 +389,15 @@ class PestanaParcela(QWidget):
         self.recargar()
         self.actualizar_unir()
         self.division.actualizar()
+
+    def capa_guardada(self, *args):
+        """
+        Al guardar los cambios de la capa ya no hay Ctrl+Z (QGIS vacía la pila de deshacer) y las parcelas nuevas cambian de
+        fid: sin olvidar el estado de antes de unir o dividir, eso parecía deshacer la división y la alteración volvía a
+        «Sin indicar» y «Seg_1» a «Parcela_2» (prueba a mano del 04/11/2026).
+        """
+        self.antes_union = None
+        self.capa_editada()
 
     def seleccion_cambiada(self, *args):
         if sip.isdeleted(self):

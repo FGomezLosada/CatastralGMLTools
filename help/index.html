@@ -153,7 +153,9 @@ si alguna parcela del GML es igual a la catastral (no cambia nada: hay que quita
 calle) y si las referencias catastrales existen. Con los datos no protegidos de cada parcela afectada avisa también de los
 bienes de características especiales (BICE) y de la urbana en diseminado. Si no hay ninguna parcela catastral debajo y la zona
 parece de Navarra o del País Vasco, lo dice: allí el catastro es propio. En el mapa se añade el grupo
-«Comparación» con las parcelas catastrales afectadas y las diferencias: en rojo lo que sobra y en azul lo que falta.</p>
+«Comparación» con el GML arriba (en naranja, «… (vista del GML)», si no estaba ya en el mapa), debajo las parcelas
+catastrales afectadas tal como están hoy (en gris: son el Catastro vigente, no el GML) y las diferencias: en rojo lo que
+sobra y en azul lo que falta.</p>
 <p><strong>Identidad gráfica (simulación).</strong> Si el GML es una sola parcela y no es igual a la catastral, la
 comparación añade una línea con el criterio de identidad gráfica del anexo II de la Resolución de 23 de septiembre de 2020
 (BOE-A-2020-12111): el contorno del GML dentro de ±0,50 m del perímetro catastral en cartografía urbana o de ±2,00 m en
@@ -381,7 +383,10 @@ comparan con parcelas y las construcciones con construcciones; si un recinto com
 (una división, una segregación, una agrupación), se indica con cuáles. Si los dos ficheros no se tocan, avisa: o son
 fincas distintas o alguno declara mal su sistema de referencia. Con ficheros grandes, la comparación va en segundo
 plano y se puede cancelar. Se escribe además un
-informe (<code>…_comparacion.html</code>, junto al primero) con un croquis de cada recinto con los dos contornos
+informe en la carpeta del primero, con el nombre de los dos
+(<code>Primero_comparacion_con_Segundo.html</code>; si los dos ficheros se llaman igual, el segundo lleva delante el
+nombre de su carpeta). Comparar el mismo primero con otro segundo no pisa el informe anterior; repetir la misma pareja lo
+rehace. El informe lleva un croquis de cada recinto con los dos contornos
 superpuestos y la tabla de los vértices que se mueven más de 1 cm. <strong>Ver en el mapa</strong> carga los dos en un
 grupo, el segundo en azul discontinuo encima del primero.</p>
 
