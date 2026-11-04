@@ -348,7 +348,7 @@ def barra(dw):
 def utilidad():
     dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
     pu = dw.pestanaUtilidades
-    pu.utilidades.setCurrentIndex(3)
+    pu.abrir_utilidad('ajuste')
     bloque = pu.ajuste
     #Un 3.0: no deja crear y dice por qué
     bloque.origenAj.setFilePath(os.path.join(DATOS, 'parcela_cp30_sintetica.gml'))

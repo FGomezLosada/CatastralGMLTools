@@ -1,5 +1,5 @@
 """
-Batería de casos de Utilidades «1. Unir GML» (plan de pruebas, docs/PLAN_PRUEBAS.md): ficheros de cualquier origen y
+Batería de casos de Utilidades «5. Unir GML» (plan de pruebas, docs/PLAN_PRUEBAS.md): ficheros de cualquier origen y
 combinación. Lo que se une debe pasar la Validar del plugin sin errores; lo que no se puede unir lo dice, sin fallar ni
 abrir ventanas, y sin tocar los ficheros de origen.
 
@@ -223,7 +223,7 @@ caso("carpeta de destino que no existe: error claro", carpeta_inexistente)
 def panel():
     dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
     pu = dw.pestanaUtilidades
-    pu.utilidades.setCurrentIndex(0)
+    pu.abrir_utilidad('unir')
     #Arrastrar los dos a la lista, y otra vez uno de ellos: no se repite
     mime = QMimeData()
     mime.setUrls([QUrl.fromLocalFile(A), QUrl.fromLocalFile(B)])

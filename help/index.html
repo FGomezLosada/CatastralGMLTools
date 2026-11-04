@@ -233,7 +233,7 @@ guardada desde QGIS). El informe que emite la Sede va firmado: use solo construc
   <li>Si la parcela y todas las construcciones están desplazadas igual (toda la cartografía de la zona), se marca «Sí» en
   «¿Existe desplazamiento de la cartografía?», se indican los parámetros (CX y CY, o los seis de una transformación afín)
   y el ICUC se pide con el GML desplazado como la cartografía catastral; el GML en posición real se aporta como
-  documentación. Los parámetros y el GML desplazado se obtienen en <strong>Utilidades › 4. Ajustar a la cartografía
+  documentación. Los parámetros y el GML desplazado se obtienen en <strong>Utilidades › 2. Ajustar a la cartografía
   catastral</strong> (ver más abajo).</li>
 </ul>
 <p>Las parcelas con bienes de características especiales (BICE) no tienen ICUC. Si hay construcciones solapadas o
@@ -289,7 +289,7 @@ tabla y la alteración a como estaban. Si la capa está en coordenadas geográfi
 Si es un 4.0 con fallos que se arreglan al reescribirlo (falta <code>xmlns:xlink</code>, anillos abiertos o en el sentido
 contrario, <code>count</code> erróneo, más de 2 decimales, superficie que no coincide con la geometría, geometría que no es
 <code>gml:MultiSurface</code>…), el botón dice <strong>Reparar</strong> y la copia es <code>…_reparado.gml</code>. Lo mismo
-se puede hacer en <strong>Utilidades › 2. Convertir a 4.0 o reparar</strong>, eligiendo el fichero y la salida.</p>
+se puede hacer en <strong>Utilidades › 4. Convertir a 4.0 o reparar</strong>, eligiendo el fichero y la salida.</p>
 <p>El fichero se lee y se vuelve a escribir con el mismo escritor que la pestaña Parcela, así que el resultado sigue las
 reglas de la Sede. Se conservan los identificadores, los namespaces, el número de parcela, la referencia y la fecha
 (<code>beginLifespanVersion</code>; si el original no la tiene, se pone la actual y se dice). El mensaje final dice qué ha
@@ -307,7 +307,7 @@ Validar sale «Reparar». Otros sistemas no admitidos, como ED50 (EPSG:23030), n
 la rejilla oficial, así que reproyecte la capa en QGIS y cree el GML desde la pestaña Parcela.</p>
 
 <h2>Informe de superficies y coordenadas</h2>
-<p>En <strong>Utilidades › 3. Informe de superficies y coordenadas</strong>, elija un GML de parcela (el último creado en
+<p>En <strong>Utilidades › 7. Informe de superficies y coordenadas</strong>, elija un GML de parcela (el último creado en
 el plugin se propone solo; también puede arrastrarlo desde el Explorador o desde el panel de Capas) y pulse
 <strong>Crear informe</strong>. Se guarda junto al GML
 (<code>…_superficies.html</code>) y se abre en el navegador, desde donde se puede imprimir o guardar en PDF. Para cada
@@ -342,7 +342,7 @@ con coma decimal y las tildes bien).</p>
 posición real) no casa con las parcelas del Catastro. La Resolución conjunta de 29/03/2021 (apartado octavo) pide entonces
 <strong>dos GML</strong> —el del levantamiento y otro ajustado a la cartografía catastral— y los
 <strong>parámetros de transformación</strong>; primero se ajusta el desplazamiento y después se aplica el criterio de
-identidad. En <strong>Utilidades › 4. Ajustar a la cartografía catastral</strong>:</p>
+identidad. En <strong>Utilidades › 2. Ajustar a la cartografía catastral</strong>:</p>
 <ol>
   <li>Elija el GML del levantamiento (de parcela 4.0 o de edificio; también puede arrastrarlo).</li>
   <li>Añada <strong>pares de puntos homólogos</strong>: el mismo punto del terreno (una esquina de edificio, un mojón) en
@@ -369,7 +369,7 @@ desplazamiento, se escriben los parámetros, se sube el GML ajustado y el del le
 «+ Documentación».</p>
 
 <h2>Comparar dos GML</h2>
-<p>En <strong>Utilidades › 5. Comparar dos GML</strong> elija (o arrastre, los dos a la vez si quiere) dos GML de la
+<p>En <strong>Utilidades › 6. Comparar dos GML</strong> elija (o arrastre, los dos a la vez si quiere) dos GML de la
 misma finca o construcción: el presentado y el que le devuelve otro organismo, dos versiones de un mismo trabajo, el de
 dos programas… No importa de dónde salgan. Pulse <strong>Comparar</strong> y el panel resume las diferencias:</p>
 <ul>
@@ -398,7 +398,7 @@ superpuestos y la tabla de los vértices que se mueven más de 1 cm. <strong>Ver
 grupo, el segundo en azul discontinuo encima del primero.</p>
 
 <h2>Parcela desde coordenadas (levantamiento)</h2>
-<p>En <strong>Utilidades › 6. Parcela desde coordenadas</strong> elija (o arrastre) el fichero de puntos del
+<p>En <strong>Utilidades › 1. Parcela desde coordenadas</strong> elija (o arrastre) el fichero de puntos del
 levantamiento, un TXT o CSV con una línea por punto, y el sistema de referencia en que están (el huso). Se leen los
 formatos habituales:</p>
 <ul>
@@ -426,7 +426,7 @@ desde el panel de Capas.</p>
 
 <h2 id="apoyo">Puntos de apoyo para el editor de la Sede</h2>
 <p>El editor parcelario de la Sede Electrónica del Catastro permite dibujar la parcela en línea apoyándose en puntos
-cargados desde un fichero. En <strong>Utilidades › 7. Puntos de apoyo para el editor de la Sede</strong>, elija la capa
+cargados desde un fichero. En <strong>Utilidades › 3. Puntos de apoyo para el editor de la Sede</strong>, elija la capa
 (los puntos de un levantamiento, la parcela dibujada, unas líneas…) y, si quiere, marque «Solo los elementos
 seleccionados» (se marca sola si hay selección). Pulse <strong>Crear TXT</strong>: se guardan sus vértices, sin repetir,
 con una línea «x y» por punto, 2 decimales y punto decimal, en el huso de la Sede (automático según la posición, o el que
@@ -461,7 +461,7 @@ hace falta el PDF descargado de la Sede.</p>
 <h2>Unir varios GML (multiparcela)</h2>
 <p>No confundir con <strong>Unir parcelas</strong> (pestaña Parcela), que une en una sola parcela las parcelas
 seleccionadas de una capa. Aquí se juntan en un solo fichero varios GML ya hechos, para presentarlos a la vez.</p>
-<p>En la pestaña <strong>Utilidades › 1. Unir ficheros GML</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse
+<p>En la pestaña <strong>Utilidades › 5. Unir ficheros GML</strong>, añada (o arrastre desde el Explorador o desde el panel de Capas) dos o más GML de parcela, elija el fichero de salida y pulse
 <strong>Unir GML</strong>. Las parcelas que estén en varios ficheros se incluyen una sola vez. Si dos parcelas nuevas (LOCAL) se
 llaman igual pero son distintas (por ejemplo, el <code>Seg_1</code> de dos segregaciones), la segunda se renombra a un nombre
 libre (<code>Seg_2</code>…) y se indica; si es una referencia catastral (SDGC) con geometrías distintas, no se une. Si los ficheros están en husos distintos, todo se pasa al huso del primero. Con el botón

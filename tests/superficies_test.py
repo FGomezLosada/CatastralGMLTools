@@ -182,22 +182,22 @@ def fichero(r):
     return m
 
 
-pu.utilidades.setCurrentIndex(2)
+pu.abrir_utilidad('superficies')
 pu.origenSup.setFilePath('')
 arrastre = (soltar_en(pu.origenSup.lineEdit(), fichero(otro)) and os.path.normpath(pu.origenSup.filePath()) == otro
             and soltar_en(pu.cabida, QgsMimeDataUtils.encodeUriList([QgsMimeDataUtils.Uri(capa)]))
             and os.path.normpath(pu.origenSup.filePath()) == os.path.normpath(ruta) and pu.cabida.text() == '620,5'
             and QgsProject.instance().mapLayer(capa.id()) is not None)
-pu.utilidades.setCurrentIndex(1)
+pu.abrir_utilidad('convertir')
 arrastre = arrastre and soltar_en(pu.destinoConv.lineEdit(), fichero(otro)) and os.path.normpath(pu.origenConv.filePath()) == otro
-pu.utilidades.setCurrentIndex(0)
+pu.abrir_utilidad('unir')
 arrastre = arrastre and soltar_en(pu.destino.lineEdit(), fichero(otro)) and os.path.normpath(otro) in pu.rutas()
 pv = dw.pestanaValidar
 arrastre = arrastre and soltar_en(pv.fichero.lineEdit(), fichero(otro)) and os.path.normpath(pv.fichero.filePath()) == otro
 #Ninguna casilla de las pestañas que admiten soltar se queda con lo soltado
 arrastre = arrastre and all(not c.acceptDrops() for t in (pu, pv) for c in t.findChildren(QLineEdit))
 QgsProject.instance().removeMapLayer(capa.id())
-pu.utilidades.setCurrentIndex(2)
+pu.abrir_utilidad('superficies')
 pu.origenSup.setFilePath(ruta)
 #Sin internet: el informe se hace igual, sin las colindantes, y se dice
 servicios.pedir = lambda url: (b'', 'Host ovc.catastro.meh.es not found (simulado)')

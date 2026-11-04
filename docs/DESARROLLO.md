@@ -135,6 +135,7 @@ Decisiones técnicas:
 | 33 | Exportar los vértices como puntos de apoyo para el editor parcelario de la Sede (.txt «x y» por línea) | Usar el editor en línea con datos de campo | ✅ (`core/apoyo.py`, Utilidades «7.») |
 | 31 | Detección de territorios con catastro propio (Navarra, Álava/Araba, Gipuzkoa, Bizkaia) con aviso antes de generar GML para la Sede de la DGC | Evitar ficheros que no sirven | ✅ |
 | 34 | Comparar dos GML (vengan de donde vengan): fichero, emparejado por id o geometría, superficies, desplazamiento de vértices, vértices añadidos o quitados, desplazamiento uniforme, redondeo de coordenadas (p. ej. geográficas con 6 decimales), iguales a efectos de la Sede (±1 cm); informe HTML y ver en el mapa | Consulta del grupo de QGIS en español (19/10/2026): GML inscrito que difiere centímetros del presentado | ✅ (`core/comparar_gml.py`, Utilidades «5.») |
+| 35 | «Mover lindero» entre dos colindantes manteniendo el contorno (paralelo al lindero actual o girando sobre un extremo; superficie final, gana o pierde; propone subsanación) | Rectificar linderos entre vecinos sin pasar por Unir y Dividir | Para la 1.1.0 (maqueta del 04/11/2026; hoy se hace con «Unir parcelas» + «Dividir», explicado en la ayuda) |
 
 ---
 

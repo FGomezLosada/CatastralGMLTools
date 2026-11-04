@@ -288,7 +288,7 @@ def barra(dw):
 def panel():
     dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
     pu = dw.pestanaUtilidades
-    pu.utilidades.setCurrentIndex(1)
+    pu.abrir_utilidad('convertir')
     origen = os.path.join(carpeta, 'caso_0.gml')
     pu.soltar([origen])
     propuesto = pu.destinoConv.filePath()

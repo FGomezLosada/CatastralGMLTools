@@ -162,7 +162,7 @@ dw = dock_module.CatastralGMLToolsDockWidget(iface)
 dw.show()
 pu = dw.pestanaUtilidades
 dw.tabWidget.setCurrentWidget(dw.tabUtilidades)
-pu.utilidades.setCurrentIndex(3)
+pu.abrir_utilidad('ajuste')
 ba = pu.ajuste
 
 
@@ -259,9 +259,9 @@ captura = (activa and pendiente and anulado and ba.tabla.rowCount() == filas + 1
            and 0.5 < float(ba.tabla.item(fila, 2).text()) - x_utm < 1.5 and ba.pendiente is None)
 #Las líneas de los pares en el mapa: solo con el ajuste abierto y el panel a la vista
 lineas = ba.banda.numberOfVertices() if ba.banda is not None else 0
-pu.utilidades.setCurrentIndex(2)
+pu.abrir_utilidad('superficies')
 oculto = ba.banda.numberOfVertices() == 0
-pu.utilidades.setCurrentIndex(3)
+pu.abrir_utilidad('ajuste')
 captura = captura and lineas == 2 * ba.tabla.rowCount() and oculto and ba.banda.numberOfVertices() == lineas
 #Un par que no encaja se marca en la tabla; al seleccionarlo se resalta en el mapa y, si no se ve, el mapa va a él
 ba.metodo.setCurrentIndex(ba.metodo.findData(aj.TRASLACION))
