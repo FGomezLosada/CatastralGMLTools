@@ -44,6 +44,8 @@ from . import desplazable
 from .bloque_ajuste import BloqueAjuste
 from .bloque_apoyo import ICONO as ICONO_APOYO
 from .bloque_apoyo import BloqueApoyo
+from .bloque_informe_sede import ICONO as ICONO_INFORME_SEDE
+from .bloque_informe_sede import BloqueInformeSede
 from .bloque_comparar import ICONO as ICONO_COMPARAR
 from .bloque_comparar import BloqueComparar
 from .bloque_coordenadas import EXTENSIONES as EXTENSIONES_COORDENADAS
@@ -109,12 +111,21 @@ class PestanaUtilidades(QWidget):
                  "Los vértices de una capa (puntos del levantamiento, la parcela dibujada, líneas…) en un TXT «x y» por "
                  "línea, en el huso de la Sede, para cargarlos como puntos de apoyo en el editor parcelario de la Sede "
                  "y dibujar allí con ellos."),
+                (self.pagina_informe_sede(), "Leer informe de la Sede (IVG o ICUC)", ICONO_INFORME_SEDE,
+                 "El PDF que da la Sede tras la validación gráfica (IVG) o el informe de ubicación de las construcciones "
+                 "(ICUC): resultado, operación, parcelas presentadas con su superficie y sus linderos y parcelas "
+                 "catastrales afectadas. Carga en el mapa lo presentado sobre lo afectado y recupera el GML tal como lo "
+                 "recibió la Sede. No lee los datos personales del informe."),
         ), start=1):
             indice = self.utilidades.addItem(widget, QgsApplication.getThemeIcon(icono), f"{numero}. {titulo}")
             self.utilidades.setItemToolTip(indice, ayuda)
         principal.addWidget(self.utilidades, 1)
         self.utilidades.currentChanged.connect(self.ajuste.mostrar_en_mapa)
         desplazable.soltar_en(self)  #Un GML soltado en cualquier punto (también sobre una casilla) va a la utilidad abierta
+
+    def pagina_informe_sede(self):
+        self.informe_sede = BloqueInformeSede(self, self)
+        return self.informe_sede
 
     def pagina_apoyo(self):
         self.apoyo = BloqueApoyo(self, self)
@@ -283,6 +294,8 @@ class PestanaUtilidades(QWidget):
 
     def extensiones(self):
         """Lo que se puede soltar en la utilidad abierta: GML, o ficheros de puntos en «Parcela desde coordenadas»."""
+        if self.utilidades.currentIndex() == 7:
+            return ('.pdf', '.xml')
         return EXTENSIONES_COORDENADAS if self.utilidades.currentIndex() == 5 else ('.gml', '.xml')
 
     def soltar(self, rutas):
@@ -292,6 +305,9 @@ class PestanaUtilidades(QWidget):
             return
         if self.utilidades.currentIndex() == 5:
             self.coordenadas.soltar(rutas)
+            return
+        if self.utilidades.currentIndex() == 7:
+            self.informe_sede.soltar(rutas)
             return
         casilla = {1: self.origenConv, 2: self.origenSup, 3: self.ajuste.origenAj}.get(self.utilidades.currentIndex())
         if casilla is None:

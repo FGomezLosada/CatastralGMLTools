@@ -75,7 +75,8 @@ huellas de las construcciones, plantas y estado, Crear GML, Validar y subirlo a 
   <tr><td>Validar</td><td>Abre un GML, lo comprueba como la Sede, lo compara con el Catastro y guarda un informe.</td></tr>
   <tr><td>Utilidades</td><td>Une varios GML de parcela en uno (multiparcela), convierte un GML del esquema 3.0 al 4.0
       (o repara uno 4.0), hace el informe de superficies y coordenadas, ajusta un levantamiento a la cartografía
-      catastral desplazada o girada, compara dos GML, crea parcelas desde un fichero de coordenadas y guarda puntos de apoyo para el editor de la Sede.</td></tr>
+      catastral desplazada o girada, compara dos GML, crea parcelas desde un fichero de coordenadas, guarda puntos de apoyo para el editor de la Sede y lee el informe que da
+      la Sede (IVG o ICUC).</td></tr>
 </table>
 <figure><img src="img/utilidades.png" class="panel" alt="Pestaña Utilidades: una lista numerada; solo se abre la que se usa."><figcaption>Pestaña Utilidades: una lista numerada; solo se abre la que se usa.</figcaption></figure>
 
@@ -428,6 +429,28 @@ elija); el TXT se guarda junto al GML de la capa o, si es temporal, junto al de 
 un espacio, uno por línea y con punto decimal, que es lo que tiene el TXT (taller del editor parcelario de la DGC en las
 JIIDE 2019). El editor también admite un GML de parcela o de
 edificio como apoyo: para eso no hace falta esta utilidad.</p>
+
+<h2 id="informe-sede">Leer el informe de la Sede (IVG o ICUC)</h2>
+<p>El PDF que se descarga de la Sede tras la validación gráfica (informe de validación gráfica, IVG) o tras pedir el
+informe catastral de ubicación de las construcciones (ICUC) lleva dentro, además de lo que se ve impreso, un XML con el
+resultado y los GML. En <strong>Utilidades › 8. Leer informe de la Sede (IVG o ICUC)</strong>, elija (o arrastre) ese
+PDF (o el XML suelto, si lo tiene):</p>
+<ul>
+  <li>arriba, el resultado y la operación («✔ Validación positiva · Segregación»; en un ICUC, «Ubicación correcta»), el
+      CSV y la fecha del informe;</li>
+  <li>en el IVG, las <strong>parcelas presentadas</strong> (las del GML que se subió) con su superficie y con qué linda
+      cada una, tanto con las otras del GML como con las catastrales;</li>
+  <li>las <strong>parcelas catastrales afectadas</strong>: en su totalidad o, en un informe negativo, solo en parte (en
+      rojo: es lo que hay que corregir, el lindero común o incluir esa parcela).</li>
+</ul>
+<p><strong>Cargar en el mapa</strong> añade el grupo «Informe de la Sede &lt;CSV&gt;» con lo presentado (naranja) encima de
+las parcelas catastrales afectadas tal como las da el informe (gris; las afectadas solo en parte, aparte y en rojo).
+<strong>Guardar el GML presentado</strong> recupera el GML exactamente como lo recibió la Sede, junto al PDF y con el CSV
+en el nombre (<code>Parcela_X_&lt;CSV&gt;.gml</code>: no pisa el original), y <strong>Abrir en Validar</strong> lo guarda
+y lo compara con el Catastro de hoy (útil si ha pasado tiempo desde la validación).</p>
+<p>El informe trae también los datos del técnico y del solicitante (NIF, nombre, contacto): el plugin <strong>no los lee
+ni los muestra</strong>, ni los guarda en capas ni en ficheros. Una copia impresa o escaneada del informe no lleva el XML:
+hace falta el PDF descargado de la Sede.</p>
 
 <h2>Unir varios GML (multiparcela)</h2>
 <p>No confundir con <strong>Unir parcelas</strong> (pestaña Parcela), que une en una sola parcela las parcelas

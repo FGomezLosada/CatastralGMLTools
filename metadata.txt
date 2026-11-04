@@ -16,7 +16,7 @@ repository=https://github.com/FGomezLosada/CatastralGMLTools
 homepage=https://github.com/FGomezLosada/CatastralGMLTools
 
 changelog=
-    1.0.0 - Primera versión estable. Panel por pasos (Parcela y Edificio) con opciones avanzadas plegadas; unir y dividir parcelas; identidad gráfica (simulación) en la comparación con el Catastro; ajuste a la cartografía desplazada o girada; comparar dos GML; parcela desde coordenadas; informe de superficies y coordenadas; conversor 3.0 a 4.0; País Vasco y Navarra solo para ver; ayuda con flujo de trabajo y capturas reales.
+    1.0.0 - Primera versión estable. Panel por pasos (Parcela y Edificio) con opciones avanzadas plegadas; unir y dividir parcelas; identidad gráfica (simulación) en la comparación con el Catastro; ajuste a la cartografía desplazada o girada; comparar dos GML; parcela desde coordenadas; puntos de apoyo; leer el informe de la Sede (IVG o ICUC); informe de superficies y coordenadas; conversor 3.0 a 4.0; País Vasco y Navarra solo para ver; ayuda con flujo de trabajo y capturas reales.
     0.2.0 - GML de parcela y de edificio, asistente de alteraciones, descarga por referencia, validación como la Sede, comparación con el Catastro, multiparcela, informe HTML y auditoría completa (fiabilidad, normativa y robustez).
     0.1.0 - Esqueleto del plugin: panel con pestañas, avisos dentro del panel, aviso legal, ayuda local, icono propio, pruebas automáticas y empaquetado.
 
