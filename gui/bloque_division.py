@@ -210,6 +210,18 @@ class BloqueDivision(QFrame):
                 lista = lista[:MAX_LISTA] + [f"… y {len(lista) - MAX_LISTA} más"]
             texto = f"{len(piezas)} parcelas: " + " · ".join(lista)
         avisos = [i.mensaje for i in incidencias if i.nivel == AVISO]
+        if any(i.codigo == 'DIV-PARTES' for i in incidencias):
+            #Prueba a mano del 04/11/2026: se podía dividir y luego el GML no se creaba. Se dice antes y, con pivote,
+            #desde qué vértices sale bien
+            avisos.append("Así no se podrá crear el GML: la Sede solo admite un recinto por parcela")
+            if pivote:
+                buenos = dv.vertices_sin_trozos(g, self.modo.currentData(), valores, self.invertir.isChecked())
+                if buenos:
+                    lista = ", ".join(str(v + 1) for v in buenos[:12]) + (" …" if len(buenos) > 12 else "")
+                    avisos.append(f"Sin trozos desde los vértices {lista}")
+                elif buenos == []:
+                    avisos.append("Desde ningún vértice sale sin trozos con estos valores: pruebe con linderos "
+                                  "paralelos o perpendiculares, o con otro sentido")
         if len(piezas) > MAX_PARCELAS:  #Lo que diría Validar después: mejor saberlo antes de dividir
             avisos.append(f"Más de {MAX_PARCELAS} parcelas resultantes: la Sede no tramita la operación de forma "
                           "automática. ¿Quería «Porcentajes» o «Superficies» en lugar de «Partes iguales»?"

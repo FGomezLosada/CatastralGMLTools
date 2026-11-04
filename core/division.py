@@ -49,6 +49,9 @@ AYUDAS = {PARTES: "Cuántas parcelas de la misma superficie (de 2 a 100). Ej.: �
 MAX_PARTES = 100          #Límite del editor de la Sede
 PRECISION_AREA = 1e-4     #m²: la bisección para a menos de 1 cm² de la superficie pedida
 RESTO_MINIMO = 0.5        #m²: un resto menor no da otra parcela (se suma a la última)
+#m²: un trozo suelto menor pasa a la parcela vecina con la que linda (prueba a mano del 04/11/2026: los vértices casi
+#alineados de un lindero real dejaban astillas de mm²)
+ASTILLA = 0.05
 
 
 def lados(geometria):
@@ -124,6 +127,87 @@ def _semiplano(origen, direccion, normal, t, alcance):
     return QgsGeometry.fromPolygonXY([puntos + [puntos[0]]])
 
 
+def _absorber_astillas(piezas):
+    """
+    Los trozos sueltos minúsculos (menos de ASTILLA m²) que deja un lindero al pasar rozando un entrante de pocos
+    centímetros pasan a la parcela con la que lindan más (las superficies cambian menos de lo que redondea la Sede); los
+    de superficie nula se quitan. Los trozos grandes se quedan: se avisa de ellos (DIV-PARTES).
+    """
+    piezas = [QgsGeometry(p) for p in piezas]
+    for i, pieza in enumerate(piezas):
+        partes = [q for q in pieza.asGeometryCollection() if q.area() > 1e-8] if pieza.isMultipart() else [pieza]
+        if len(partes) <= 1:
+            piezas[i] = partes[0] if partes else pieza
+            continue
+        partes.sort(key=lambda q: -q.area())
+        quedan = [partes[0]]
+        for trozo in partes[1:]:
+            vecina, mejor = None, 1e-6
+            if trozo.area() < ASTILLA:
+                for j, otra in enumerate(piezas):
+                    if j != i:
+                        comun = trozo.intersection(otra).length()
+                        if comun > mejor:
+                            vecina, mejor = j, comun
+            if vecina is None:
+                quedan.append(trozo)
+            else:
+                piezas[vecina] = QgsGeometry.unaryUnion([piezas[vecina], trozo])
+        piezas[i] = quedan[0] if len(quedan) == 1 else QgsGeometry.collectGeometry(quedan)
+    return piezas
+
+
+VERTICES_JUNTOS = 0.02    #m: dos vértices a menos de esto (tras redondear al cm, el mismo o un lado de 1 cm) se unen
+
+
+def _unir_vertices_cercanos(piezas, original):
+    """
+    Los vértices a menos de VERTICES_JUNTOS se convierten en uno (el de la parcela original, si lo hay), igual en todas
+    las piezas para que los linderos comunes sigan casando: un lindero que acaba a milímetros de un vértice dejaba un
+    lado de 5 mm o 1 cm (prueba a mano del 04/11/2026). Si alguna pieza no quedara válida o cambiara de superficie más
+    de ASTILLA, se dejan todas como estaban.
+    """
+    fijos = [QgsPointXY(v.x(), v.y()) for v in original.vertices()]
+    representantes = list(fijos)
+
+    exactos = {(round(v.x(), 9), round(v.y(), 9)): v for v in fijos}
+
+    def representante(punto):
+        if (round(punto.x(), 9), round(punto.y(), 9)) in exactos:  #Los de la original no se mueven nunca
+            return exactos[(round(punto.x(), 9), round(punto.y(), 9))]
+        for r in representantes:
+            if abs(r.x() - punto.x()) < VERTICES_JUNTOS and abs(r.y() - punto.y()) < VERTICES_JUNTOS \
+                    and math.hypot(r.x() - punto.x(), r.y() - punto.y()) < VERTICES_JUNTOS:
+                return r
+        representantes.append(QgsPointXY(punto))
+        return representantes[-1]
+
+    def anillo(puntos):
+        nuevo = []
+        for punto in puntos:
+            r = representante(punto)
+            if not nuevo or nuevo[-1] != r:
+                nuevo.append(r)
+        if len(nuevo) > 1 and nuevo[0] != nuevo[-1]:
+            nuevo.append(nuevo[0])
+        return nuevo
+
+    resultado = []
+    for pieza in piezas:
+        poligonos = pieza.asMultiPolygon() if pieza.isMultipart() else [pieza.asPolygon()]
+        nuevos = [[anillo(a) for a in poligono] for poligono in poligonos if poligono]
+        nuevos = [p for p in ([a for a in p if len(a) >= 4] for p in nuevos) if p]
+        if not nuevos:
+            return piezas
+        geometria = QgsGeometry.fromMultiPolygonXY(nuevos) if len(nuevos) > 1 else QgsGeometry.fromPolygonXY(nuevos[0])
+        if not geometria.isGeosValid() or abs(geometria.area() - pieza.area()) >= ASTILLA:
+            return piezas  #Todas o ninguna: si no, los linderos comunes dejarían de casar
+        resultado.append(geometria)
+    if abs(sum(g.area() for g in resultado) - original.area()) > 0.01:
+        return piezas
+    return resultado
+
+
 def _cuna(pivote, angulo_inicio, barrido, alcance):
     """Cuña desde el pivote: del ángulo de inicio (radianes) girando «barrido» (con signo), con radio «alcance»."""
     pasos = max(2, int(abs(barrido) / (math.pi / 12)) + 2)
@@ -185,6 +269,7 @@ def dividir_pivote(geometria, metas, vertice, invertir=False):
         desde = giro
     #La última: todo lo que queda, también lo que no se ve desde el vértice (en una U, el otro brazo)
     piezas.append(resto)
+    piezas = _unir_vertices_cercanos(_absorber_astillas(piezas), geometria)
     incidencias = []
     for i, pieza in enumerate(piezas, start=1):
         if pieza.isMultipart() and len(pieza.asGeometryCollection()) > 1:
@@ -265,6 +350,7 @@ def dividir(geometria, modo, valores, lado=0, perpendicular=False, invertir=Fals
         piezas.append(resto.intersection(semiplano))
         resto = resto.difference(semiplano)
     piezas.append(resto)
+    piezas = _unir_vertices_cercanos(_absorber_astillas(piezas), geometria)
     incidencias = []
     for i, pieza in enumerate(piezas, start=1):
         if pieza.isMultipart() and len(pieza.asGeometryCollection()) > 1:
@@ -272,3 +358,24 @@ def dividir(geometria, modo, valores, lado=0, perpendicular=False, invertir=Fals
                                                                "trozos (la forma de la parcela no permite un lindero "
                                                                "recto en esa dirección): pruebe con otro lado"))
     return piezas, incidencias
+
+
+MAX_VERTICES_SUGERENCIA = 60  #Con más vértices no se prueban todos (sería lento al escribir los valores)
+MAX_PRUEBAS_SUGERENCIA = 400  #Vértices × parcelas: más, y la vista previa tardaría
+
+
+def vertices_sin_trozos(geometria, modo, valores, invertir=False):
+    """
+    Índices de los vértices desde los que el pivote da todas las parcelas de una pieza (para sugerirlos cuando el
+    elegido deja alguna en varios trozos). None si la parcela tiene demasiados vértices para probarlos todos.
+    """
+    todos = lados(geometria)
+    metas, _ = objetivos(modo, valores, geometria.area()) if modo != FRANJAS else ([], [])
+    if not metas or len(todos) > MAX_VERTICES_SUGERENCIA or len(todos) * len(metas) > MAX_PRUEBAS_SUGERENCIA:
+        return None
+    buenos = []
+    for v in range(len(todos)):
+        piezas, inc = dividir(geometria, modo, valores, v, False, invertir, True)
+        if piezas and not any(i.nivel == ERROR or i.codigo == 'DIV-PARTES' for i in inc):
+            buenos.append(v)
+    return buenos

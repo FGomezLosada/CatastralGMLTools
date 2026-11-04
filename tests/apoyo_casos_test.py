@@ -14,7 +14,7 @@ import tempfile
 import traceback
 
 import qgis.utils
-from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsProject, QgsVectorLayer
+from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsProject, QgsVectorFileWriter, QgsVectorLayer
 from qgis.PyQt.QtWidgets import QLabel, QMessageBox
 
 qgis.utils.reloadPlugin('catastral_gml_tools')
@@ -172,6 +172,36 @@ def no_se_puede_escribir():
 
 
 caso("fichero que no se puede escribir: aviso; sin extensión: añade .txt", no_se_puede_escribir)
+
+
+def carpeta_propuesta():
+    #Prueba a mano del 04/11/2026: con una capa temporal el TXT se proponía en la carpeta del usuario
+    otra = tempfile.mkdtemp(prefix='cgt apoyo parcela_')
+    dw.pestanaParcela.destino.setFilePath(os.path.join(otra, 'Parcela_1907401VK4810H.gml'))
+    bloque.destino.setFilePath('')
+    bloque.destino_automatico = ''
+    c = capa('Polygon', [f'POLYGON(({X0} {Y0}, {X0} {Y0 + 10}, {X0 + 10} {Y0 + 10}, {X0} {Y0}))'], nombre='Parcela temporal')
+    bloque.capa.setLayer(c)
+    temporal = os.path.dirname(bloque.destino.filePath()) == otra
+    #Una capa de un fichero: junto al fichero
+    ruta_gpkg = os.path.join(carpeta, 'levantamiento.gpkg')
+    QgsVectorFileWriter.writeAsVectorFormatV3(c, ruta_gpkg, QgsProject.instance().transformContext(),
+                                              QgsVectorFileWriter.SaveVectorOptions())
+    f = QgsVectorLayer(ruta_gpkg, 'Levantamiento', 'ogr')
+    QgsProject.instance().addMapLayer(f)
+    bloque.capa.setLayer(f)
+    fichero = os.path.dirname(bloque.destino.filePath()) == carpeta
+    dw.messageBar.clearWidgets()
+    bloque.crear()
+    mensaje = 'Introducir puntos de apoyo' in barra() and 'pegue' in barra()
+    QgsProject.instance().removeMapLayer(c.id())
+    QgsProject.instance().removeMapLayer(f.id())
+    dw.pestanaParcela.destino.setFilePath('')
+    return temporal and fichero and mensaje, (temporal, fichero, mensaje, bloque.destino.filePath(), barra()[:200])
+
+
+caso("carpeta propuesta: junto al fichero de la capa o, si es temporal, junto al GML de Parcela; mensaje de cómo usarlo",
+     carpeta_propuesta)
 
 dw.cleanup()
 dw.deleteLater()

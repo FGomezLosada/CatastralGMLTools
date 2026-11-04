@@ -53,6 +53,12 @@ FORMAS = {
                              huecos=[[(X0 + 5, Y0 + 10), (X0 + 15, Y0 + 10), (X0 + 15, Y0 + 20), (X0 + 5, Y0 + 20)]]),
     "estrecha y larga (2 × 200 m)": poligono((X0, Y0), (X0, Y0 + 200), (X0 + 2, Y0 + 200), (X0 + 2, Y0)),
     "círculo de 200 vértices": QgsGeometry.fromPointXY(QgsPointXY(X0, Y0)).buffer(15, 50),
+    #Prueba a mano del 04/11/2026: un lindero levantado con vértices casi alineados (quiebros de pocos cm) dejaba, desde
+    #un vértice, astillas de mm² que impedían crear el GML (inventada, con la misma clase de lindero)
+    "lindero con quiebros de cm": poligono((X0, Y0), (X0 + 0.03, Y0 + 4), (X0 - 0.02, Y0 + 4.9), (X0 + 0.01, Y0 + 5.1),
+                                           (X0 - 0.03, Y0 + 6), (X0 + 0.02, Y0 + 9), (X0 - 0.01, Y0 + 9.3),
+                                           (X0, Y0 + 12), (X0 + 0.04, Y0 + 12.5), (X0 - 0.5, Y0 + 17),
+                                           (X0 + 13, Y0 + 18.5), (X0 + 14.5, Y0 + 2), (X0 + 12, Y0 - 1.5)),
     "irregular de 9 vértices": poligono((X0, Y0), (X0 - 3, Y0 + 12), (X0 + 4, Y0 + 25), (X0 + 15, Y0 + 31), (X0 + 26, Y0 + 24),
                                         (X0 + 24, Y0 + 9), (X0 + 18, Y0 + 2), (X0 + 9, Y0 - 4), (X0 + 4, Y0 - 1)),
 }
@@ -99,9 +105,25 @@ def comprobar(geometria, modo, texto, lado, perpendicular, invertir, pivote=Fals
         metas, _ = dv.objetivos(modo, valores, total)
         if len(metas) != len(piezas):
             return f"{len(piezas)} parcelas y se pedían {len(metas)}"
-        if any(abs(p.area() - m) > 0.01 for p, m in zip(piezas, metas)):
+        #Hasta ASTILLA m² de más o de menos: los trozos sueltos minúsculos pasan a la vecina (_absorber_astillas)
+        if any(abs(p.area() - m) > 0.01 + dv.ASTILLA for p, m in zip(piezas, metas)):
             return "alguna superficie no es la pedida: " + ", ".join(f"{p.area():.2f}/{m:.2f}" for p, m in zip(piezas, metas))
+    #Sin lados nuevos de milímetros (un lindero que acaba junto a un vértice: _unir_vertices_cercanos)
+    #(con más de 30 parcelas, que la Sede no tramita sola, no se mira: en un círculo en 100 franjas queda alguno de 2 mm)
+    originales = {(round(v.x(), 6), round(v.y(), 6)) for v in geometria.vertices()}
+    for p in (piezas if len(piezas) <= 30 else []):
+        for parte in p.asGeometryCollection():
+            for anillo in parte.asPolygon():
+                for a, b in zip(anillo, anillo[1:]):
+                    nuevo = {(round(a.x(), 6), round(a.y(), 6)), (round(b.x(), 6), round(b.y(), 6))} - originales
+                    #Menos de medio cm desaparecería al redondear al cm; uno de 1 o 2 cm es correcto (el editor de la
+                    #Sede también los hace) y unirlo cambiaría la superficie en un lindero largo
+                    if nuevo and a.distance(b) < 0.005:
+                        return f"un lado nuevo de {100 * a.distance(b):.1f} cm"
     trozos = any(p.isMultipart() and len(p.asGeometryCollection()) > 1 for p in piezas)
+    if any(q.area() < dv.ASTILLA for p in piezas for q in p.asGeometryCollection() if p.isMultipart()
+           and len(p.asGeometryCollection()) > 1):
+        return "queda una astilla suelta (trozo de menos de ASTILLA m²)"
     if trozos != any(i.codigo == 'DIV-PARTES' for i in inc):
         return "parcela en varios trozos sin avisar (o aviso sin trozos)"
     if not trozos and len(piezas) <= 30:
@@ -199,7 +221,18 @@ if not any(i.codigo == 'DIV-PIVOTE' for i in inc):
 _, inc = dv.dividir(FORMAS["en U"], dv.PARTES, [2], 0, pivote=True)
 if not any(i.codigo == 'DIV-PARTES' for i in inc):
     piv.append("U desde la esquina: no avisa de los trozos")
-resultados["pivote: abanico desde el vértice, sin franjas, avisa si no ve toda la parcela"] = not piv
+#Con trozos desde un vértice, se sugieren los vértices desde los que no los hay (y de verdad no los hay)
+u = FORMAS["en U"]
+buenos = dv.vertices_sin_trozos(u, dv.PARTES, [2])
+if not buenos:
+    piv.append(f"U: no sugiere ningún vértice ({buenos})")
+for v in buenos or []:
+    piezas, inc = dv.dividir(u, dv.PARTES, [2], v, pivote=True)
+    if any(i.codigo == 'DIV-PARTES' for i in inc):
+        piv.append(f"U: sugiere el vértice {v + 1} y desde él hay trozos")
+if dv.vertices_sin_trozos(FORMAS["círculo de 200 vértices"], dv.PARTES, [3]) is not None:
+    piv.append("círculo de 200 vértices: no debía probarlos todos (lento)")
+resultados["pivote: abanico desde el vértice, sin franjas, avisa si no ve toda la parcela y sugiere vértices"] = not piv
 if piv:
     detalles['pivote'] = piv
 

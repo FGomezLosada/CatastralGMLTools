@@ -8,13 +8,14 @@ license   : GNU GPL v2 or later
 """
 import os
 
-from qgis.core import Qgis, QgsApplication, QgsGeometry, QgsProject
+from qgis.core import Qgis, QgsApplication, QgsGeometry, QgsProject, QgsProviderRegistry
 from qgis.gui import QgsFileWidget, QgsMapLayerComboBox
 from qgis.PyQt.QtWidgets import QCheckBox, QComboBox, QFormLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from ..core import apoyo as ap
 from ..core import geometria as geo
 from .bloque_coordenadas import HUSOS
+from .pestana_validar import PROPIEDAD_GML
 
 ICONO = '/mActionCapturePoint.svg'
 AUTOMATICO = 0
@@ -73,11 +74,30 @@ class BloqueApoyo(QWidget):
         if capa is not None:
             actual = self.destino.filePath().strip()
             if not actual or actual == self.destino_automatico:
-                carpeta = os.path.dirname(actual) if actual else (QgsProject.instance().homePath() or os.path.expanduser('~'))
+                carpeta = self.carpeta_de(capa)
                 self.destino_automatico = ap.ruta_por_defecto(carpeta, capa.name())
                 self.destino.setFilePath(self.destino_automatico)
             self.soloSeleccion.setChecked(capa.selectedFeatureCount() > 0)
         self.actualizar()
+
+    def carpeta_de(self, capa):
+        """
+        Carpeta propuesta para el TXT: la del GML o el fichero de la capa; si es temporal, la del GML de la pestaña Parcela
+        (prueba a mano del 04/11/2026: con una capa temporal salía la carpeta del usuario), la del proyecto o la del
+        usuario.
+        """
+        candidatas = [capa.customProperty(PROPIEDAD_GML) or '']
+        if capa.providerType() != 'memory':
+            partes = QgsProviderRegistry.instance().decodeUri(capa.providerType(), capa.source())
+            candidatas.append(partes.get('path') or '')
+        parcela = getattr(self.pestana.dock, 'pestanaParcela', None)
+        if parcela is not None and hasattr(parcela, 'destino'):
+            candidatas.append(parcela.destino.filePath().strip())
+        for ruta in candidatas:
+            carpeta = os.path.dirname(ruta) if ruta else ''
+            if carpeta and os.path.isdir(carpeta):
+                return carpeta
+        return QgsProject.instance().homePath() or os.path.expanduser('~')
 
     def geometrias(self):
         """(geometrías en el SRC de destino, epsg) de la capa elegida, o ([], None)."""
@@ -133,7 +153,8 @@ class BloqueApoyo(QWidget):
             return None
         self.ultimo = ruta
         dock.success(f"Puntos de apoyo: {os.path.basename(ruta)} · {len(lista)} puntos · EPSG:{epsg}. En el editor "
-                     "parcelario de la Sede, cárguelos como puntos de apoyo (fichero TXT)",
+                     "parcelario de la Sede, en «Introducir puntos de apoyo», cargue el fichero o pegue su "
+                     "contenido (pares «x y», un punto por línea)",
                      [("Abrir carpeta", self.abrir_carpeta)])
         return ruta
 
