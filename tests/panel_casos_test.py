@@ -363,6 +363,34 @@ def mensaje_largo_entero():
 caso("un mensaje final largo se ve entero, sin cortar la última línea", mensaje_largo_entero)
 
 
+def mensaje_con_direccion_larga():
+    #Prueba a mano del 04/11/2026: el aviso de la ortofoto llevaba la dirección entera del WMS (300 caracteres sin
+    #espacios) y el panel se ensanchaba hasta ella. Ahora el error dice solo el servidor y el código, y aunque llegara
+    #una palabra así de larga, el panel no pide más ancho
+    from catastral_gml_tools.core import servicios
+    url = ("https://www.ign.es/wms-inspire/pnoa-ma?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=OI.OrthoimageCoverage"
+           "&STYLES=&CRS=EPSG:25830&BBOX=422704.085,4068665.458,422735.345,4068685.972&WIDTH=1280&HEIGHT=840"
+           "&FORMAT=image/jpeg")
+    legible = servicios.error_legible(f"Error transferring {url} - server replied with status code 502", url)
+    corto = legible == "www.ign.es ha respondido con un error (502): pruebe más tarde"
+    lento = 'a tiempo' in servicios.error_legible("Operation timed out", url)
+    dw.messageBar.clearWidgets()
+    dw.resize(470, 700)
+    antes = dw.minimumSizeHint().width()
+    dw.success("Informe de superficies: Parcela_2889010VF2628N_superficies.html",
+               [("Abrir", dw.messageBar.clearWidgets)], detalles=[f"Sin ortofoto: Error transferring {url}"])
+    dw.notify(f"Aviso\n{url}", Qgis.MessageLevel.Warning, 0)
+    for _ in range(10):
+        QApplication.processEvents()
+    despues = dw.minimumSizeHint().width()
+    dw.messageBar.clearWidgets()
+    ok = corto and lento and despues <= max(antes, 470)
+    return ok, (legible, antes, despues)
+
+
+caso("un error con una dirección web larga se lee corto y no ensancha el panel", mensaje_con_direccion_larga)
+
+
 def panel_bajo():
     #Prueba a mano del 30/10/2026: con «Opciones avanzadas» abiertas en Edificio y un mensaje arriba, el panel pedía más
     #alto que la ventana y se metía bajo la barra de Windows. Cada pestaña se desplaza: su alto mínimo es pequeño

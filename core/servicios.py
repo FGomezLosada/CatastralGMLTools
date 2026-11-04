@@ -28,7 +28,7 @@ import time
 #Se lee con gml_lector.xml_fromstring (sin DOCTYPE) (Bandit B405)
 import xml.etree.ElementTree as ET  # nosec B405
 from dataclasses import dataclass, field
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlparse
 
 from qgis.core import (
     QgsBlockingNetworkRequest,
@@ -317,6 +317,23 @@ def mantenimiento(datos):
     return f"el servicio responde con un aviso en lugar de los datos: «{cita}»; pruebe más tarde"
 
 
+def error_legible(mensaje, url=''):
+    """
+    El error de red sin la dirección entera (prueba a mano del 04/11/2026: «Error transferring https://www.ign.es/…
+    server replied with status code 502», con una dirección de 300 caracteres, ensanchaba el panel): solo el servidor y
+    el código.
+    """
+    servidor = urlparse(url).hostname or 'el servicio'
+    mensaje = (mensaje or '').strip()
+    codigo = re.search(r'status code (\d{3})', mensaje)
+    if codigo:
+        return f"{servidor} ha respondido con un error ({codigo.group(1)}): pruebe más tarde"
+    if re.search(r'tim(ed|e) ?out', mensaje, re.IGNORECASE):
+        return f"{servidor} no ha respondido a tiempo: pruebe más tarde"
+    mensaje = re.sub(r'https?://\S+', servidor, mensaje)
+    return mensaje or 'error de red'
+
+
 def pedir(url):
     """Descarga una dirección con la red de QGIS (respeta el proxy). Devuelve (contenido, texto de error o '')."""
     feedback = getattr(_contexto, 'feedback', None)
@@ -332,7 +349,7 @@ def pedir(url):
     if red.get(peticion, True, feedback) != QgsBlockingNetworkRequest.ErrorCode.NoError:
         if feedback is not None and feedback.isCanceled():
             return b'', CANCELADO
-        return b'', red.errorMessage() or 'error de red'
+        return b'', error_legible(red.errorMessage(), url)
     datos = bytes(red.reply().content())
     aviso = mantenimiento(datos) if len(datos) < 20000 else ''  #Las respuestas buenas grandes no se miran
     return (b'', aviso) if aviso else (datos, '')

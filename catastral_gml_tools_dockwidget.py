@@ -11,6 +11,7 @@ license   : GNU GPL v2 or later
 
 import html
 import os
+import re
 
 from qgis.core import Qgis, QgsApplication
 from qgis.gui import QgsMessageBar
@@ -52,6 +53,7 @@ AYUDA = ruta('help', 'index.html')
 
 MAX_AVISOS_MENSAJE = 3  #Avisos que se leen en el mensaje de resultado; el resto, al pasar el ratón
 MAX_NOTAS_MENSAJE = 2   #Notas (p. ej. cambios del conversor): un mensaje alto se comía el panel (prueba del 15/10)
+ANCHO_MINIMO_TEXTO = 120  #px: el texto de un mensaje no pide más ancho mínimo (las palabras largas se parten)
 ALTO_MAXIMO_AVISO = 240  #px: un aviso de una línea larga crece hasta aquí (después, con su barra de desplazamiento)
 
 
@@ -99,6 +101,14 @@ def ajustar_mensaje(mensaje, contenido):
             widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
             widget.setFixedWidth(widget.pixmap().width() + 8)
     contenido.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+
+def partir_largas(texto, largo=60):
+    """
+    Las palabras muy largas (rutas, direcciones web) con puntos de corte invisibles tras «/», «\\», «_», «.», «&» y
+    «=», para que el texto se ajuste al ancho del panel en lugar de ensancharlo.
+    """
+    return re.sub(rf'\S{{{largo},}}', lambda m: re.sub(r'([/\\_.&=?-])', '\\1\u200b', m.group(0)), texto)
 
 
 def ajustar_altura(caja):
@@ -310,14 +320,16 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         contenido = QWidget(self.messageBar)  #Con padre: si no, Python lo borraría al salir de aquí
         fila = QHBoxLayout(contenido)
         fila.setContentsMargins(0, 0, 0, 0)
-        visibles = [html.escape(linea) for linea in lineas[:MAX_AVISOS_MENSAJE]]
+        visibles = [partir_largas(html.escape(linea)) for linea in lineas[:MAX_AVISOS_MENSAJE]]
         if len(lineas) > MAX_AVISOS_MENSAJE:
             visibles.append(f"… y {len(lineas) - MAX_AVISOS_MENSAJE} más (pase el ratón por el mensaje)")
         etiqueta = QLabel(contenido)
         etiqueta.setWordWrap(True)
         etiqueta.setTextFormat(Qt.TextFormat.RichText)
-        etiqueta.setText(f"{html.escape(primera)}<br><small>" + "<br>".join(f"· {v}" for v in visibles) + "</small>")
+        etiqueta.setText(f"{partir_largas(html.escape(primera))}<br><small>" + "<br>".join(f"· {v}" for v in visibles)
+                         + "</small>")
         etiqueta.setToolTip(message.strip())
+        etiqueta.setMinimumWidth(ANCHO_MINIMO_TEXTO)  #Una palabra muy larga no ensancha el panel
         contenido.installEventFilter(AjusteAltura(contenido))
         fila.addWidget(etiqueta, 1)
         self.messageBar.pushWidget(self.messageBar.createMessage(contenido), level, duration)
@@ -340,11 +352,14 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         columna = QVBoxLayout(contenido)
         columna.setContentsMargins(0, 0, 0, 0)
         columna.setSpacing(4)
-        etiqueta = QLabel(message, contenido)
+        etiqueta = QLabel(partir_largas(message), contenido)
         etiqueta.setTextFormat(Qt.TextFormat.PlainText)  #Lo que venga en el mensaje (nombres, «<1 m²»…) se lee tal cual
         etiqueta.setWordWrap(True)
+        #Una palabra muy larga (una dirección web en un error) no ensancha el panel: sin esto, la etiqueta pedía de ancho
+        #mínimo la palabra entera (prueba a mano del 04/11/2026)
+        etiqueta.setMinimumWidth(ANCHO_MINIMO_TEXTO)
         if detalles or notas:  #Los avisos se leen en el propio mensaje (antes solo al pasar el ratón: no se encontraban)
-            lineas = [f"⚠ {html.escape(d)}" for d in detalles[:MAX_AVISOS_MENSAJE]]
+            lineas = [f"⚠ {partir_largas(html.escape(d))}" for d in detalles[:MAX_AVISOS_MENSAJE]]
             if len(detalles) > MAX_AVISOS_MENSAJE:
                 lineas.append(f"⚠ … y {len(detalles) - MAX_AVISOS_MENSAJE} más (pase el ratón por el mensaje)")
             lineas += [f"<span style='color:#495057'>· {html.escape(n)}</span>" for n in notas[:MAX_NOTAS_MENSAJE]]
@@ -352,7 +367,7 @@ class CatastralGMLToolsDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 lineas.append(f"<span style='color:#495057'>· … y {len(notas) - MAX_NOTAS_MENSAJE} más (pase el ratón por "
                               "el mensaje)</span>")
             etiqueta.setTextFormat(Qt.TextFormat.RichText)
-            etiqueta.setText(f"{html.escape(message)}<br><small>" + "<br>".join(lineas) + "</small>")
+            etiqueta.setText(f"{partir_largas(html.escape(message))}<br><small>" + "<br>".join(lineas) + "</small>")
             etiqueta.setToolTip("\n".join(list(detalles) + list(notas)))
         contenido.installEventFilter(AjusteAltura(contenido))
         columna.addWidget(etiqueta)

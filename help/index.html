@@ -259,8 +259,10 @@ resultantes; si una forma irregular dejara una parcela en varios trozos, se avis
 de al lado muestra entonces los vértices («Vértice 3 · entre los lados 2 y 3»: en rojo en el mapa, con sus dos lados) y
 las parcelas salen en orden desde el lado que sale del vértice (o desde el que llega). Sirve con partes, porcentajes,
 superficies y cuotas; no con franjas. Si desde ese vértice no se ve toda la parcela (en una U o una L, por el entrante),
-la última se lleva lo que no se ve, en varios trozos, y se avisa; si no se llega a la superficie pedida, también: pruebe
-con otro vértice.</p>
+la última se lleva lo que no se ve, en varios trozos, y se avisa con los vértices desde los que sale sin trozos (con
+trozos no se puede crear el GML: la Sede solo admite un recinto por parcela); si no se llega a la superficie pedida,
+también: pruebe con otro vértice. Las astillas de menos de 0,05 m² que deja un lindero al rozar un quiebro de pocos
+centímetros pasan solas a la parcela vecina.</p>
 <p>Elija también la
 operación de la escritura: <strong>segregación</strong> (la mayor conserva la referencia catastral) o
 <strong>división</strong> (todas son parcelas nuevas). Si la capa tiene más parcelas, la tabla (y el GML) pasa a
@@ -416,7 +418,10 @@ cargados desde un fichero. En <strong>Utilidades › 7. Puntos de apoyo para el 
 (los puntos de un levantamiento, la parcela dibujada, unas líneas…) y, si quiere, marque «Solo los elementos
 seleccionados» (se marca sola si hay selección). Pulse <strong>Crear TXT</strong>: se guardan sus vértices, sin repetir,
 con una línea «x y» por punto, 2 decimales y punto decimal, en el huso de la Sede (automático según la posición, o el que
-elija). En el editor, cárguelo como puntos de apoyo desde un fichero TXT. El editor también admite un GML de parcela o de
+elija); el TXT se guarda junto al GML de la capa o, si es temporal, junto al de la pestaña Parcela. En el editor, en
+«Introducir puntos de apoyo», cargue el fichero o copie su contenido y péguelo: el editor pide pares «x y» separados por
+un espacio, uno por línea y con punto decimal, que es lo que tiene el TXT (taller del editor parcelario de la DGC en las
+JIIDE 2019). El editor también admite un GML de parcela o de
 edificio como apoyo: para eso no hace falta esta utilidad.</p>
 
 <h2>Unir varios GML (multiparcela)</h2>
