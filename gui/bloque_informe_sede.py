@@ -35,6 +35,7 @@ ICONO = '/mActionIdentify.svg'
 GRUPO = 'catastral_gml_tools/informe_sede'  #Propiedad del grupo del informe en el mapa
 ROJO = '#c92a2a'
 VERDE = '#2b8a3e'
+MAX_FILAS_VISIBLES = 8  #Con más parcelas, la tabla se desplaza
 NOTA_PRIVACIDAD = ("Del informe no se leen ni se muestran los datos personales (NIF, nombre y contacto del técnico o del "
                    "solicitante).")
 
@@ -76,9 +77,8 @@ class BloqueInformeSede(QWidget):
         self.tabla.verticalHeader().setVisible(False)
         self.tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabla.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        self.tabla.setMinimumHeight(70)
         desplazable.proteger(self.tabla)
-        caja.addWidget(self.tabla, 1)
+        caja.addWidget(self.tabla)
         self.afectadas = QLabel(self)
         self.afectadas.setWordWrap(True)
         self.afectadas.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -99,6 +99,9 @@ class BloqueInformeSede(QWidget):
         for boton in (self.mapaBoton, self.guardarBoton, self.validarBoton):
             botones.addWidget(boton)
         caja.addLayout(botones)
+        #El hueco que sobre, debajo: la tabla, al alto de sus filas (prueba a mano del 04/11/2026: con una o dos filas
+        #quedaba un gran recuadro en blanco y, en el ICUC, sin tabla, los textos se separaban)
+        caja.addStretch(1)
 
     # ------------------------------------------------------------------ Lectura
 
@@ -175,6 +178,10 @@ class BloqueInformeSede(QWidget):
                 self.tabla.setItem(fila, columna, item)
         self.tabla.resizeColumnsToContents()
         self.tabla.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        filas = sum(self.tabla.rowHeight(r) for r in range(min(self.tabla.rowCount(), MAX_FILAS_VISIBLES)))
+        barra = self.tabla.horizontalScrollBar().sizeHint().height()
+        self.tabla.setFixedHeight(self.tabla.horizontalHeader().sizeHint().height() + filas + barra
+                                  + 2 * self.tabla.frameWidth() + 2)
 
     # ------------------------------------------------------------------ Acciones
 

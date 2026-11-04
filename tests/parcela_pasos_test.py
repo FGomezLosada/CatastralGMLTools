@@ -220,6 +220,49 @@ caso("dividir y guardar la capa antes de crear el GML: se conservan la operació
      guardar_tras_dividir)
 
 
+def corregir_lindero():
+    #La forma de corregir el lindero entre dos colindantes que explica la ayuda (sin herramienta propia, 04/11/2026):
+    #unir las dos, dividir la unida por superficie, poner a la nueva la referencia de la otra y elegir subsanación
+    capa = capa_siete('Lindero')
+    pt.capaCombo.setLayer(capa)
+    pt.campoId.setField('referencia')
+    capa.selectByIds([1, 2])
+    capa.startEditing()
+    pt.soloSeleccion.setChecked(True)
+    fid = pt.unir_seleccionadas()
+    capa.selectByIds([fid])
+    pt.dividirBoton.click()
+    d = pt.division
+    d.modo.setCurrentIndex(d.modo.findData(dv.SUPERFICIES))
+    d.direccion.setCurrentIndex(0)
+    d.lado.setCurrentIndex(0)  #Lado 1: el oeste (vertical), linderos paralelos a él
+    d.valores.setText("650")
+    fids = d.dividir()
+    capa.selectByIds(fids)
+    filas = {pt.tabla.item(i, pp.COL_ID).text(): i for i in range(pt.tabla.rowCount())}
+    nueva = next(i for t, i in filas.items() if t not in RCS)
+    falta = (set(RCS[:2]) - set(filas)).pop()  #La unida conserva la de la mayor (aquí son iguales: cualquiera de las dos)
+    pt.tabla.item(nueva, pp.COL_ID).setText(falta)
+    pt.poner_alteracion(alt.SUBSANACION, False)
+    ids = sorted(pt.tabla.item(i, pp.COL_ID).text() for i in range(pt.tabla.rowCount()))
+    namespaces = {pt.tabla.cellWidget(i, pp.COL_NS).currentText() for i in range(pt.tabla.rowCount())}
+    areas = sorted(round(a) for a in pt.areas)
+    ruta = os.path.join(carpeta, 'lindero.gml')
+    pt.destino.setFilePath(ruta)
+    dw.messageBar.clearWidgets()
+    pt.crear_gml()
+    creado = os.path.isfile(ruta) and 'GML creado: lindero.gml · 2 parcelas' in textos_barra()
+    pt.dividirBoton.click()
+    capa.rollBack()
+    QgsProject.instance().removeMapLayer(capa.id())
+    ok = ids == sorted(RCS[:2]) and namespaces == {'SDGC'} and areas == [550, 650] and creado
+    return ok, (ids, namespaces, areas, creado, textos_barra()[:300])
+
+
+caso("corregir el lindero entre dos colindantes con «Unir parcelas» y «Dividir» (como dice la ayuda): las dos con su "
+     "referencia, la superficie pedida y el GML creado", corregir_lindero)
+
+
 def src_sin_deducir():
     capa = capa_siete('SRC')
     pt.capaCombo.setLayer(capa)
