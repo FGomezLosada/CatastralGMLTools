@@ -49,7 +49,8 @@ Cada batería recorre las categorías que le apliquen:
 | Panel: avisos, pestañas, cerrar y recargar | `panel_casos_test.py` | ✅ |
 | Ficheros rotos a mano (cualquier carácter quitado, de más o cortado) | `xml_roto_casos_test.py` | ✅ |
 | Utilidades «6. Parcela desde coordenadas» (AU-57) | `coordenadas_casos_test.py` | ✅ |
-| Utilidades «7. Puntos de apoyo para el editor de la Sede» (mejora 33) | `apoyo_casos_test.py` (6 casos) | ✅ 03/11/2026 |
+| Utilidades «7. Puntos de apoyo para el editor de la Sede» (mejora 33) | `apoyo_casos_test.py` (7 casos) | ✅ 04/11/2026 |
+| Utilidades «8. Leer informe de la Sede (IVG o ICUC)» (AU-56) | `informe_sede_casos_test.py` (8 casos, informes sintéticos; ningún dato personal) | ✅ 04/11/2026 |
 | Validar: simulación de identidad gráfica en la comparación con el Catastro (AU-58) | `identidad_casos_test.py` | ✅ |
 
 Las pruebas que ya hay (`*_test.py`) cubren el uso normal y los fallos encontrados hasta ahora; las baterías añaden
