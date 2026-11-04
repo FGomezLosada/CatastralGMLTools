@@ -510,7 +510,7 @@ class PestanaValidar(QWidget):
         if not comparacion.comparada:
             self.dock.warn("\n".join(i.mensaje for i in comparacion.incidencias) or "No se ha podido comparar con el Catastro")
             return comparacion
-        cargar_comparacion(comparacion, self.ruta, self.dock.iface)
+        cargar_comparacion(comparacion, self.ruta, self.dock.iface, self.resultado)
         errores = [i for i in comparacion.incidencias if i.nivel == ERROR]
         texto = comparacion.operacion if comparacion.edificio else \
             f"NPO {comparacion.npo} · NPP {comparacion.npp} → {comparacion.operacion}"
@@ -688,9 +688,8 @@ def quitar_vistas_anteriores(ruta):
     proyecto.removeMapLayers([i for i in otras if proyecto.mapLayer(i) is not None])
 
 
-def cargar(resultado, ruta, iface=None):
-    """Capa con estilo a partir de un resultado de lectura, añadida al proyecto (sin crear ficheros .gfs)."""
-    quitar_vistas_anteriores(ruta)
+def capa_vista(resultado, ruta):
+    """Capa temporal con estilo que muestra el GML (sin añadirla al proyecto)."""
     nombre = os.path.splitext(os.path.basename(ruta))[0]
     capa = estilos.aplicar(gl.capa(resultado, f"{nombre} (vista del GML)"))
     capa.setCustomProperty(PROPIEDAD_GML, ruta)  #Para poder arrastrar la capa a la pestaña Validar
@@ -700,7 +699,28 @@ def cargar(resultado, ruta, iface=None):
     metadatos.setAbstract(f"Vista del fichero {ruta}. El GML para la Sede es ese fichero: no guarde esta capa con "
                           "«Guardar como» de QGIS (escribiría un GML genérico, no INSPIRE CadastralParcels 4.0).")
     capa.setMetadata(metadatos)
-    QgsProject.instance().addMapLayer(capa)
+    return capa
+
+
+def hay_vista(ruta):
+    """¿Está ya en el proyecto la vista de este GML (de «Cargar en el mapa» o de una comparación)?"""
+    return bool(vistas(ruta))
+
+
+def vistas(ruta):
+    return [c for c in QgsProject.instance().mapLayers().values() if c.customProperty(PROPIEDAD_GML)
+            and misma_ruta(c.customProperty(PROPIEDAD_GML), ruta) and c.name().endswith("(vista del GML)")]
+
+
+def cargar(resultado, ruta, iface=None):
+    """Capa con estilo a partir de un resultado de lectura, añadida al proyecto (sin crear ficheros .gfs)."""
+    quitar_vistas_anteriores(ruta)
+    ya = vistas(ruta)
+    if ya:  #Ya está (p. ej. en el grupo de la comparación): no se duplica, solo se acerca el mapa
+        capa = ya[0]
+    else:
+        capa = capa_vista(resultado, ruta)
+        QgsProject.instance().addMapLayer(capa)
     if iface is not None and hasattr(iface, 'mapCanvas'):
         try:
             lienzo = iface.mapCanvas()
@@ -711,12 +731,14 @@ def cargar(resultado, ruta, iface=None):
     return capa
 
 
-def cargar_comparacion(comparacion, ruta, iface=None):
+def cargar_comparacion(comparacion, ruta, iface=None, resultado=None):
     """
     Grupo «Comparación <fichero>» con las parcelas catastrales afectadas (gris, con su número) y, si las hay, las
     diferencias con el GML: exceso (suelo del GML fuera de ellas, rojo) y defecto (suelo de ellas que el GML deja
     fuera, azul). Con la simulación de identidad gráfica (AU-58), también el margen (azul claro) y lo que sale de él
-    (rojo), como en el informe. Si ya existía, se sustituye.
+    (rojo), como en el informe. Si ya existía, se sustituye. Con resultado (la lectura del GML), arriba del grupo va
+    también la vista del GML si no estaba en el mapa: solo con la catastral, en gris y sin dividir, parecía que el GML
+    no estaba dividido (prueba a mano del 04/11/2026).
     """
     quitar_vistas_anteriores(ruta)
     proyecto = QgsProject.instance()
@@ -726,9 +748,10 @@ def cargar_comparacion(comparacion, ruta, iface=None):
     if viejo is not None:
         proyecto.removeMapLayers(viejo.findLayerIds())
         raiz.removeChildNode(viejo)
+    con_vista = resultado is not None and getattr(resultado, 'elementos', None) and not hay_vista(ruta)
     grupo = raiz.insertGroup(0, nombre)
     grupo.setCustomProperty(PROPIEDAD_GML, ruta)  #Se quita al abrir otro GML (quitar_vistas_anteriores)
-    capas = []
+    capas = [capa_vista(resultado, ruta)] if con_vista else []
     r = getattr(comparacion, 'identidad', None)
     if r is not None and r.banda is not None:
         from ..core import identidad as idg

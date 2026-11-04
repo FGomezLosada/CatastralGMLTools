@@ -158,7 +158,13 @@ errores = (errores and lineas[0].startswith('Fichero: recintos 2 → 3') and any
 informe = cg.escribir(cg.comparar(A, movido))
 with open(informe, encoding='utf-8') as f:
     contenido = f.read()
-html_ok = (os.path.normpath(informe) == os.path.normpath(cg.ruta_informe(A)) and 'Hay diferencias' in contenido and 'stroke-dasharray' in contenido
+#Con el nombre de los dos (prueba a mano del 04/11/2026): otro segundo no pisa el informe; mismo nombre, con su carpeta
+mismo_nombre = os.path.join(carpeta, 'qgis42', os.path.basename(A))
+nombres = (cg.ruta_informe(A, movido) != cg.ruta_informe(A, desplazado)
+           and os.path.basename(cg.ruta_informe(A, mismo_nombre)).endswith('_comparacion_con_qgis42_'
+                                                                            + os.path.splitext(os.path.basename(A))[0]
+                                                                            + '.html'))
+html_ok = (nombres and os.path.normpath(informe) == os.path.normpath(cg.ruta_informe(A, movido)) and 'Hay diferencias' in contenido and 'stroke-dasharray' in contenido
            and 'Vértices que se mueven más de 1 cm (1 de 4)' in contenido and 'Herramienta no oficial' in contenido)
 
 # 9. Interfaz: Utilidades «5.»
@@ -195,7 +201,10 @@ pu.soltar([desplazado])
 interfaz = interfaz and os.path.normpath(bc.gmlB.filePath()) == os.path.normpath(desplazado)
 hecho = bc.comparar(segundo_plano=False)
 botones = [b.text() for item in dw.messageBar.items() for b in item.findChildren(QPushButton)]
-interfaz = (interfaz and os.path.normpath(hecho or '') == os.path.normpath(cg.ruta_informe(A)) and 'Desplazado 3,0 cm hacia E' in bc.resultado.text() and 'Hay diferencias' in bc.resultado.text()
+interfaz = (interfaz and os.path.normpath(hecho or '') == os.path.normpath(cg.ruta_informe(A, desplazado))
+            and 'en la carpeta del primer GML' in ' '.join(e.text() for item in dw.messageBar.items()
+                                                           for e in item.findChildren(QLabel))
+            and 'Abrir carpeta' in botones and 'Desplazado 3,0 cm hacia E' in bc.resultado.text() and 'Hay diferencias' in bc.resultado.text()
             and 'Abrir informe' in botones and 'Ver en el mapa' in botones)
 #Ver en el mapa: los dos, el segundo en azul discontinuo
 capas = bc.ver_en_mapa()
