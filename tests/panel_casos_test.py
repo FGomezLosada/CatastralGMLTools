@@ -136,7 +136,7 @@ def herramienta_ajuste():
     dw.show()
     bloque = dw.pestanaUtilidades.ajuste
     dw.tabWidget.setCurrentWidget(dw.tabUtilidades)
-    dw.pestanaUtilidades.utilidades.setCurrentIndex(3)
+    dw.pestanaUtilidades.abrir_utilidad('ajuste')
     bloque.origenAj.setFilePath(gml('ajuste'))
     bloque.capturarBoton.setChecked(True)
     activa = lienzo.mapTool() is not pan

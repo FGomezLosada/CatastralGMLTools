@@ -80,43 +80,47 @@ class PestanaUtilidades(QWidget):
         principal = QVBoxLayout(self)
         principal.setContentsMargins(0, 0, 0, 0)
         self.utilidades = QToolBox(self)
-        for numero, (widget, titulo, icono, ayuda) in enumerate((
-                (self.pagina_unir(), "Unir ficheros GML (multiparcela)", '/mActionMergeFeatures.svg',
-                 "Junta varios GML de parcela en uno solo para presentarlos a la vez en la Sede. Las parcelas repetidas "
-                 "se incluyen una vez; si vienen en husos distintos, se pasan al del primer fichero. (Para unir parcelas "
-                 "de una capa en una sola, use «Unir parcelas» en la pestaña Parcela.)"),
-                (self.pagina_convertir(), "Convertir a 4.0 o reparar", '/mActionFileSaveAs.svg',
-                 "La Sede solo admite el esquema 4.0. Crea una copia en 4.0 (o reparada, si ya lo era) con la estructura, "
-                 "los anillos, los decimales y las superficies como los pide la Sede; el original no se toca. Dice qué ha "
-                 "cambiado y qué queda por revisar."),
-                (self.pagina_superficies(), "Informe de superficies y coordenadas", '/mActionNewReport.svg',
-                 "Superficie (UTM y sobre el elipsoide), perímetro, linderos (con qué parcela linda cada lado y hacia "
-                 "dónde) y coordenadas de cada parcela de un GML, en un informe HTML que se puede imprimir. Si se indica "
-                 "la cabida inscrita, la compara con la del GML."),
-                (self.pagina_ajuste(), "Ajustar a la cartografía catastral (desplazada o girada)",
+        #Orden del trabajo (petición del 04/11/2026): preparar los datos (levantamiento, ajuste, puntos de apoyo), el GML
+        #(convertir, unir), comprobar y documentar (comparar, informe de superficies) y, al final, el informe de la Sede
+        self.paginas = {}
+        for numero, (clave, widget, titulo, icono, ayuda) in enumerate((
+                ('coordenadas', self.pagina_coordenadas(), "Parcela desde coordenadas (levantamiento)", ICONO_COORDENADAS,
+                 "Las parcelas de un fichero de puntos (TXT o CSV del levantamiento: X Y, o nombre X Y), en una capa que se "
+                 "abre en la pestaña Parcela para crear el GML. Varias parcelas: separadas por una línea en blanco o un "
+                 "título, o con una columna con el identificador de cada una."),
+                ('ajuste', self.pagina_ajuste(), "Ajustar a la cartografía catastral (desplazada o girada)",
                  '/mActionMoveFeature.svg',
                  "Si la cartografía catastral está desplazada o girada, calcula los parámetros de transformación con pares "
                  "de puntos (el mismo punto en el levantamiento y en el Catastro) y crea el GML ajustado a la cartografía "
                  "catastral y un fichero con los parámetros: la Sede pide los dos GML y los parámetros (Resolución de "
                  "29/03/2021); para el ICUC, los parámetros y el GML ajustado."),
-                (self.pagina_comparar(), "Comparar dos GML", ICONO_COMPARAR,
-                 "Dos GML de la misma finca o construcción, vengan de donde vengan (el presentado y el que devuelve otro "
-                 "organismo, dos versiones, dos programas): diferencias de fichero, identificadores, superficies, "
-                 "desplazamiento de cada vértice, vértices añadidos o quitados y si son iguales a efectos de la Sede (±1 cm)."),
-                (self.pagina_coordenadas(), "Parcela desde coordenadas (levantamiento)", ICONO_COORDENADAS,
-                 "Las parcelas de un fichero de puntos (TXT o CSV del levantamiento: X Y, o nombre X Y), en una capa que se "
-                 "abre en la pestaña Parcela para crear el GML. Varias parcelas: separadas por una línea en blanco o un "
-                 "título, o con una columna con el identificador de cada una."),
-                (self.pagina_apoyo(), "Puntos de apoyo para el editor de la Sede", ICONO_APOYO,
+                ('apoyo', self.pagina_apoyo(), "Puntos de apoyo para el editor de la Sede", ICONO_APOYO,
                  "Los vértices de una capa (puntos del levantamiento, la parcela dibujada, líneas…) en un TXT «x y» por "
                  "línea, en el huso de la Sede, para cargarlos como puntos de apoyo en el editor parcelario de la Sede "
                  "y dibujar allí con ellos."),
-                (self.pagina_informe_sede(), "Leer informe de la Sede (IVG o ICUC)", ICONO_INFORME_SEDE,
+                ('convertir', self.pagina_convertir(), "Convertir a 4.0 o reparar", '/mActionFileSaveAs.svg',
+                 "La Sede solo admite el esquema 4.0. Crea una copia en 4.0 (o reparada, si ya lo era) con la estructura, "
+                 "los anillos, los decimales y las superficies como los pide la Sede; el original no se toca. Dice qué ha "
+                 "cambiado y qué queda por revisar."),
+                ('unir', self.pagina_unir(), "Unir ficheros GML (multiparcela)", '/mActionMergeFeatures.svg',
+                 "Junta varios GML de parcela en uno solo para presentarlos a la vez en la Sede. Las parcelas repetidas "
+                 "se incluyen una vez; si vienen en husos distintos, se pasan al del primer fichero. (Para unir parcelas "
+                 "de una capa en una sola, use «Unir parcelas» en la pestaña Parcela.)"),
+                ('comparar', self.pagina_comparar(), "Comparar dos GML", ICONO_COMPARAR,
+                 "Dos GML de la misma finca o construcción, vengan de donde vengan (el presentado y el que devuelve otro "
+                 "organismo, dos versiones, dos programas): diferencias de fichero, identificadores, superficies, "
+                 "desplazamiento de cada vértice, vértices añadidos o quitados y si son iguales a efectos de la Sede (±1 cm)."),
+                ('superficies', self.pagina_superficies(), "Informe de superficies y coordenadas", '/mActionNewReport.svg',
+                 "Superficie (UTM y sobre el elipsoide), perímetro, linderos (con qué parcela linda cada lado y hacia "
+                 "dónde) y coordenadas de cada parcela de un GML, en un informe HTML que se puede imprimir. Si se indica "
+                 "la cabida inscrita, la compara con la del GML."),
+                ('informe_sede', self.pagina_informe_sede(), "Leer informe de la Sede (IVG o ICUC)", ICONO_INFORME_SEDE,
                  "El PDF que da la Sede tras la validación gráfica (IVG) o el informe de ubicación de las construcciones "
                  "(ICUC): resultado, operación, parcelas presentadas con su superficie y sus linderos y parcelas "
                  "catastrales afectadas. Carga en el mapa lo presentado sobre lo afectado y recupera el GML tal como lo "
                  "recibió la Sede. No lee los datos personales del informe."),
         ), start=1):
+            self.paginas[clave] = widget
             indice = self.utilidades.addItem(widget, QgsApplication.getThemeIcon(icono), f"{numero}. {titulo}")
             self.utilidades.setItemToolTip(indice, ayuda)
         principal.addWidget(self.utilidades, 1)
@@ -292,24 +296,29 @@ class PestanaUtilidades(QWidget):
         event.accept()
         self.soltar(rutas)
 
+    def abierta(self):
+        """Clave de la utilidad abierta ('unir', 'convertir'…; ver construir)."""
+        actual = self.utilidades.currentWidget()
+        return next((k for k, w in self.paginas.items() if w is actual), '')
+
+    def abrir_utilidad(self, clave):
+        self.utilidades.setCurrentWidget(self.paginas[clave])
+
     def extensiones(self):
-        """Lo que se puede soltar en la utilidad abierta: GML, o ficheros de puntos en «Parcela desde coordenadas»."""
-        if self.utilidades.currentIndex() == 7:
-            return ('.pdf', '.xml')
-        return EXTENSIONES_COORDENADAS if self.utilidades.currentIndex() == 5 else ('.gml', '.xml')
+        """Lo que se puede soltar en la utilidad abierta: GML, ficheros de puntos, el informe de la Sede o nada."""
+        return {'coordenadas': EXTENSIONES_COORDENADAS, 'informe_sede': ('.pdf', '.xml'), 'apoyo': ()}.get(
+            self.abierta(), ('.gml', '.xml'))
 
     def soltar(self, rutas):
         """El GML soltado va a la utilidad abierta: a la lista de «Unir», o como fichero de «Convertir» o del informe."""
-        if self.utilidades.currentIndex() == 4:
-            self.comparador.soltar(rutas)
+        abierta = self.abierta()
+        destinos = {'comparar': self.comparador, 'coordenadas': self.coordenadas, 'informe_sede': self.informe_sede}
+        if abierta in destinos:
+            destinos[abierta].soltar(rutas)
             return
-        if self.utilidades.currentIndex() == 5:
-            self.coordenadas.soltar(rutas)
+        if abierta == 'apoyo':  #Trabaja con una capa del proyecto, no con ficheros
             return
-        if self.utilidades.currentIndex() == 7:
-            self.informe_sede.soltar(rutas)
-            return
-        casilla = {1: self.origenConv, 2: self.origenSup, 3: self.ajuste.origenAj}.get(self.utilidades.currentIndex())
+        casilla = {'convertir': self.origenConv, 'superficies': self.origenSup, 'ajuste': self.ajuste.origenAj}.get(abierta)
         if casilla is None:
             self.agregar(rutas)
             return

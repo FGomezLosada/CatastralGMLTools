@@ -122,6 +122,7 @@ from qgis.PyQt.QtGui import QDropEvent  # noqa: E402
 from catastral_gml_tools.gui import pestana_validar as pv_mod  # noqa: E402
 
 capa_a = pv_mod.cargar(gl.leer(a), a)
+pu.abrir_utilidad('unir')  #Lo soltado va a la utilidad abierta (desde el 04/11/2026 la primera es «Parcela desde coordenadas»)
 mime = QgsMimeDataUtils.encodeUriList([QgsMimeDataUtils.Uri(capa_a)])
 soltar = QDropEvent(QPointF(5, 5), Qt.DropAction.MoveAction | Qt.DropAction.CopyAction, mime, Qt.MouseButton.LeftButton,
                     Qt.KeyboardModifier.NoModifier)

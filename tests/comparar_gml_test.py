@@ -170,7 +170,7 @@ html_ok = (nombres and os.path.normpath(informe) == os.path.normpath(cg.ruta_inf
 # 9. Interfaz: Utilidades «5.»
 dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
 pu = dw.pestanaUtilidades
-pu.utilidades.setCurrentIndex(4)
+pu.abrir_utilidad('comparar')
 bc = pu.comparador
 
 

@@ -185,7 +185,7 @@ def barra(dw):
 def utilidad():
     dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
     pu = dw.pestanaUtilidades
-    pu.utilidades.setCurrentIndex(5)
+    pu.abrir_utilidad('coordenadas')
     bloque = pu.coordenadas
     #Arrastrar el fichero sobre la casilla, como en QGIS
     ruta = guardar('levantamiento.txt', lineas(R, "V{n} {x:.2f} {y:.2f} 101.5 LINDE") + "\n\n" + lineas(R2))
@@ -218,7 +218,7 @@ def utilidad():
     pt.crear_gml()
     gml = os.path.isfile(destino) and not validador.validar(destino).errores and len(gl.leer(destino).elementos) == 2
     #Un fichero que no es de texto, uno que no existe y uno sin parcelas: el botón se desactiva y se dice por qué
-    pu.utilidades.setCurrentIndex(5)
+    pu.abrir_utilidad('coordenadas')
     bloque.fichero.setFilePath(guardar('foto.txt', b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR' + bytes(200)))
     binario = not bloque.crearBoton.isEnabled() and 'no es un fichero de texto' in bloque.estado.text()
     bloque.fichero.setFilePath(os.path.join(carpeta, 'no_existe.txt'))

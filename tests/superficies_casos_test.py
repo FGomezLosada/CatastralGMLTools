@@ -256,7 +256,7 @@ def barra(dw):
 def no_valen():
     dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
     pu = dw.pestanaUtilidades
-    pu.utilidades.setCurrentIndex(2)
+    pu.abrir_utilidad('superficies')
     textos = {}
     otros = {'edificios': os.path.join(DATOS, 'edificio_sintetico.gml'),
              'mal formado': os.path.join(DATOS, 'mal_formado.gml'), 'no existe': os.path.join(carpeta, 'no_existe.gml')}
@@ -281,7 +281,7 @@ caso("utilidad: edificios, mal formado, 4326 o inexistente no dejan crear el inf
 def utilidad():
     dw = dock_module.CatastralGMLToolsDockWidget(qgis.utils.iface)
     pu = dw.pestanaUtilidades
-    pu.utilidades.setCurrentIndex(2)
+    pu.abrir_utilidad('superficies')
     pu.ortofoto.setChecked(False)
     ruta = os.path.join(carpeta, 'segregacion.gml')
     pu.origenSup.setFilePath(ruta)
