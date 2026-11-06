@@ -235,12 +235,21 @@ class PestanaDescargar(QWidget):
             return []
         if not segundo_plano or not fondo.pendientes():
             nuevas = fondo.asegurar(self.dock.iface)
+            self.avisar_src()
             self.mostrar_estado_fondo()
             return nuevas
         if self.tarea_fondo is None:
             self.tarea_fondo = TareaFondo(self, aviso)
             QgsApplication.taskManager().addTask(self.tarea_fondo)
         return []
+
+    def avisar_src(self):
+        """Si el fondo ha puesto el proyecto vacío en EPSG:25830, se dice (antes no se avisaba)."""
+        if fondo.SRC_CAMBIADO:
+            antes, nuevo = fondo.SRC_CAMBIADO
+            self.dock.notify(f"El proyecto estaba vacío y en {antes}: se ha puesto en {nuevo}, el habitual del Catastro "
+                             "(puede cambiarlo; cada parcela se descarga en el huso que le corresponde)",
+                             Qgis.MessageLevel.Info, 10)
 
     def fondo_comprobado(self, aviso=False):
         """Fin de la comprobación de los servicios del fondo: se añaden los que responden."""
@@ -249,6 +258,7 @@ class PestanaDescargar(QWidget):
             return
         vacio = not QgsProject.instance().mapLayers()
         nuevas = fondo.asegurar(self.dock.iface)
+        self.avisar_src()
         #Lo que falta y por qué se dice solo en la línea fija bajo las casillas (también en la barra de avisos, el mismo
         #texto salía dos veces y se repetía en cada descarga: prueba a mano del 14/10). La casilla sigue marcada: en la
         #próxima descarga se vuelve a probar y la capa se añade cuando responda
