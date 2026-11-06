@@ -117,22 +117,54 @@ def uri(url, capa, formato, transparente, src):
             + ("&transparent=true" if transparente else '') + f"&url={url}")
 
 
+#Para avisar de que el proyecto vacío se ha puesto en EPSG:25830: (SRC de antes, SRC nuevo) o None
+SRC_CAMBIADO = None
+_anadiendo = False  #asegurar() en curso: crear una capa WMS atiende eventos y podía volver a entrar (fondo duplicado)
+
+
+def debe_cambiar_src(crs):
+    """
+    Solo se cambia el SRC de un proyecto vacío si no lo ha elegido el usuario: sin SRC o en uno geográfico (QGIS crea
+    los proyectos nuevos en EPSG:4326). Uno proyectado (25829, 25831…) se respeta (prueba a mano del 06/11/2026: el
+    proyecto vacío en 25829 pasaba a 25830 sin avisar al pulsar «Elegir en el mapa»).
+    """
+    return not crs.isValid() or crs.isGeographic()
+
+
 def asegurar(iface=None):
     """
-    Añade el fondo al final de la lista de capas si aún no está. Si el proyecto estaba vacío, lo pone en EPSG:25830 y
-    acerca el mapa a España. Devuelve las capas añadidas (lista vacía si ya estaban o si no hay conexión).
+    Añade el fondo al final de la lista de capas si aún no está. Si el proyecto estaba vacío, acerca el mapa a España
+    y, si su SRC no lo ha elegido el usuario (geográfico o sin SRC), lo pone en EPSG:25830 y lo deja dicho en
+    SRC_CAMBIADO. Devuelve las capas añadidas (lista vacía si ya estaban o si no hay conexión).
     """
+    global SRC_CAMBIADO, _anadiendo
+    SRC_CAMBIADO = None
+    if _anadiendo:
+        return []
+    _anadiendo = True
+    try:
+        return _asegurar(iface)
+    finally:
+        _anadiendo = False
+
+
+def _asegurar(iface):
+    global SRC_CAMBIADO
     proyecto = QgsProject.instance()
     presentes = {c.name() for c in capas_fondo(proyecto)}
     if len(presentes) >= len(CAPAS):
         return []
     vacio = not proyecto.mapLayers()
-    if vacio:
+    if vacio and debe_cambiar_src(proyecto.crs()):
+        antes = proyecto.crs().authid() or 'sin SRC'
         proyecto.setCrs(QgsCoordinateReferenceSystem(SRC_PROYECTO_VACIO))
+        SRC_CAMBIADO = (antes, SRC_PROYECTO_VACIO)
     src = proyecto.crs().authid() if proyecto.crs().authid() in SRC_WMS else 'EPSG:3857'
     nuevas = []
     for nombre, url, capa_wms, formato, transparente, fuente in CAPAS:
         if nombre in presentes or ESTADO.get(nombre) is False:  #Ya está, o el servicio no responde en esta sesión
+            continue
+        if nombre in {c.name() for c in capas_fondo(proyecto)}:  #Añadida mientras tanto (otra llamada): sin duplicar
             continue
         capa = QgsRasterLayer(uri(url, capa_wms, formato, transparente, src), nombre, 'wms')
         if not capa.isValid():  #Sin conexión o servicio caído: QGIS no admite capas no válidas

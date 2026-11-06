@@ -117,6 +117,11 @@ mantenimiento, debajo de las casillas se dice qué capa falta y por qué (con el
 servicio en ese momento): no hace falta
 buscarla ni añadirla a mano, se vuelve a probar en cada descarga (o con «Reintentar ahora») y se añade sola cuando responde.
 Con el Catastro en mantenimiento tampoco se puede descargar: el panel lo dice con su horario.</p>
+<p><strong>Sistema de referencia (SRC).</strong> El plugin no cambia el SRC de un proyecto que ya tiene capas ni el que
+usted haya elegido: solo si el proyecto está vacío y en un SRC geográfico (QGIS crea los proyectos nuevos en EPSG:4326)
+lo pone en EPSG:25830 y lo dice en la barra. Cada parcela se descarga en el huso UTM que le corresponde (EPSG:25829,
+25830 o 25831, o 32628 en Canarias): una de Mallorca, en 25831, aunque el proyecto esté en 25830; QGIS la coloca en su
+sitio. El mapa de fondo se pide en el SRC del proyecto.</p>
 <p>La parcela se descarga de los servicios públicos de la
 Dirección General del Catastro, en el huso UTM que le corresponde, y se añade al proyecto en un grupo
 «Catastro <em>referencia</em>», dentro de «Descargas del Catastro (temporales)» (la última descarga arriba y abierta; las anteriores,

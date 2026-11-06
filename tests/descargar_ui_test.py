@@ -11,10 +11,11 @@ license   : GNU GPL v2 or later
 """
 import importlib.util
 import os
+from urllib.parse import unquote
 
 import qgis.utils
 from qgis.PyQt import sip
-from qgis.core import Qgis, QgsPointXY, QgsProject
+from qgis.core import Qgis, QgsCoordinateReferenceSystem, QgsPointXY, QgsProject
 from qgis.gui import QgsMapToolPan
 from qgis.PyQt.QtWidgets import QLabel, QMessageBox
 
@@ -219,13 +220,15 @@ proyecto.removeMapLayers([c.id() for c in proyecto.mapLayers().values()])
 raiz.removeAllChildren()
 _orden = [c[0] for c in fondo.CAPAS]
 _fuentes = {c[0]: c[5] for c in fondo.CAPAS}
+proyecto.setCrs(QgsCoordinateReferenceSystem('EPSG:4326'))  #Como un proyecto nuevo de QGIS
 nuevas = fondo.asegurar(iface)
+_cambio = fondo.SRC_CAMBIADO
 _nombres = [c.name() for c in nuevas]
 if nuevas:
     modo_fondo = "con conexión" if len(nuevas) == len(fondo.CAPAS) else f"con conexión, sin {len(fondo.CAPAS) - len(nuevas)} servicio(s)"
     fondo_ok = (raiz.children()[-1].name() == fondo.GRUPO
                 and [n.name() for n in raiz.children()[-1].children()] == [n for n in _orden if n in _nombres]
-                and proyecto.crs().authid() == 'EPSG:25830'
+                and proyecto.crs().authid() == 'EPSG:25830' and _cambio == ('EPSG:4326', 'EPSG:25830')
                 and all(c.metadata().rights()[0] == _fuentes[c.name()] for c in nuevas)
                 and fondo.asegurar(iface) == [] and len(fondo.capas_fondo()) == len(nuevas)
                 and sorted(n for n, _ in fondo.caidos()) == sorted(n for n in _orden if n not in _nombres)
@@ -240,6 +243,33 @@ if nuevas:
 else:
     modo_fondo = "sin conexión"
     fondo_ok = raiz.findGroup(fondo.GRUPO) is None and not fondo.capas_fondo()
+
+# 6c. Proyecto vacío en un SRC elegido por el usuario (25829, 25831): se respeta y las capas WMS se piden en él (prueba a
+# mano del 06/11/2026: pasaba a 25830 sin avisar). Y nunca dos veces el fondo aunque asegurar() vuelva a entrar mientras
+# crea las capas (con «Elegir en el mapa» y un clic antes de acabar la comprobación de los servicios salía duplicado)
+src_respetado, _diag_src = True, None
+for _src in ('EPSG:25829', 'EPSG:25831'):
+    proyecto.removeMapLayers([c.id() for c in proyecto.mapLayers().values()])
+    raiz.removeAllChildren()
+    proyecto.setCrs(QgsCoordinateReferenceSystem(_src))
+    _n = fondo.asegurar(iface)
+    _diag_src = (_src, proyecto.crs().authid(), fondo.SRC_CAMBIADO, [c.source()[:70] for c in _n])
+    src_respetado = (src_respetado and proyecto.crs().authid() == _src and fondo.SRC_CAMBIADO is None
+                     and all(f'crs={_src}' in unquote(c.source()) for c in _n))  #QGIS 4 escribe «EPSG%3A25829»
+    if not src_respetado:
+        break
+fondo._anadiendo = True  #Como si ya estuviera añadiéndolo otra llamada
+proyecto.removeMapLayers([c.id() for c in proyecto.mapLayers().values()])
+raiz.removeAllChildren()
+src_respetado = src_respetado and fondo.asegurar(iface) == [] and not fondo.capas_fondo()
+fondo._anadiendo = False
+fondo.asegurar(iface)
+fondo.asegurar(iface)
+_nombres_fondo = [c.name() for c in fondo.capas_fondo()]
+src_respetado = src_respetado and len(_nombres_fondo) == len(set(_nombres_fondo))
+_diag_src = (_diag_src, _nombres_fondo)
+proyecto.removeMapLayers([c.id() for c in proyecto.mapLayers().values()])
+raiz.removeAllChildren()
 
 # 6b. Servicio del fondo en mantenimiento: no se intenta (QGIS no se bloquea), la casilla sigue marcada y una línea fija
 # dice qué capa falta, por qué y que se volverá a probar (si no, quien empieza buscaría la capa a mano); pasado el plazo
@@ -291,6 +321,7 @@ checks = {
     "mapa de fondo con un servicio en mantenimiento: no se intenta, se dice cuál y por qué, se reintenta": fondo_caido,
     "Navarra: descarga del Gobierno de Navarra y sin GML de la Sede": navarra_ui,
     f"mapa de fondo ({modo_fondo})": fondo_ok,
+    "proyecto vacío en 25829 o 25831: se respeta su SRC; el fondo no se duplica": src_respetado,
     "ninguna ventana emergente": not ventanas,
 }
 
@@ -303,6 +334,6 @@ if not all(checks.values()):
                         'peticiones': sim.peticiones, 'rc': pes.rc.text(),
                         'comprobacion': [integrada, vacia, corta, foral, rustica, inmueble, valida, pes.comprobacion.text()], 'repetida': repetida, 'entrega': detalle_entrega,
                         'clic': [activa, lienzo.mapTool(), pes.mapaBoton.isChecked()],
-                        'herramienta': [sin_parcela, desmarcado, devuelta]})
+                        'herramienta': [sin_parcela, desmarcado, devuelta], 'fondo_src': _diag_src})
 print("RESULTADO:", "TODO CORRECTO" if all(checks.values()) else "HAY FALLOS")
 print("=" * 60)
