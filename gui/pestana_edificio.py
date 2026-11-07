@@ -177,8 +177,14 @@ class PestanaEdificio(QWidget):
         principal.addLayout(salida)
 
         botones = QHBoxLayout()
-        self.recargarBoton = QPushButton(QgsApplication.getThemeIcon('/mActionRefresh.svg'), "Recargar", self)
-        self.recargarBoton.setToolTip("Vuelve a leer la capa (se pierden los cambios hechos en la tabla)")
+        #Antes «Recargar» (prueba a mano del 07/11/2026: no se sabía para qué era; la tabla ya se actualiza sola al
+        #editar o seleccionar en la capa). Solo olvida lo cambiado a mano en la tabla, y solo se activa entonces
+        #«Deshacer», corto, para que quepa en un panel estrecho (con «Deshacer lo escrito» no cabía en 280 px)
+        self.recargarBoton = QPushButton(QgsApplication.getThemeIcon('/mActionUndo.svg'), "Deshacer", self)
+        self.recargarBoton.setToolTip("Vuelve al tipo, plantas y estado que traía la capa, olvidando lo cambiado a mano "
+                                      "en la tabla (la capa no cambia). La tabla se actualiza sola al editar o "
+                                      "seleccionar en la capa")
+        self.recargarBoton.setEnabled(False)
         self.crearBoton = QPushButton(QgsApplication.getThemeIcon('/mActionFileSave.svg'), "Crear GML", self)
         botones.addWidget(self.recargarBoton)
         botones.addStretch(1)
@@ -194,6 +200,7 @@ class PestanaEdificio(QWidget):
         self.referencia.editingFinished.connect(self.proponer_ids)
         self.srcCombo.currentIndexChanged.connect(self.actualizar_superficies)
         self.tabla.itemSelectionChanged.connect(self.seleccionar_en_capa)
+        self.tabla.itemChanged.connect(self.actualizar_deshacer)
         self.recargarBoton.clicked.connect(self.recargar)
         self.nuevaBoton.clicked.connect(self.nueva_capa)
         self.crearBoton.clicked.connect(self.crear_gml)
@@ -351,6 +358,7 @@ class PestanaEdificio(QWidget):
                 obra.addItem(ge.NOMBRES_CORTOS[estado], estado)
                 obra.setItemData(obra.count() - 1, ge.NOMBRES_ESTADO[estado], Qt.ItemDataRole.ToolTipRole)
             obra.setCurrentIndex(ge.ESTADOS.index(fila.estado))
+            obra.currentIndexChanged.connect(self.actualizar_deshacer)
             obra.setToolTip("Estado del edificio (conditionOfConstruction). Las piscinas no lo llevan")
             self.tabla.setCellWidget(i, COL_OBRA, obra)
             desplazable.proteger(combo)  #La rueda desplaza la tabla, no cambia el tipo ni el estado
@@ -417,7 +425,13 @@ class PestanaEdificio(QWidget):
         capa = self.capa()
         return cp.epsg_para(self.filas, capa.crs()) if capa is not None else None
 
+    def actualizar_deshacer(self, *args):
+        """«Deshacer lo escrito», activo solo si el tipo, las plantas o el estado de alguna fila no son los de la capa."""
+        if not sip.isdeleted(self) and hasattr(self, 'filas'):
+            self.recargarBoton.setEnabled(any(tabla != capa for tabla, capa in self.valores_tabla().values()))
+
     def actualizar_superficies(self, *args):
+        self.actualizar_deshacer()
         capa = self.capa()
         epsg = self.epsg_salida()
         total = 0

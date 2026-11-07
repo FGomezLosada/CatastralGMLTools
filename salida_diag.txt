@@ -1,0 +1,8 @@
+  OK      edificio_casos_test.py (2 s)
+  OK      descargar_casos_test.py (2 s)
+  OK      unir_casos_test.py (2 s)
+  OK      conversor_casos_test.py (3 s)
+  OK      superficies_casos_test.py (3 s)
+  OK      ajuste_casos_test.py (2 s)
+  OK      panel_casos_test.py (2 s)
+RESULTADO GLOBAL: TODO CORRECTO
