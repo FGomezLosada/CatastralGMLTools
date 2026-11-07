@@ -343,6 +343,45 @@ def edificio_por_pasos():
     return ok, (titulos, avanzadas, sin, con, seleccion, pe.paso1.estado.text())
 
 
+def deshacer_lo_escrito():
+    #Antes «Recargar» (prueba a mano del 07/11/2026: no se sabía para qué servía y con la parcela cargada no hacía nada).
+    #Ahora «Deshacer lo escrito», activo solo cuando hay algo escrito a mano en la tabla, y lo olvida
+    capa = capa_siete('Deshacer')
+    pt.capaCombo.setLayer(capa)
+    pt.campoId.setField('referencia')
+    pt.soloSeleccion.setChecked(False)
+    nombre = pt.recargarBoton.text() == 'Deshacer'
+    inactivo = not pt.recargarBoton.isEnabled()
+    original = pt.tabla.item(0, pp.COL_ID).text()
+    pt.tabla.item(0, pp.COL_ID).setText('Mi_parcela')
+    activo = pt.recargarBoton.isEnabled()
+    pt.recargarBoton.click()
+    vuelve = pt.tabla.item(0, pp.COL_ID).text() == original and not pt.recargarBoton.isEnabled()
+    QgsProject.instance().removeMapLayer(capa.id())
+    #Edificio: lo mismo con el tipo, las plantas o el estado
+    pe = dw.pestanaEdificio
+    huellas = QgsVectorLayer("Polygon?crs=EPSG:25830&field=plantas:integer", "Huellas", "memory")
+    f = QgsFeature(huellas.fields())
+    f.setGeometry(QgsGeometry.fromWkt(rect(X0 + 2, Y0 + 2, 6, 6)))
+    f.setAttributes([2])
+    huellas.dataProvider().addFeature(f)
+    QgsProject.instance().addMapLayer(huellas)
+    pe.capaCombo.setLayer(huellas)
+    pe.soloSeleccion.setChecked(False)
+    e_inactivo = not pe.recargarBoton.isEnabled() and pe.recargarBoton.text() == 'Deshacer'
+    from catastral_gml_tools.gui import pestana_edificio as ped
+    pe.tabla.item(0, ped.COL_PLANTAS).setText('5')
+    e_activo = pe.recargarBoton.isEnabled()
+    pe.recargarBoton.click()
+    e_vuelve = pe.tabla.item(0, ped.COL_PLANTAS).text() == '2' and not pe.recargarBoton.isEnabled()
+    QgsProject.instance().removeMapLayer(huellas.id())
+    ok = nombre and inactivo and activo and vuelve and e_inactivo and e_activo and e_vuelve
+    return ok, (nombre, inactivo, activo, vuelve, e_inactivo, e_activo, e_vuelve)
+
+
+caso("«Deshacer lo escrito» (antes «Recargar») en Parcela y Edificio: solo activo con algo escrito a mano y lo olvida",
+     deshacer_lo_escrito)
+
 caso("U-08: Edificio por pasos (Construcciones, Parcela, Revisar, Crear), opciones avanzadas plegadas y recuento junto "
      "a «1. Construcciones»", edificio_por_pasos)
 

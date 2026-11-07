@@ -226,8 +226,14 @@ class PestanaParcela(QWidget):
         principal.addLayout(salida)
 
         botones = QHBoxLayout()
-        self.recargarBoton = QPushButton(QgsApplication.getThemeIcon('/mActionRefresh.svg'), "Recargar", self)
-        self.recargarBoton.setToolTip("Vuelve a leer las parcelas de la capa (se pierden los cambios hechos en la tabla)")
+        #Antes «Recargar» (prueba a mano del 07/11/2026: no se sabía para qué era, y la tabla ya se actualiza sola al
+        #editar o seleccionar en la capa). Solo sirve para olvidar lo escrito a mano en la tabla, y solo se activa entonces
+        #«Deshacer», corto, para que quepa en un panel estrecho (con «Deshacer lo escrito» no cabía en 280 px)
+        self.recargarBoton = QPushButton(QgsApplication.getThemeIcon('/mActionUndo.svg'), "Deshacer", self)
+        self.recargarBoton.setToolTip("Olvida los identificadores, namespaces y números de parcela escritos a mano en la "
+                                      "tabla y vuelve a los que propone el plugin (la capa no cambia). La tabla se "
+                                      "actualiza sola al editar o seleccionar en la capa")
+        self.recargarBoton.setEnabled(False)
         self.crearBoton = QPushButton(QgsApplication.getThemeIcon('/mActionFileSave.svg'), "Crear GML", self)
         self.crearBoton.setDefault(True)
         botones.addWidget(self.recargarBoton)
@@ -515,7 +521,7 @@ class PestanaParcela(QWidget):
         return capa.selectedFeatureCount() if self.soloSeleccion.isChecked() else capa.featureCount()
 
     def recargar_desde_capa(self, *args):
-        """Botón Recargar: la tabla vuelve a lo que dice la capa (se olvida lo escrito a mano)."""
+        """Botón «Deshacer lo escrito»: la tabla vuelve a lo que dice la capa (se olvida lo escrito a mano)."""
         self.manuales = {}
         self.recargar()
 
@@ -572,6 +578,11 @@ class PestanaParcela(QWidget):
         self.aplicar_manuales()
         self.actualizar_superficies()
         self.actualizar_paso1()
+        self.actualizar_deshacer()
+
+    def actualizar_deshacer(self):
+        """«Deshacer lo escrito», activo solo si hay algo escrito a mano en la tabla."""
+        self.recargarBoton.setEnabled(bool(self.manuales))
 
     def aplicar_manuales(self):
         """Vuelve a poner en la tabla lo que el usuario había escrito a mano en cada parcela (por su fid)."""
@@ -782,6 +793,7 @@ class PestanaParcela(QWidget):
             return
         if item.column() in (COL_ID, COL_LABEL):  #Escrito por el usuario: se conserva al recargar la tabla
             self.manuales.setdefault(self.filas[fila].fid, {})[item.column()] = item.text().strip()
+            self.actualizar_deshacer()
         if item.column() == COL_LABEL:
             self.labels_auto[fila] = not item.text().strip()
             if self.labels_auto[fila]:
@@ -809,6 +821,7 @@ class PestanaParcela(QWidget):
             if self.tabla.cellWidget(i, COL_NS) is combo:
                 if i < len(self.filas):
                     self.manuales.setdefault(self.filas[i].fid, {})[COL_NS] = combo.currentText()
+                    self.actualizar_deshacer()
                 self.actualizar_label(i)
                 break
         self.actualizar_superficies()
