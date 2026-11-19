@@ -34,6 +34,12 @@ class FilaConstruccion:
     partes: int = 1
     referencia: str = ''        #Referencia de parcela deducida de la entidad (o '')
     estado: str = 'functional'  #conditionOfConstruction (campo «estado» de la capa, si lo tiene)
+    fids: tuple = ()            #Con varias entidades juntadas en un edificio («Mismo edificio»), todas; si no, vacío
+
+    @property
+    def todas(self):
+        """Entidades de la capa que forman la fila (una, o varias si se han juntado en un edificio)."""
+        return self.fids or (self.fid,)
 
 
 def _campo(capa, nombres):
@@ -101,7 +107,8 @@ def nueva_capa_huellas(crs, nombre="Huellas de construcciones", filas=(), crs_fi
     se elija otra cosa en el formulario. Con filas (FilaConstruccion en crs_filas), la capa empieza con una copia de esas
     construcciones, para retocarlas sin tocar la capa original (p. ej. la descargada del Catastro o un DXF).
     """
-    capa = QgsVectorLayer(f"Polygon?crs={crs.authid()}&field=tipo:string(20)&field=plantas:integer&field=estado:string(20)",
+    #MultiPolygon: un edificio con varios cuerpos separados es una entidad con varias partes («Añadir parte»)
+    capa = QgsVectorLayer(f"MultiPolygon?crs={crs.authid()}&field=tipo:string(20)&field=plantas:integer&field=estado:string(20)",
                           nombre, 'memory')
     i_tipo = capa.fields().indexOf('tipo')
     capa.setEditorWidgetSetup(i_tipo, QgsEditorWidgetSetup('ValueMap', {'map': [{'Edificio': ge.EDIFICIO},
@@ -180,6 +187,43 @@ def leer_capa(capa, solo_seleccion=False, campo_plantas_=''):
                                       rc if refcat.es_rc_parcela(rc) else '',
                                       estado if estado in ge.ESTADOS else 'functional'))
     return filas
+
+
+def _partes(geometria):
+    if geometria is None or geometria.isNull() or geometria.isEmpty():
+        return []
+    return [QgsGeometry(g) for g in geometria.asGeometryCollection()] if geometria.isMultipart() else [QgsGeometry(geometria)]
+
+
+def unir_filas(filas):
+    """
+    Una fila con varias construcciones juntadas en un solo edificio de varios recintos (multirrecinto): geometría con
+    todas sus partes, las plantas mayores, el estado y la referencia de la primera. Petición del 19/11/2026: si se
+    declaran como edificios distintos, la Sede da de alta varios edificios y hay que corregirlo con otro modelo 902.
+    """
+    partes = [g for f in filas for g in _partes(f.geometria)]
+    geometria = QgsGeometry.collectGeometry(partes) if partes else QgsGeometry()
+    plantas = [f.plantas for f in filas if isinstance(f.plantas, int)]
+    texto = next((f.plantas for f in filas if f.plantas is not None and not isinstance(f.plantas, int)), None)
+    primera = filas[0]
+    return FilaConstruccion(primera.fid, ge.EDIFICIO, max(plantas) if plantas else texto, geometria,
+                            sum(f.partes for f in filas), next((f.referencia for f in filas if f.referencia), ''),
+                            primera.estado, tuple(fid for f in filas for fid in f.todas))
+
+
+def agrupar(filas, grupos):
+    """
+    Filas con las de cada grupo (tuplas de fids) juntadas en una, en el lugar de la primera. Los grupos con menos de dos
+    entidades presentes no cambian nada (p. ej. si se ha borrado una del mapa).
+    """
+    por_fid = {f.fid: f for f in filas}
+    juntas, usadas = {}, set()
+    for grupo in grupos:
+        miembros = [por_fid[fid] for fid in grupo if fid in por_fid and fid not in usadas]
+        if len(miembros) > 1:
+            usadas.update(m.fid for m in miembros)
+            juntas[miembros[0].fid] = unir_filas(miembros)
+    return [juntas.get(f.fid, f) for f in filas if f.fid in juntas or f.fid not in usadas]
 
 
 def lineas_abiertas(capa, solo_seleccion=False):

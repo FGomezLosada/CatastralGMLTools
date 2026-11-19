@@ -25,7 +25,7 @@ en el levantamiento y en la cartografía catastral):
 
 Con más puntos de los mínimos, los residuos de cada punto y el error medio cuadrático dicen si el ajuste es bueno.
 
-Sin interfaz: lo usa la utilidad «Ajustar a la cartografía catastral» de la pestaña Utilidades.
+Sin interfaz: lo usa la utilidad «Doble GML» (ajustar a la cartografía catastral) de la pestaña Utilidades.
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later

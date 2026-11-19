@@ -1,5 +1,5 @@
 """
-Utilidad «Ajustar a la cartografía catastral» (fase 8e, AU-52) de la pestaña Utilidades: con pares de puntos homólogos
+Utilidad «Doble GML», ajustar a la cartografía catastral desplazada o girada (fase 8e, AU-52) de la pestaña Utilidades: con pares de puntos homólogos
 (capturados en el mapa con atracción a los vértices, importados de un TXT/CSV o escritos a mano) calcula los parámetros
 de transformación de la Sede y crea el GML ajustado a la cartografía catastral junto con un fichero de parámetros.
 La lógica está en core/ajuste.py.
@@ -422,9 +422,12 @@ class BloqueAjuste(QWidget):
         self.parametros_ruta = parametros
         notas = ["ICUC: marque que existe desplazamiento, escriba los parámetros, suba el GML ajustado y adjunte el del "
                  "levantamiento en «+ Documentación»"] \
-            if self.version.startswith('BU') else ["Para la Sede o el notario: los dos GML y los parámetros "
-                                                   "(Resolución de 29/03/2021, apartado octavo)"]
-        dock.success(f"GML ajustado: {os.path.basename(destino)} · parámetros: {os.path.basename(parametros)}",
+            if self.version.startswith('BU') else ["Doble GML para la Sede, el notario o el Registro: el del levantamiento "
+                                                   f"({os.path.basename(ruta)}, sin cambios), el ajustado y los parámetros "
+                                                   "(Resoluciones conjuntas de 23/09/2020, apartado séptimo, y de "
+                                                   "29/03/2021, apartado octavo)"]
+        #«Doble GML» (petición del 19/11/2026)
+        dock.success(f"Doble GML listo. GML ajustado: {os.path.basename(destino)} · parámetros: {os.path.basename(parametros)}",
                      [("Validar", self.validar), ("Ver parámetros", self.abrir_parametros), ("Abrir carpeta", self.abrir_carpeta)],
                      notas=notas)
         return destino

@@ -4,6 +4,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 
 ## [Sin publicar]
 
+### Añadido
+- **Un edificio con varios cuerpos (multirrecinto)** en la pestaña Edificio (petición del 19/11/2026): cada fila de edificio de la tabla era un edificio distinto para la Sede, así que dos cuerpos separados de un mismo edificio (dos volúmenes unidos por un porche, una nave con su anexo) dibujados o traídos de un DXF como dos polígonos salían como `RC_Edificio_1` y `RC_Edificio_2`, y la Sede daba de alta dos edificios (luego hay que corregirlo con otro modelo 902). Ahora **Mismo edificio** junta las filas elegidas en un solo edificio con un `PolygonPatch` por cuerpo, con las plantas del mayor y sin tocar la capa, y **Separar** lo deshace; al elegir el edificio juntado se seleccionan en el mapa todos sus cuerpos. Con dos o más edificios, el resumen bajo la tabla y Validar (`BU-VARIOS-EDIFICIOS`, informativo) lo recuerdan con la regla práctica: si al derribar un cuerpo se cambiaría el mismo modelo 902, es el mismo edificio. La capa de «Dibujar huellas» pasa a MultiPolygon, para poder añadir otro cuerpo con «Añadir parte». Lo descargado del Catastro ya venía bien (un edificio con todos sus cuerpos). Prueba nueva `edificio_multirrecinto_test.py` (27 comprobaciones).
+
+### Cambiado
+- **«Doble GML»** (petición del 19/11/2026): la utilidad «2. Ajustar a la cartografía catastral (desplazada o girada)» pasa a llamarse **«2. Doble GML (cartografía desplazada o girada)»**, con la explicación al pasar el ratón (un GML del levantamiento, otro ajustado a la cartografía catastral y los parámetros); el mensaje final dice «Doble GML listo» y qué se aporta, con las dos normas: Resoluciones conjuntas de 23/09/2020 (Registro, apartado séptimo) y de 29/03/2021 (notarías, apartado octavo). La ayuda lo explica con ese nombre y dice cuándo es un caso de doble GML (Validar indica que con un desplazamiento entraría en el margen de identidad).
+
+### Corregido
+- Validar, identidad gráfica: la pista del desplazamiento remitía a la utilidad «4. Ajustar», que desde la reordenación del 04/11/2026 es la «2.»; ahora dice «2. Doble GML».
+
 ## [1.0.0] - 2026-10-30
 
 Primera versión estable, la primera que se sube al repositorio oficial de complementos de QGIS (plugins.qgis.org). `experimental=False`.

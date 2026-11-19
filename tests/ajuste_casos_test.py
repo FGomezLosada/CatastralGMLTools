@@ -1,5 +1,5 @@
 """
-Batería de casos de Utilidades «4. Ajustar a la cartografía catastral» (plan de pruebas, docs/PLAN_PRUEBAS.md):
+Batería de casos de Utilidades «2. Doble GML» (ajustar a la cartografía catastral) (plan de pruebas, docs/PLAN_PRUEBAS.md):
 transformaciones conocidas que el cálculo debe recuperar, puntos con ruido, con un error grueso, alineados, repetidos o
 muy juntos, ficheros de puntos de cualquier forma, y GML de parcela y de edificio de cualquier tipo. Reglas:
   - nunca una excepción ni una ventana; el GML del levantamiento no se toca;
@@ -400,7 +400,7 @@ for _n, _f in _originales.items():
 resultados["ninguna ventana emergente"] = not ventanas
 
 print("=" * 60)
-print("QGIS", Qgis.version(), "· Ajustar a la cartografía catastral: batería de casos")
+print("QGIS", Qgis.version(), "· Doble GML (ajustar a la cartografía catastral): batería de casos")
 for nombre, ok in resultados.items():
     print(("  OK   " if ok else "  FALLO") + "  " + nombre)
 for nombre, d in detalles.items():

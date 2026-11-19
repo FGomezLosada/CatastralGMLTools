@@ -6,6 +6,7 @@ Por pasos (USABILIDAD U-08): 1. Construcciones (la capa dibujada o la «Construc
 referencia) → 3. Revisar (tabla con una fila por construcción: tipo, plantas y estado) → 4. Crear (fichero); el campo de
 plantas, la fecha, la precisión y el SRC, en «Opciones avanzadas». Los identificadores se proponen según el
 formato de la DGC (RC, RC_Edificio_N, RC_Piscina_N) y se pueden cambiar en la tabla.
+Varias filas se pueden juntar en un solo edificio de varios cuerpos («Mismo edificio», multirrecinto) sin tocar la capa.
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
@@ -63,6 +64,8 @@ class PestanaEdificio(QWidget):
         self.de_parcelas = False
         self.abiertas = 0
         self.referencia_automatica = ''  #Última referencia propuesta (si el usuario no la cambia, sigue a la capa)
+        self.grupos = []  #Tuplas de fids juntadas en un edificio («Mismo edificio»); la capa no cambia
+        self.capa_grupos = None
         self.construir()
         self.capaCombo.setLayer(None)  #Se empieza sin capa: la de edificios casi nunca es la activa
         self.conectar()
@@ -127,6 +130,22 @@ class PestanaEdificio(QWidget):
                               "de cada edificio y el identificador.\nUn edificio puede tener varias partes (toda su huella sobre rasante); "
                               "cada piscina, una sola")
         principal.addWidget(self.tabla, 1)
+
+        #Multirrecinto (petición del 19/11/2026): cuerpos separados de un mismo edificio van en un solo Building
+        grupo = QHBoxLayout()
+        self.mismoBoton = QPushButton(QgsApplication.getThemeIcon('/mActionMergeFeatures.svg'), "Mismo edificio", self)
+        self.mismoBoton.setToolTip("Junta los edificios seleccionados en la tabla en uno solo con varios cuerpos (un "
+                                   "edificio con varios recintos en el GML).\nÚselo si son cuerpos de un mismo edificio: si "
+                                   "al derribar uno se cambiaría el mismo modelo 902.\nSi se declaran como edificios "
+                                   "distintos, la Sede da de alta uno por cada uno. La capa no cambia")
+        self.separarBoton = QPushButton(QgsApplication.getThemeIcon('/mActionSplitFeatures.svg'), "Separar", self)
+        self.separarBoton.setToolTip("Vuelve a separar en edificios distintos los cuerpos juntados con «Mismo edificio»")
+        self.mismoBoton.setEnabled(False)
+        self.separarBoton.setEnabled(False)
+        grupo.addWidget(self.mismoBoton)
+        grupo.addWidget(self.separarBoton)
+        grupo.addStretch(1)
+        principal.addLayout(grupo)
 
         self.resumen = QLabel(self)
         self.resumen.setWordWrap(True)
@@ -200,6 +219,9 @@ class PestanaEdificio(QWidget):
         self.referencia.editingFinished.connect(self.proponer_ids)
         self.srcCombo.currentIndexChanged.connect(self.actualizar_superficies)
         self.tabla.itemSelectionChanged.connect(self.seleccionar_en_capa)
+        self.tabla.itemSelectionChanged.connect(self.actualizar_grupo)
+        self.mismoBoton.clicked.connect(self.mismo_edificio)
+        self.separarBoton.clicked.connect(self.separar)
         self.tabla.itemChanged.connect(self.actualizar_deshacer)
         self.recargarBoton.clicked.connect(self.recargar)
         self.nuevaBoton.clicked.connect(self.nueva_capa)
@@ -326,8 +348,10 @@ class PestanaEdificio(QWidget):
         lineas = capa is not None and capa.geometryType() == Qgis.GeometryType.Line
         if lineas:  #En un DXF hay muchas entidades (textos, cotas…): cuentan solo las líneas cerradas
             self.demasiadas = False
+        if capa is not self.capa_grupos:  #Los edificios juntados son de una capa: con otra se empieza de cero
+            self.grupos, self.capa_grupos = [], capa
         self.filas = [] if capa is None or self.demasiadas or self.de_parcelas else \
-            ce.leer_capa(capa, self.soloSeleccion.isChecked(), self.campoPlantas.currentField())
+            ce.agrupar(ce.leer_capa(capa, self.soloSeleccion.isChecked(), self.campoPlantas.currentField()), self.grupos)
         if len(self.filas) > MAX_FILAS:
             self.demasiadas, self.filas = True, []
         self.abiertas = ce.lineas_abiertas(capa, self.soloSeleccion.isChecked()) if lineas and not self.demasiadas else 0
@@ -369,7 +393,7 @@ class PestanaEdificio(QWidget):
                 self.tabla.setItem(i, col, item)
             self.tabla.item(i, COL_AREA).setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             self.tabla.item(i, COL_ESTADO).setText('Sin geometría' if fila.partes == 0 else
-                                                   f'{fila.partes} partes' if fila.partes > 1 else '')
+                                                   f'Un edificio, {fila.partes} cuerpos' if fila.partes > 1 else '')
         for i, fila in enumerate(self.filas):  #Lo que el usuario había cambiado en la tabla se mantiene
             if fila.fid not in anteriores:
                 continue
@@ -386,6 +410,7 @@ class PestanaEdificio(QWidget):
         self.tabla.setColumnWidth(COL_ID, max(self.tabla.columnWidth(COL_ID), 160))
         self.actualizar_superficies()
         self.actualizar_paso1()
+        self.actualizar_grupo()
 
     def tipo_fila(self, i):
         combo = self.tabla.cellWidget(i, COL_TIPO)
@@ -407,6 +432,44 @@ class PestanaEdificio(QWidget):
         self.actualizar_obras()
         self.proponer_ids()
         self.actualizar_superficies()
+        self.actualizar_grupo()
+
+    # ------------------------------------------------------------------ Mismo edificio (multirrecinto)
+
+    def filas_elegidas(self):
+        return sorted({i.row() for i in self.tabla.selectionModel().selectedRows()} if self.tabla.selectionModel() else [])
+
+    def actualizar_grupo(self, *args):
+        """«Mismo edificio» con dos o más edificios elegidos; «Separar» con alguno que sea varios juntados."""
+        if sip.isdeleted(self) or not hasattr(self, 'mismoBoton'):
+            return
+        filas = [i for i in self.filas_elegidas() if i < len(self.filas)]
+        edificios = [i for i in filas if self.tipo_fila(i) == ge.EDIFICIO]
+        self.mismoBoton.setEnabled(len(filas) > 1 and len(edificios) == len(filas))
+        self.separarBoton.setEnabled(any(len(self.filas[i].fids) > 1 for i in filas))
+
+    def mismo_edificio(self, *args):
+        """Junta las filas elegidas (edificios) en un solo edificio de varios cuerpos. La capa no cambia."""
+        filas = [i for i in self.filas_elegidas() if i < len(self.filas)]
+        if len(filas) < 2:
+            self.dock.warn("Seleccione en la tabla (Ctrl+clic) los edificios que son cuerpos de un mismo edificio")
+            return
+        if any(self.tipo_fila(i) != ge.EDIFICIO for i in filas):
+            self.dock.warn("Las piscinas no se juntan: cada piscina va aparte en el GML")
+            return
+        fids = tuple(fid for i in filas for fid in self.filas[i].todas)
+        self.grupos = [g for g in self.grupos if not set(g) & set(fids)] + [fids]
+        self.recargar(conservar=True)
+        self.dock.notify(f"{len(filas)} construcciones juntadas en un edificio con varios cuerpos: en el GML irán como un "
+                         "solo edificio (la capa no cambia). «Separar» lo deshace", Qgis.MessageLevel.Info, 10)
+
+    def separar(self, *args):
+        """Vuelve a separar en edificios distintos los cuerpos juntados de las filas elegidas."""
+        quitar = {fid for i in self.filas_elegidas() if i < len(self.filas) for fid in self.filas[i].fids}
+        if not quitar:
+            return
+        self.grupos = [g for g in self.grupos if not set(g) & quitar]
+        self.recargar(conservar=True)
 
     def proponer_ids(self, *args):
         """Identificadores según el formato de la DGC a partir de la referencia de la parcela y de los tipos."""
@@ -460,6 +523,10 @@ class PestanaEdificio(QWidget):
         texto += f" · {miles(total)} m² de huella"
         if epsg:
             texto += f" · EPSG:{epsg}"
+        if edificios > 1:  #Multirrecinto: la Sede da de alta un edificio por fila
+            texto += (f"<br><span style='color:#495057'>ℹ La Sede dará de alta {edificios} edificios. Si alguno es otro "
+                      "cuerpo del mismo edificio (al derribarlo se cambiaría el mismo modelo 902), selecciónelos en la "
+                      "tabla y pulse «Mismo edificio»</span>")
         if self.abiertas:
             texto += (f"<br><span style='color:#e67700'>⚠ {self.abiertas} línea{'s' if self.abiertas != 1 else ''} sin cerrar "
                       f"no se usa{'n' if self.abiertas != 1 else ''}: una huella es una línea cerrada</span>")
@@ -477,8 +544,8 @@ class PestanaEdificio(QWidget):
         capa = self.capa()
         if capa is None:
             return
-        fids = [self.tabla.item(i.row(), COL_N).data(Qt.ItemDataRole.UserRole)
-                for i in self.tabla.selectionModel().selectedRows()]
+        filas = [i.row() for i in self.tabla.selectionModel().selectedRows() if i.row() < len(self.filas)]
+        fids = [fid for i in filas for fid in self.filas[i].todas]  #Un edificio juntado selecciona todos sus cuerpos
         if fids and not self.soloSeleccion.isChecked():
             capa.selectByIds(fids)
 
