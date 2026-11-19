@@ -20,20 +20,23 @@ from qgis.core import (
     QgsProject,
     QgsTask,
 )
-from qgis.gui import QgsMapToolEmitPoint
+from qgis.gui import QgsCollapsibleGroupBox, QgsMapToolEmitPoint
 from qgis.PyQt import sip
-from qgis.PyQt.QtCore import QObject, Qt
+from qgis.PyQt.QtCore import QDate, QObject, Qt
 from qgis.PyQt.QtWidgets import (
     QCheckBox,
+    QDateEdit,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QSlider,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
+from ..core import catastro_fecha as cf
 from ..core import gml_lector as gl
 from ..core import refcat, servicios
 from ..core.incidencias import AVISO, ERROR, INFO
@@ -81,6 +84,8 @@ class PestanaDescargar(QWidget):
         self.descargarBoton.clicked.connect(self.descargar)
         self.mapaBoton.toggled.connect(self.elegir_en_mapa)
         self.fondo.toggled.connect(self.mostrar_estado_fondo)
+        self.fechaBoton.clicked.connect(self.anadir_fecha)
+        self.transparencia.valueChanged.connect(self.transparencia_cambiada)
         self.rc_cambiada(self.rc.text())
 
     def construir(self):
@@ -149,12 +154,97 @@ class PestanaDescargar(QWidget):
         self.resumen = QLabel(self)
         self.resumen.setWordWrap(True)
         principal.addWidget(self.resumen)
+
+        #Catastro a una fecha (WMS con TIME; petición del 19/11/2026, maqueta F aprobada sin «Comparar con hoy»)
+        self.grupoFecha = QgsCollapsibleGroupBox(cf.GRUPO, self)
+        caja = QVBoxLayout(self.grupoFecha)
+        explicacion = QLabel("<small>El parcelario del Catastro tal como estaba en una fecha (desde 2002). Es una imagen del "
+                             "servicio WMS del Catastro: solo para ver, no se descarga en vector.</small>", self.grupoFecha)
+        explicacion.setWordWrap(True)
+        caja.addWidget(explicacion)
+        fila_fecha = QHBoxLayout()
+        fila_fecha.addWidget(QLabel("Fecha", self.grupoFecha))
+        self.fecha = QDateEdit(self.grupoFecha)
+        self.fecha.setCalendarPopup(True)
+        self.fecha.setDisplayFormat('dd/MM/yyyy')
+        self.fecha.setMinimumDate(QDate(cf.PRIMERA.year, cf.PRIMERA.month, cf.PRIMERA.day))
+        self.fecha.setMaximumDate(QDate.currentDate())
+        self.fecha.setDate(QDate(cf.ATAJOS[0], 1, 1))
+        self.fecha.setToolTip("Fecha del parcelario que se quiere ver (desde el 01/01/2002 hasta hoy)")
+        fila_fecha.addWidget(self.fecha)
+        fila_fecha.addStretch(1)
+        caja.addLayout(fila_fecha)
+        fila_fecha = QHBoxLayout()  #Los años, en su fila: con la fecha no cabía en un panel estrecho (panel_casos_test)
+        self.atajos = []
+        for anio in cf.ATAJOS:
+            atajo = QToolButton(self.grupoFecha)
+            atajo.setText(str(anio))
+            atajo.setToolTip(f"01/01/{anio}")
+            atajo.clicked.connect(lambda _=False, a=anio: self.fecha.setDate(QDate(a, 1, 1)))
+            fila_fecha.addWidget(atajo)
+            self.atajos.append(atajo)
+        fila_fecha.addStretch(1)
+        caja.addLayout(fila_fecha)
+        fila_anadir = QHBoxLayout()
+        self.fechaBoton = QPushButton(QgsApplication.getThemeIcon('/mActionAddWmsLayer.svg'), "Añadir capa", self.grupoFecha)
+        self.fechaBoton.setToolTip("Añade el Catastro de esa fecha arriba de la lista de capas, en el grupo «Catastro a una "
+                                   "fecha».\nLa fecha sale en rojo en el propio mapa. Una fecha que ya está no se repite")
+        fila_anadir.addWidget(self.fechaBoton)
+        fila_anadir.addStretch(1)
+        caja.addLayout(fila_anadir)
+        fila_transparencia = QHBoxLayout()
+        fila_transparencia.addWidget(QLabel("Transparencia", self.grupoFecha))
+        self.transparencia = QSlider(Qt.Orientation.Horizontal, self.grupoFecha)
+        self.transparencia.setRange(0, 90)
+        self.transparencia.setValue(30)
+        self.transparencia.setToolTip("Transparencia de las capas de fechas, para ver debajo el Catastro actual o la ortofoto")
+        fila_transparencia.addWidget(self.transparencia, 1)
+        self.transparenciaTexto = QLabel("30 %", self.grupoFecha)
+        fila_transparencia.addWidget(self.transparenciaTexto)
+        caja.addLayout(fila_transparencia)
+        #Plegado al empezar: abierto, la pestaña no cabía en una pantalla baja (panel_casos_test, 3.40)
+        self.grupoFecha.setCollapsed(True)
+        principal.addWidget(self.grupoFecha)
         nota = QLabel(f"<small>Datos públicos de la {FUENTE_DGC}, sin titulares ni valores, en el huso UTM de la parcela. "
                       "En Navarra y el País Vasco, de sus catastros forales y solo para ver: el GML de la DGC no sirve "
                       "allí.</small>", self)
         nota.setWordWrap(True)
         principal.addWidget(nota)
         principal.addStretch(1)
+
+    # ------------------------------------------------------------------ Catastro a una fecha
+
+    def transparencia_cambiada(self, valor):
+        self.transparenciaTexto.setText(f"{valor} %")
+        cf.fijar_transparencia(valor)
+
+    def anadir_fecha(self, *args, extension=None):
+        """
+        Añade el Catastro de la fecha elegida. extension (QgsRectangle en el SRC del lienzo): acerca el mapa a ella (lo
+        usa «Ver cómo era antes» de Validar). En un proyecto vacío, antes el mapa de fondo (como «Elegir en el mapa»).
+        """
+        iface = getattr(self.dock, 'iface', None)
+        proyecto = QgsProject.instance()
+        if not proyecto.mapLayers():
+            fondo.asegurar(iface)
+        fecha = self.fecha.date().toPyDate()
+        capa, nueva, error = cf.anadir(fecha, proyecto, self.transparencia.value())
+        if capa is None:
+            self.dock.warn(error)
+            return None
+        nodo = proyecto.layerTreeRoot().findLayer(capa.id())
+        if nodo is not None:
+            nodo.setItemVisibilityChecked(True)
+            if nodo.parent() is not None:
+                nodo.parent().setItemVisibilityChecked(True)
+        if iface is not None and hasattr(iface, 'mapCanvas'):
+            lienzo = iface.mapCanvas()
+            if extension is not None and not extension.isEmpty():
+                lienzo.setExtent(extension)
+            lienzo.refresh()
+        self.dock.notify(f"{cf.nombre_capa(fecha)}{'' if nueva else ' (ya estaba)'}: la fecha sale en rojo arriba en el "
+                         "mapa. Es una imagen del Catastro de entonces, solo para ver", Qgis.MessageLevel.Info, 8)
+        return capa
 
     # ------------------------------------------------------------------ Referencia
 

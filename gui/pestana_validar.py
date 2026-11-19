@@ -97,6 +97,7 @@ class PestanaValidar(QWidget):
         self.convertirBoton.clicked.connect(self.convertir)
         self.xsdBoton.clicked.connect(self.comprobar_esquema)
         self.cmpBoton.clicked.connect(self.comparar_catastro)
+        self.antesBoton.clicked.connect(self.ver_antes)
         self.informeBoton.clicked.connect(self.crear_informe)
         self.lista.itemSelectionChanged.connect(self.ir_a_elemento)
 
@@ -153,6 +154,13 @@ class PestanaValidar(QWidget):
                                  "Necesita internet")
         self.cmpBoton.setEnabled(False)
         botones.addWidget(self.cmpBoton)
+        #Catastro a una fecha (petición del 19/11/2026): ¿ha movido el Catastro un lindero desde el levantamiento?
+        self.antesBoton = QPushButton(QgsApplication.getThemeIcon('/mIconTemporal.svg'), "Ver cómo era antes", self)
+        self.antesBoton.setToolTip("Pone en el mapa el Catastro tal como estaba en la fecha elegida en Descargar › "
+                                   "«Catastro a una fecha»\n(01/01/2005 si no ha elegido otra) y acerca el mapa al GML. "
+                                   "Sirve para ver si el Catastro ha\ncambiado algún lindero desde el levantamiento. Se "
+                                   "activa tras «Comparar con el Catastro»")
+        self.antesBoton.setEnabled(False)
         botones.addStretch(1)
         principal.addLayout(botones)
         botones = QHBoxLayout()
@@ -163,6 +171,7 @@ class PestanaValidar(QWidget):
                                        "El original no se toca")
         self.convertirBoton.hide()
         botones.addWidget(self.convertirBoton)
+        botones.addWidget(self.antesBoton)  #En la segunda fila: tres botones en la primera ensanchaban el panel
         botones.addStretch(1)
         self.informeBoton = QPushButton(QgsApplication.getThemeIcon('/mActionNewReport.svg'), "Informe", self)
         self.informeBoton.setToolTip("Guarda junto al GML un informe de validación en HTML (resultado, incidencias, croquis y\n"
@@ -254,6 +263,7 @@ class PestanaValidar(QWidget):
         self.xsdBoton.setEnabled(False)
         self.cmpBoton.setEnabled(False)
         self.cmpBoton.setText(TEXTO_COMPARAR)
+        self.antesBoton.setEnabled(False)
         self.informeBoton.setEnabled(False)
         self.convertirBoton.hide()
         self.comparacion = None
@@ -511,6 +521,7 @@ class PestanaValidar(QWidget):
             self.dock.warn("\n".join(i.mensaje for i in comparacion.incidencias) or "No se ha podido comparar con el Catastro")
             return comparacion
         cargar_comparacion(comparacion, self.ruta, self.dock.iface, self.resultado)
+        self.antesBoton.setEnabled(True)
         errores = [i for i in comparacion.incidencias if i.nivel == ERROR]
         texto = comparacion.operacion if comparacion.edificio else \
             f"NPO {comparacion.npo} · NPP {comparacion.npp} → {comparacion.operacion}"
@@ -566,6 +577,16 @@ class PestanaValidar(QWidget):
                          else "pulse «Comprobar esquema XSD» antes de subirlo a la Sede")
                 self.dock.success(f"{texto}; {falta}")
         return comparacion
+
+    def ver_antes(self, *args):
+        """El Catastro de la fecha elegida en Descargar, con el mapa acercado al GML (su vista, si está en el mapa)."""
+        extension = None
+        ya = vistas(self.ruta) if self.ruta else []
+        iface = getattr(self.dock, 'iface', None)
+        if ya and iface is not None and hasattr(iface, 'mapCanvas'):
+            lienzo = iface.mapCanvas()
+            extension = lienzo.mapSettings().layerExtentToOutputExtent(ya[0], ya[0].extent()).buffered(10)
+        return self.dock.pestanaDescargar.anadir_fecha(extension=extension)
 
     def abrir_sede(self, *args):
         """Abre en el navegador la página de validaciones gráficas de la Sede Electrónica del Catastro."""
