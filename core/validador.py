@@ -42,7 +42,7 @@ from qgis.core import QgsCoordinateReferenceSystem, QgsGeometry, QgsPointXY
 from . import geometria as geo
 from . import gml_lector as gl
 from . import refcat
-from .incidencias import AVISO, ERROR, Incidencia
+from .incidencias import AVISO, ERROR, INFO, Incidencia
 
 NS_PARCELA = ('ES.SDGC.CP', 'ES.LOCAL.CP')
 NS_EDIFICIO = ('ES.SDGC.BU', 'ES.LOCAL.BU')
@@ -271,7 +271,7 @@ def validar_elemento(e, es_parcela, metrica=None):
 
 
 def validar_conjunto(elementos, es_parcela):
-    """Solapes entre elementos y, en parcelas, huecos entre las aportadas."""
+    """Solapes entre elementos; en parcelas, huecos entre las aportadas; en edificios, si hay varios (multirrecinto)."""
     inc = []
     validos = [e for e in elementos if not e.geometria.isNull() and not e.geometria.isEmpty()]
     for i, j, area, anchura in geo.solapes([e.geometria for e in validos]):
@@ -289,6 +289,12 @@ def validar_conjunto(elementos, es_parcela):
             inc.append(Incidencia(AVISO, 'HUECO', f"Hay huecos o franjas sin cubrir entre las parcelas aportadas "
                                                   f"({hueco:.2f} m²): el conjunto debe cubrir el contorno de las parcelas de "
                                                   "origen"))
+    edificios = [e for e in validos if not es_parcela and e.tipo == gl.EDIFICIO]
+    if len(edificios) > 1:  #Multirrecinto (petición del 19/11/2026): la Sede da de alta un edificio por cada Building
+        inc.append(Incidencia(INFO, 'BU-VARIOS-EDIFICIOS', f"El GML tiene {len(edificios)} edificios y la Sede dará de alta "
+                                                          f"{len(edificios)}. Si alguno es otro cuerpo del mismo edificio (al "
+                                                          "derribarlo se cambiaría el mismo modelo 902), deben ir como un solo "
+                                                          "edificio con varios recintos: en la pestaña Edificio, «Mismo edificio»"))
     return inc
 
 

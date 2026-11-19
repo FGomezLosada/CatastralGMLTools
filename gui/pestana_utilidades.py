@@ -2,7 +2,7 @@
 Pestaña «Utilidades»: «Unir ficheros GML» (multiparcela, core/unir.py): varios GML de parcela en uno solo; «Convertir a 4.0 o
 reparar» (core/conversor.py): un GML de parcela del esquema 3.0 al 4.0, o un 4.0 con fallos que se arreglan al
 reescribirlo; «Informe de superficies y coordenadas» (core/superficies.py): superficies, linderos y coordenadas de cada
-parcela de un GML, en HTML; «Ajustar a la cartografía catastral» (core/ajuste.py, gui/bloque_ajuste.py); y «Comparar
+parcela de un GML, en HTML; «Doble GML» (ajustar a la cartografía catastral desplazada o girada; core/ajuste.py, gui/bloque_ajuste.py); y «Comparar
 dos GML» (core/comparar_gml.py, gui/bloque_comparar.py); «Parcela desde coordenadas» (core/coordenadas.py,
 gui/bloque_coordenadas.py). La simulación de identidad gráfica está en la comparación de Validar.
 
@@ -88,12 +88,13 @@ class PestanaUtilidades(QWidget):
                  "Las parcelas de un fichero de puntos (TXT o CSV del levantamiento: X Y, o nombre X Y), en una capa que se "
                  "abre en la pestaña Parcela para crear el GML. Varias parcelas: separadas por una línea en blanco o un "
                  "título, o con una columna con el identificador de cada una."),
-                ('ajuste', self.pagina_ajuste(), "Ajustar a la cartografía catastral (desplazada o girada)",
+                ('ajuste', self.pagina_ajuste(), "Doble GML (cartografía desplazada o girada)",
                  '/mActionMoveFeature.svg',
-                 "Si la cartografía catastral está desplazada o girada, calcula los parámetros de transformación con pares "
-                 "de puntos (el mismo punto en el levantamiento y en el Catastro) y crea el GML ajustado a la cartografía "
-                 "catastral y un fichero con los parámetros: la Sede pide los dos GML y los parámetros (Resolución de "
-                 "29/03/2021); para el ICUC, los parámetros y el GML ajustado."),
+                 "Doble GML: si la cartografía catastral está desplazada o girada, se aportan dos GML, el del "
+                 "levantamiento (posición real) y otro ajustado a la cartografía catastral, y los parámetros de "
+                 "transformación (Resoluciones conjuntas de 23/09/2020, Registro, y de 29/03/2021, notarías). Calcula los "
+                 "parámetros con pares de puntos (el mismo punto en el levantamiento y en el Catastro) y crea el GML "
+                 "ajustado y un fichero con los parámetros; para el ICUC, los parámetros y el GML ajustado."),
                 ('apoyo', self.pagina_apoyo(), "Puntos de apoyo para el editor de la Sede", ICONO_APOYO,
                  "Los vértices de una capa (puntos del levantamiento, la parcela dibujada, líneas…) en un TXT «x y» por "
                  "línea, en el huso de la Sede, para cargarlos como puntos de apoyo en el editor parcelario de la Sede "

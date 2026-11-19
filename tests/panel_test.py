@@ -66,7 +66,7 @@ desplazables = (isinstance(pt.parentWidget().parentWidget(), QScrollArea)
 #Utilidades: lista numerada, una abierta cada vez, sin la línea descriptiva; mensajes con las notas recortadas
 caja = dw.pestanaUtilidades.utilidades
 #En el orden del trabajo (04/11/2026): preparar los datos, el GML, comprobar y documentar, el informe de la Sede
-ORDEN = ["1. Parcela desde coordenadas (levantamiento)", "2. Ajustar a la cartografía catastral (desplazada o girada)",
+ORDEN = ["1. Parcela desde coordenadas (levantamiento)", "2. Doble GML (cartografía desplazada o girada)",
          "3. Puntos de apoyo para el editor de la Sede", "4. Convertir a 4.0 o reparar", "5. Unir ficheros GML (multiparcela)",
          "6. Comparar dos GML", "7. Informe de superficies y coordenadas", "8. Leer informe de la Sede (IVG o ICUC)"]
 utilidades = ([caja.itemText(i) for i in range(caja.count())] == ORDEN

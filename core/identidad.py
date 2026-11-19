@@ -278,7 +278,7 @@ def resumen(r):
         dx, dy = r.desplazamiento
         lineas.append(f"Con un desplazamiento de {_m(dx)} m en X y {_m(dy)} m en Y entraría en el margen: si la "
                       "cartografía catastral está desplazada, la Sede pide aplicar primero el desplazamiento (utilidad "
-                      "«4. Ajustar») y después el criterio")
+                      "«2. Doble GML») y después el criterio")
     lineas += [i.mensaje for i in r.incidencias]
     return lineas
 
@@ -314,5 +314,5 @@ def mensaje_validar(r):
     pista = ""
     if r.desplazamiento is not None:
         pista = (f"; con un desplazamiento de {_m(r.desplazamiento[0])} m en X y {_m(r.desplazamiento[1])} m en Y "
-                 "entraría (si la cartografía catastral está desplazada, Utilidades «4. Ajustar»)")
+                 "entraría (si la cartografía catastral está desplazada, Utilidades «2. Doble GML»)")
     return f"No cumpliría la identidad gráfica: {' y '.join(motivos)}{pista} ({norma}: {datos})"
