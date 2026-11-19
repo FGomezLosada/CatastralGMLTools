@@ -143,6 +143,15 @@ parcela, el grupo se sustituye (si ha editado alguna de sus capas, no se borra: 
 <p>Es una copia para trabajar (por ejemplo, para dividir la parcela y crear después su GML en la pestaña Parcela), no
 cartografía oficial. Se descarga una parcela cada vez: no es una herramienta de descarga masiva.</p>
 
+<h3 id="catastro-fecha">Catastro a una fecha</h3>
+<p>Muestra el parcelario del Catastro <strong>tal como estaba en una fecha</strong> (desde 2002), para ver si el Catastro
+ha cambiado un lindero desde el levantamiento o desde la escritura. Despliegue el bloque, elija la fecha (o pulse uno de los años, que ponen el
+1 de enero) y pulse <strong>Añadir capa</strong>: se añade arriba de la lista de capas, en el grupo «Catastro a una
+fecha», y la propia imagen lleva la fecha en rojo. Con <strong>Transparencia</strong> se ve debajo el parcelario actual o
+la ortofoto. Es una imagen del servicio WMS de la DGC (parámetro de fecha del servicio), solo para ver: la cartografía de
+otras fechas no se puede descargar en vector. En Validar, <strong>Ver cómo era antes</strong> hace lo mismo junto al
+GML.</p>
+
 <h3>Navarra</h3>
 <p>En la pestaña <strong>Descargar</strong> también se pueden bajar parcelas de Navarra: escriba municipio, polígono y parcela
 (por ejemplo <code>201-4-112</code>) o haga clic en el mapa. Se descargan del servicio INSPIRE del Gobierno de Navarra (Registro
@@ -359,6 +368,10 @@ las incidencias, un croquis y las coordenadas de cada recinto, y lo abre en el n
 cada parcela o construcción con su identificador, su namespace y su superficie: la declarada en el fichero y la calculada
 a partir de la geometría (en rojo si no coinciden). <strong>Cargar en el mapa</strong> lo añade al proyecto con un estilo
 por tipo y una etiqueta con el identificador, para compararlo con la cartografía.</p>
+<p><strong>Ver cómo era antes.</strong> Tras «Comparar con el Catastro», este botón pone en el mapa el Catastro tal como
+estaba en la fecha elegida en Descargar › <a href="#catastro-fecha">Catastro a una fecha</a> (01/01/2005 si no ha
+elegido otra) y acerca el mapa al GML. Cuando un lindero no casa, sirve para saber si lo ha movido el Catastro y, probando
+fechas, desde cuándo: un dato útil para justificar una discrepancia o un <a href="#u-ajuste">doble GML</a>.</p>
 
 <p><strong>Siguiente paso.</strong> Si la comparación no da errores y el esquema XSD está comprobado, el mensaje dice que
 el GML está listo y lleva el botón <strong>Abrir la Sede</strong>, que abre en el navegador la página de «Validaciones
