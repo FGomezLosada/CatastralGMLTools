@@ -651,7 +651,7 @@ def html(c, ahora=None):
 de centímetros no se aprecian en el croquis: están en las tablas.</p>
 {''.join(secciones) or '<p>No hay recintos en los dos ficheros.</p>'}
 <footer>Generado con {escape(NOMBRE)} {escape(version())} (herramienta no oficial, GPL-2.0-or-later) a partir de
-<code>{escape(c.ruta_a)}</code> y <code>{escape(c.ruta_b)}</code>.</footer>
+<code>{escape(os.path.basename(c.ruta_a))}</code> y <code>{escape(os.path.basename(c.ruta_b))}</code>.</footer>
 </body>
 </html>
 """)

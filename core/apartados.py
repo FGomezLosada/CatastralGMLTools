@@ -16,12 +16,15 @@ ESTILO = """
   nav.indice { border:1px solid var(--linea); border-radius:8px; padding:10px 16px; background:var(--suave);
                margin:16px 0 8px; font-size:.93em; }
   nav.indice b { display:block; margin-bottom:4px; color:var(--acento); }
-  nav.indice a { color:var(--acento); text-decoration:none; margin-right:18px; white-space:nowrap; }
+  nav.indice div { display:flex; flex-wrap:wrap; gap:4px 18px; }
+  nav.indice a { color:var(--acento); text-decoration:none; }
   nav.indice a:hover { text-decoration:underline; }
   h2.apartado { border-bottom:3px solid var(--acento); padding-bottom:6px; margin-top:40px; text-transform:uppercase;
                 letter-spacing:.6px; font-size:1.02em; }
   h2.apartado .num { color:#fff; background:var(--acento); padding:1px 8px; border-radius:4px; margin-right:10px; }
   @media print { h2.apartado { break-after:avoid; } }
+  /* Móvil: las tablas anchas se desplazan de lado sin ensanchar la página (prueba a mano del 20/11/2026) */
+  @media (max-width: 700px) { table { display:block; overflow-x:auto; } .grafico, .croquis { max-width:100%; } }
 """
 
 _H2 = re.compile(r'<h2>(.*?)</h2>', re.S)
@@ -42,7 +45,7 @@ def numerar(texto):
     if len(titulos) >= MINIMO_INDICE:
         enlaces = ''.join(f'<a href="#apartado-{n}">{n}. {re.sub(r"<[^>]+>", "", t).strip()}</a>'
                           for n, t in enumerate(titulos, 1))
-        indice = f'<nav class="indice"><b>Contenido</b>{enlaces}</nav>\n'
+        indice = f'<nav class="indice"><b>Contenido</b><div>{enlaces}</div></nav>\n'
         posicion = numerado.find('<h2 id="apartado-1"')
         numerado = numerado[:posicion] + indice + numerado[posicion:]
     return numerado.replace('</style>', ESTILO + '</style>', 1)
