@@ -44,9 +44,9 @@ construcciones. También permite revisarlos y comprobarlos antes de subirlos.</p
 <ol>
   <li><a href="#flujo">Flujo de trabajo: de la referencia catastral a la Sede</a></li>
   <li><a href="#pestanas">Pestañas del panel</a></li>
-  <li><a href="#descargar">Descargar una parcela</a> (pestaña Descargar; Navarra y País Vasco)</li>
+  <li><a href="#descargar">Descargar una parcela</a> (pestaña Descargar) · <a href="#catastro-fecha">Catastro a una fecha</a></li>
   <li><a href="#crear-parcela">Crear el GML de parcela</a> (pestaña Parcela) · <a href="#dividir">Dividir una parcela</a></li>
-  <li><a href="#edificio">Crear el GML de edificio (ICUC)</a> (pestaña Edificio)</li>
+  <li><a href="#edificio">Crear el GML de edificio (ICUC)</a> (pestaña Edificio) · <a href="#multirrecinto">Un edificio con varios cuerpos</a></li>
   <li><a href="#validar">Revisar y validar un GML</a> (pestaña Validar)</li>
   <li><a href="#antes-de-presentar">Antes de presentar el GML</a></li>
   <li><a href="#utilidades">Utilidades</a>:
@@ -144,13 +144,19 @@ parcela, el grupo se sustituye (si ha editado alguna de sus capas, no se borra: 
 cartografía oficial. Se descarga una parcela cada vez: no es una herramienta de descarga masiva.</p>
 
 <h3 id="catastro-fecha">Catastro a una fecha</h3>
-<p>Muestra el parcelario del Catastro <strong>tal como estaba en una fecha</strong> (desde 2002), para ver si el Catastro
-ha cambiado un lindero desde el levantamiento o desde la escritura. Despliegue el bloque, elija la fecha (o pulse uno de los años, que ponen el
-1 de enero) y pulse <strong>Añadir capa</strong>: se añade arriba de la lista de capas, en el grupo «Catastro a una
-fecha», y la propia imagen lleva la fecha en rojo. Con <strong>Transparencia</strong> se ve debajo el parcelario actual o
-la ortofoto. Es una imagen del servicio WMS de la DGC (parámetro de fecha del servicio), solo para ver: la cartografía de
-otras fechas no se puede descargar en vector. En Validar, <strong>Ver cómo era antes</strong> hace lo mismo junto al
-GML.</p>
+<p>Muestra el parcelario del Catastro <strong>tal como estaba en una fecha</strong>, desde 2002. Sirve para comprobar
+si el Catastro ha modificado algún lindero después del levantamiento o de la escritura.</p>
+<ol>
+  <li>Despliegue el bloque <strong>Catastro a una fecha</strong>.</li>
+  <li>Elija la fecha en el calendario, o pulse uno de los años (2005, 2010, 2015 o 2020), que ponen el 1 de enero de
+  ese año.</li>
+  <li>Pulse <strong>Añadir capa</strong>. La capa se añade arriba de la lista de capas, en el grupo «Catastro a una
+  fecha», y la fecha aparece impresa en rojo en el mapa. Si ya hay una capa de esa fecha, no se duplica.</li>
+  <li>Con <strong>Transparencia</strong>, deje ver debajo el parcelario actual o la ortofoto.</li>
+</ol>
+<p>La capa es una imagen del servicio WMS de la Dirección General del Catastro: sirve para consultar, no para editar ni
+descargar la geometría de otras fechas. Después de comparar un GML con el Catastro, en la pestaña Validar el botón
+<a href="#ver-antes">Ver cómo era antes</a> añade esta misma capa y acerca el mapa al GML.</p>
 
 <h3>Navarra</h3>
 <p>En la pestaña <strong>Descargar</strong> también se pueden bajar parcelas de Navarra: escriba municipio, polígono y parcela
@@ -294,16 +300,6 @@ llevan). En «4. Crear» elija el fichero y pulse <strong>Crear GML</strong>. El
 <strong>precisión</strong> de las huellas (0,1 m si salen de un levantamiento, del proyecto o de un DXF; 10 m si se han
 medido sobre la ortofoto) y el SRC están en <strong>Opciones avanzadas</strong>, plegadas: casi siempre valen los
 automáticos. El fichero se escribe en ISO-8859-1, como el ejemplo oficial.</p>
-<p><strong>Un edificio con varios cuerpos (multirrecinto).</strong> Cada fila de la tabla es un edificio para la Sede: si
-hay dos filas de edificio, da de alta dos edificios. Cuando son cuerpos separados de un mismo edificio (dos volúmenes
-unidos por un porche, una nave con su anexo), deben ir como <em>un solo</em> edificio con varios recintos; si se declaran
-como edificios distintos, después hay que corregirlo con otro modelo 902. Una regla práctica: si al derribar uno de los
-cuerpos se cambiaría el mismo modelo 902, es el mismo edificio; si se presentaría otro, son edificios distintos. Para
-juntarlos, selecciónelos en la tabla (Ctrl+clic) y pulse <strong>Mismo edificio</strong>: quedan en una fila («Un
-edificio, 2 cuerpos»), con las plantas del mayor y el identificador que le toque; la capa no cambia y
-<strong>Separar</strong> lo deshace. Si hay dos o más edificios, el resumen bajo la tabla lo recuerda, y Validar también
-al leer el GML. Las piscinas no se juntan: cada una va aparte. Al dibujar, otro cuerpo del mismo edificio se puede añadir
-con la herramienta «Añadir parte» de QGIS. Un patio interior no es otro cuerpo: es un hueco del edificio.</p>
 <p>Con el botón <strong>Validar</strong> del resultado se abre en la pestaña Validar. Allí, <strong>Comparar con el
 Catastro</strong> sitúa cada construcción respecto a la parcela catastral vigente, como el ICUC: entera dentro (informe
 positivo), en parte fuera (informe negativo: el ICUC exige que esté «en su integridad» dentro de la parcela, sin
@@ -327,6 +323,22 @@ guardada desde QGIS). El informe que emite la Sede va firmado: use solo construc
 </ul>
 <p>Las parcelas con bienes de características especiales (BICE) no tienen ICUC. Si hay construcciones solapadas o
 alguna está a más de 100 m de la parcela, la Sede no emite el informe.</p>
+
+<h3 id="multirrecinto">Un edificio con varios cuerpos (multirrecinto)</h3>
+<p>Cada fila de edificio de la tabla es un edificio distinto para la Sede: con dos filas, la Sede da de alta dos
+edificios. Si son cuerpos separados de un mismo edificio (por ejemplo, dos volúmenes unidos por un porche o una nave con
+su anexo), deben presentarse como <strong>un solo edificio con varios recintos</strong>. Declararlos como edificios
+distintos obliga después a corregirlo con otro modelo 902. Como criterio orientativo: si al derribar uno de los cuerpos
+se modificaría el mismo modelo 902, forman parte del mismo edificio.</p>
+<ol>
+  <li>Seleccione en la tabla, con Ctrl+clic, los edificios que forman parte del mismo edificio.</li>
+  <li>Pulse <strong>Mismo edificio</strong>. Quedan en una sola fila («Un edificio, 2 cuerpos»), con el número de
+  plantas del cuerpo más alto y el identificador que le corresponda. La capa no se modifica.</li>
+  <li>Para deshacerlo, elija esa fila y pulse <strong>Separar</strong>: cada cuerpo recupera sus datos.</li>
+</ol>
+<p>Las piscinas no se juntan: cada una va aparte. Un patio interior no es otro cuerpo, sino un hueco del edificio. Al
+dibujar, otro cuerpo del mismo edificio se puede añadir a la misma entidad con la herramienta «Añadir parte» de QGIS.
+Cuando hay dos o más edificios, el resumen bajo la tabla y la pestaña Validar lo recuerdan.</p>
 
 <h2 id="validar">Revisar y validar un GML <small>(pestaña Validar)</small></h2>
 <p>En la pestaña <strong>Validar</strong>, elija o arrastre un GML de parcela (esquema 3.0 o 4.0) o de edificio. Se comprueba
@@ -368,10 +380,11 @@ las incidencias, un croquis y las coordenadas de cada recinto, y lo abre en el n
 cada parcela o construcción con su identificador, su namespace y su superficie: la declarada en el fichero y la calculada
 a partir de la geometría (en rojo si no coinciden). <strong>Cargar en el mapa</strong> lo añade al proyecto con un estilo
 por tipo y una etiqueta con el identificador, para compararlo con la cartografía.</p>
-<p><strong>Ver cómo era antes.</strong> Tras «Comparar con el Catastro», este botón pone en el mapa el Catastro tal como
-estaba en la fecha elegida en Descargar › <a href="#catastro-fecha">Catastro a una fecha</a> (01/01/2005 si no ha
-elegido otra) y acerca el mapa al GML. Cuando un lindero no casa, sirve para saber si lo ha movido el Catastro y, probando
-fechas, desde cuándo: un dato útil para justificar una discrepancia o un <a href="#u-ajuste">doble GML</a>.</p>
+<p id="ver-antes"><strong>Ver cómo era antes.</strong> Se activa después de «Comparar con el Catastro». Añade al mapa el
+Catastro tal como estaba en la fecha elegida en Descargar › <a href="#catastro-fecha">Catastro a una fecha</a>
+(01/01/2005 si no se ha elegido otra) y acerca el mapa al GML. Cuando un lindero no coincide, permite comprobar si lo ha
+modificado el Catastro y, probando otras fechas, desde cuándo. Es un dato útil para justificar una discrepancia o un
+<a href="#u-ajuste">doble GML</a>.</p>
 
 <p><strong>Siguiente paso.</strong> Si la comparación no da errores y el esquema XSD está comprobado, el mensaje dice que
 el GML está listo y lleva el botón <strong>Abrir la Sede</strong>, que abre en el navegador la página de «Validaciones
@@ -436,14 +449,15 @@ en el mapa</strong>, para ver dónde está lo que falla. Las capas son temporale
 desde el panel de Capas.</p>
 
 <h3 id="u-ajuste">2. Doble GML (cartografía desplazada o girada)</h3>
-<p>Es lo que técnicos y cursos llaman <strong>doble GML</strong>. Si la cartografía catastral de la zona está desplazada o girada respecto de la realidad, el levantamiento (en su
-posición real) no casa con las parcelas del Catastro. Las Resoluciones conjuntas de 23/09/2020 (con el Registro, apartado
-séptimo) y de 29/03/2021 (con el notariado, apartado octavo) piden entonces
-<strong>dos GML</strong> —el del levantamiento y otro ajustado a la cartografía catastral— y los
-<strong>parámetros de transformación</strong>; primero se ajusta el desplazamiento y después se aplica el criterio de
-identidad. Un desplazamiento o giro de la cartografía no supone, por sí mismo, invadir a los colindantes. Si Validar
-dice que con un desplazamiento el levantamiento entraría en el margen de identidad, es un caso de doble GML. En
-<strong>Utilidades › 2. Doble GML</strong>:</p>
+<p>Si la cartografía catastral de la zona está desplazada o girada respecto de la realidad, el levantamiento, en su
+posición real, no coincide con las parcelas del Catastro. En ese caso, las Resoluciones conjuntas de 23/09/2020
+(Registro, apartado séptimo) y de 29/03/2021 (notarías, apartado octavo) piden aportar <strong>dos ficheros GML</strong>
+(doble GML): el del levantamiento y otro ajustado a la cartografía catastral, junto con los <strong>parámetros de
+transformación</strong>. Primero se corrige el desplazamiento y después se aplica el criterio de identidad gráfica. Un
+desplazamiento o giro de la cartografía no significa, por sí solo, que se invada a los colindantes.</p>
+<p>Un indicio de este caso: al comparar el levantamiento con el Catastro, Validar indica que con un desplazamiento
+entraría en el margen de identidad gráfica.</p>
+<p>En <strong>Utilidades › 2. Doble GML</strong>:</p>
 <ol>
   <li>Elija el GML del levantamiento (de parcela 4.0 o de edificio; también puede arrastrarlo).</li>
   <li>Añada <strong>pares de puntos homólogos</strong>: el mismo punto del terreno (una esquina de edificio, un mojón) en
