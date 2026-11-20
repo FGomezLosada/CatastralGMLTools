@@ -444,7 +444,7 @@ informe de validación gráfica ni al ICUC de la Sede Electrónica del Catastro.
 {detalle or '<p>Sin geometrías.</p>'}
 
 <footer>Generado con {escape(NOMBRE)} {escape(version())} (herramienta no oficial, GPL-2.0-or-later) a partir del fichero
-<code>{escape(informe.ruta)}</code>.</footer>
+<code>{escape(os.path.basename(informe.ruta))}</code>.</footer>
 </body>
 </html>
 """)

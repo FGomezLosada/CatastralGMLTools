@@ -387,7 +387,7 @@ los números de los vértices son los del croquis de cada parcela (en él se omi
 {detalle}
 
 <footer>Generado con {escape(NOMBRE)} {escape(version())} (herramienta no oficial, GPL-2.0-or-later) a partir del fichero
-<code>{escape(ruta_gml)}</code>.</footer>
+<code>{escape(os.path.basename(ruta_gml))}</code>.</footer>
 </body>
 </html>
 """)
