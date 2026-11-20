@@ -34,6 +34,7 @@ from qgis.core import (
     QgsPointXY,
 )
 
+from . import apartados
 from . import geometria as geo
 from .ficheros import escribir_texto
 from .info import AVISO_LEGAL, FUENTE_DGC, NOMBRE, version
@@ -199,7 +200,7 @@ def fichas(lectura, catastrales=None):
 
 
 def _num(valor, decimales=2):
-    return f"{valor:,.{decimales}f}".replace(',', ' ').replace('.', ',')
+    return f"{valor:,.{decimales}f}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
 def _coordenadas(ficha):
@@ -291,7 +292,9 @@ def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta
     imagen del encuadre del croquis general (vista_croquis), que va debajo de las parcelas.
     """
     ahora = ahora or datetime.datetime.now()
-    from .informe import croquis_svg, leyenda_recintos  #Mismo croquis que el informe de comprobación
+    from .graficos import cabida as cabida_svg
+    from .graficos import reparto
+    from .informe import PALETA_CROQUIS, croquis_svg, leyenda_recintos  #Mismo croquis que el informe de comprobación
     parcelas = [e for e in lectura.elementos if not e.geometria.isNull() and not e.geometria.isEmpty()]
     #Las catastrales de origen (las que ocupa el GML) no se dibujan: taparían el contorno nuevo
     vecinas = [v for v in vecinas if all(v.geometria.intersection(p.geometria).area() <= SOLAPE for p in parcelas)]
@@ -312,6 +315,7 @@ def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta
             f'diferencia: <b>{"+" if diferencia >= 0 else "−"}{_num(abs(diferencia))} m² ({_num(porcentaje)} %)</b>.</p>'
             + ('<ul>' + ''.join(f'<li>Dentro del umbral del {escape(t)}.</li>' for t in cumple) + '</ul>' if cumple
                else '<p>Supera el 10 % de la cabida inscrita.</p>')
+            + cabida_svg(total_utm, inscrita)
             + '<p class="meta">Umbrales de la Ley Hipotecaria (texto consolidado, BOE-A-1946-2453). Es una referencia: '
               'la valoración corresponde al registrador.</p>')
     detalle = ''.join(
@@ -322,7 +326,8 @@ def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta
         f'{_leyenda_parcela(parcelas, p, vecinas)}'
         f'<h4>Linderos</h4>{_linderos(f, consulta is not None)}'
         f'<h4>Coordenadas</h4>{_coordenadas(f)}</section>' for f, p in zip(lista, parcelas))
-    return f"""<!DOCTYPE html>
+    #Apartados numerados e índice (propuesta C, 20/11/2026)
+    return apartados.numerar(f"""<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -346,6 +351,7 @@ def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta
   table.coord {{ width:auto; min-width:420px; }} tr.anillo th {{ background:none; font-style:italic; }}
   tfoot td {{ font-weight:bold; }}
   .croquis {{ display:block; width:100%; max-width:760px; margin:8px auto; background:var(--suave); border-radius:6px; }}
+  .grafico {{ display:block; width:100%; max-width:760px; margin:12px auto 16px; color:var(--texto); }}
   .etiqueta {{ font-size:12px; fill:var(--texto); paint-order:stroke; stroke:var(--fondo); stroke-width:3px; }}
   section {{ page-break-inside:avoid; }}
   footer {{ margin-top:32px; font-size:.85em; opacity:.75; border-top:1px solid var(--linea); padding-top:8px; }}
@@ -364,6 +370,8 @@ def html(lectura, ruta_gml, lista, inscrita=None, autor='', ahora=None, consulta
 <tbody>{filas}</tbody>
 <tfoot><tr><td colspan="3">Total</td><td class="num">{_num(total_utm)}</td><td class="num">{_num(total_elipsoide)}</td><td></td></tr></tfoot>
 </table>
+{reparto([(f.local_id, f.area_utm, getattr(p, 'color', None) or PALETA_CROQUIS[i % len(PALETA_CROQUIS)])
+           for i, (f, p) in enumerate(zip(lista, parcelas))])}
 <p class="meta">La superficie UTM es la de la proyección del GML y la que usa el Catastro (la del fichero, redondeada al
 m²). La del elipsoide GRS80 es la del terreno sin relieve; en terreno inclinado la superficie real es mayor que ambas.</p>
 {bloque_cabida}
@@ -382,7 +390,7 @@ los números de los vértices son los del croquis de cada parcela (en él se omi
 <code>{escape(ruta_gml)}</code>.</footer>
 </body>
 </html>
-"""
+""")
 
 
 def _csv_num(valor, decimales=2):

@@ -14,6 +14,7 @@ from html import escape
 
 from qgis.core import QgsGeometry, QgsPointXY, QgsRectangle
 
+from . import apartados
 from . import geometria as geo
 from .ficheros import escribir_texto
 from .incidencias import AVISO, ERROR, INFO
@@ -24,6 +25,11 @@ COLORES = {ERROR: '#c92a2a', AVISO: '#e67700', 'correcta': '#2b8a3e'}
 TEXTO_ESTADO = {ERROR: 'Con errores', AVISO: 'Con avisos', 'correcta': 'Correcta'}
 NIVEL = {ERROR: 'Error', AVISO: 'Aviso', INFO: 'Información'}
 PALETA_CROQUIS = ('#e8590c', '#1971c2', '#2b8a3e', '#9c36b5', '#c92a2a', '#0c8599', '#e67700', '#5c940d')
+
+
+def _miles(valor):
+    """Superficie entera con punto de miles (1.494), como el panel y los otros informes (20/11/2026)."""
+    return f"{valor:,}".replace(',', '.') if isinstance(valor, int) else str(valor)
 
 
 def ruta_por_defecto(ruta_gml):
@@ -69,7 +75,7 @@ def vista_croquis(elementos, ancho=640, alto=420, margen=24, foco=None, encuadre
 
 
 def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=None, vecinas=(), fondo=None,
-                atribucion='', encuadre=None):
+                atribucion='', encuadre=None, numerado=None, marcas=()):
     """
     Croquis de los recintos (SVG en línea), con el identificador de cada uno, la flecha del norte y una barra de escala.
       - vertices: numera los vértices del contorno exterior (de foco, o de todos) como la tabla de coordenadas, por fuera
@@ -79,6 +85,9 @@ def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=
       - fondo: imagen JPEG o PNG (bytes) del encuadre exacto de vista_croquis(), debajo de todo (la ortofoto), con
         atribucion al pie.
       - encuadre: rectángulo del terreno que se muestra (un detalle), sin atenuar ningún recinto.
+      - numerado: con vertices, el único recinto cuyos vértices se numeran (en la comparación de dos GML, el primero),
+        sin atenuar los demás.
+      - marcas: [(x, y)] puntos que se rodean en rojo (los vértices que pasan la tolerancia).
     """
     validas = _validas(elementos)
     vista = vista_croquis(validas, ancho, alto, margen, foco, encuadre)
@@ -136,7 +145,8 @@ def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=
             relleno = 0
         partes.append(f'<path d="{d}" fill="{color}" fill-opacity="{relleno}" stroke="{color}" '
                       f'stroke-width="{1.2 if tenue else 2.5 if con_fondo else 2}" fill-rule="evenodd"{trazo}/>')
-        if vertices and (foco is None or e is foco) and poligonos and poligonos[0]:
+        numerar_este = (e is numerado) if numerado is not None else (foco is None or e is foco)
+        if vertices and numerar_este and poligonos and poligonos[0]:
             #El exterior y los huecos, con la numeración seguida (como la tabla de coordenadas: 1-11, hueco 12-15)
             primero = 1
             for n, anillo in enumerate(poligonos[0]):
@@ -148,6 +158,9 @@ def croquis_svg(elementos, ancho=640, alto=420, margen=24, vertices=False, foco=
                 primero += len(anillo) - 1 if len(anillo) > 1 and anillo[0] == anillo[-1] else len(anillo)
         if e.local_id:
             textos.append(etiqueta(e.geometria, e.local_id))
+    for x, y in marcas:  #Vértices que pasan la tolerancia (comparación de dos GML, 20/11/2026), bajo los números
+        px, py = pantalla(x, y)
+        partes.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="7" fill="none" stroke="#c92a2a" stroke-width="2.5"/>')
     partes += textos + numeros
     #Norte (arriba: las coordenadas UTM tienen el norte de la cuadrícula hacia arriba) y barra de escala
     partes.append(f'<path d="M {ancho - 16},6 L {ancho - 21},20 L {ancho - 16},17 L {ancho - 11},20 Z" '
@@ -313,6 +326,10 @@ def seccion_identidad(r):
     if r.tramos:
         entradas.append(("Contorno del GML fuera del margen", '#c92a2a', 'zona'))
     partes.append(leyenda(entradas))
+    #Dónde y cuánto se sale del margen, a lo largo del contorno (19/11/2026), tras la leyenda del croquis
+    from .graficos import perfil
+    muestras, longitud = idg.perfil(r)
+    partes.append(perfil(muestras, r.margen, longitud, "Separación del contorno del GML respecto al perímetro catastral (m)"))
     if r.tramos:
         t = r.tramos[0]
         lado = max(4 * r.margen, 3 * t.distancia, 1.5)  #Unos 4 m de lado en urbana: se ven los centímetros
@@ -345,7 +362,8 @@ def html(informe, ahora=None, consulta=None, identidad=None):
         filas.append(
             f'<tr><td>{escape(e.tipo.capitalize())}</td><td class="id">{escape(e.local_id)}</td>'
             f'<td>{escape(e.namespace)}</td><td>{escape(e.label)}</td>'
-            f'<td class="num">{"" if e.area_declarada is None else e.area_declarada}</td><td class="num">{calculada}</td>'
+            f'<td class="num">{"" if e.area_declarada is None else _miles(e.area_declarada)}</td>'
+            f'<td class="num">{_miles(calculada)}</td>'
             f'<td class="num">{vertices}</td><td style="color:{COLORES[estado]}"><b>{TEXTO_ESTADO[estado]}</b></td></tr>')
 
     incidencias = []
@@ -358,7 +376,8 @@ def html(informe, ahora=None, consulta=None, identidad=None):
     detalle = ''.join(f'<details><summary>{escape(e.local_id)} · {escape(e.namespace)}</summary>{coordenadas_html(e)}</details>'
                       for e in lectura.elementos if e.anillos)
 
-    return f"""<!DOCTYPE html>
+    #Apartados numerados e índice (propuesta C, 20/11/2026)
+    return apartados.numerar(f"""<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -388,6 +407,7 @@ def html(informe, ahora=None, consulta=None, identidad=None):
   li.aviso .nivel {{ color:{COLORES[AVISO]}; }}
   code {{ font-size:.82em; opacity:.7; }}
   .croquis {{ display:block; width:100%; max-width:760px; margin:0 auto; background:var(--suave); border-radius:6px; }}
+  .grafico {{ display:block; width:100%; max-width:760px; margin:12px auto 16px; color:var(--texto); }}
   .etiqueta {{ font-size:12px; fill:var(--texto); paint-order:stroke; stroke:var(--fondo); stroke-width:3px; }}
   details {{ margin:6px 0; }} summary {{ cursor:pointer; font-weight:bold; }}
   table.coord {{ width:auto; min-width:320px; margin:6px 0 12px; }} tr.anillo th {{ background:none; font-style:italic; }}
@@ -427,7 +447,7 @@ informe de validación gráfica ni al ICUC de la Sede Electrónica del Catastro.
 <code>{escape(informe.ruta)}</code>.</footer>
 </body>
 </html>
-"""
+""")
 
 
 def escribir(informe, ruta=None, consulta=None, identidad=None):

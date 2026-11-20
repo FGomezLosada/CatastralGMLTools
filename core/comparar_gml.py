@@ -31,6 +31,8 @@ from qgis.core import (
     QgsPointXY,
 )
 
+from . import apartados
+from .graficos import barras_vertices
 from . import gml_lector as gl
 from .geometria import epsg_recomendado, girar_ejes, orden_lat_lon
 from .ficheros import escribir_texto
@@ -524,7 +526,7 @@ def ruta_informe(ruta_a, ruta_b=''):
 def _num(valor, decimales=2):
     if valor != valor:  #NaN: no se ha podido calcular
         return '—'
-    return f"{valor:,.{decimales}f}".replace(',', ' ').replace('.', ',')
+    return f"{valor:,.{decimales}f}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
 def _distancia(metros):
@@ -575,7 +577,12 @@ def html(c, ahora=None):
         tabla_v = ''.join(f"<tr><td>{n}</td><td class='num'>{x:.2f}</td><td class='num'>{y:.2f}</td>"
                           f"<td class='num'>{_num(d * 100, 1)}</td><td>{rumbo(dx, dy) if d > 1e-6 else ''}</td></tr>"
                           for n, x, y, d, dx, dy in movidos[:MAX_VERTICES_TABLA])
-        croquis = (croquis_svg([_Dibujo(p.a, '#e8590c'), _Dibujo(p.b, '#1971c2', True, etiqueta=False)], alto=320)
+        primero = _Dibujo(p.a, '#e8590c')
+        #Con diferencias, los vértices del primero numerados como en el gráfico y en la tabla, y los que pasan ±1 cm
+        #rodeados en rojo (petición del 20/11/2026: en el croquis no se sabía cuáles eran)
+        distinto = not p.iguales_geometria()
+        croquis = (croquis_svg([primero, _Dibujo(p.b, '#1971c2', True, etiqueta=False)], alto=320, vertices=distinto,
+                               numerado=primero, marcas=[(x, y) for _, x, y, d, _, _ in movidos] if distinto else ())
                    + leyenda([(f"Primero: {nombre_a}", '#e8590c', 'relleno'),
                               (f"Segundo: {nombre_b}", '#1971c2', 'discontinua')]))
         secciones.append(
@@ -589,13 +596,18 @@ def html(c, ahora=None):
             + (f"<table><thead><tr><th>Dato</th><th>Primero</th><th>Segundo</th></tr></thead><tbody>{datos}</tbody></table>"
                if datos else '')
             + croquis
+            + ('' if p.iguales_geometria() else  #Si son iguales, un gráfico de ceros no aporta
+               barras_vertices([(v[0], v[3] * 100) for v in p.vertices], TOLERANCIA * 100, 'cm',
+                               "Desplazamiento de cada vértice al más cercano del otro GML (cm)",
+                               "Tolerancia de la Sede ±1 cm"))
             + (f"<h4>Vértices que se mueven más de 1 cm ({len(movidos)} de {len(p.vertices)})</h4>"
                "<table class='coord'><thead><tr><th>Nº</th><th>X</th><th>Y</th><th>Al vértice más cercano (cm)</th>"
                f"<th>Hacia</th></tr></thead><tbody>{tabla_v}</tbody></table>" if movidos else
                "<p>Ningún vértice se mueve más de 1 cm.</p>")
             + "</section>")
     notas = ''.join(f"<li>{escape(n)}</li>" for n in c.notas)
-    return f"""<!DOCTYPE html>
+    #Apartados numerados e índice (propuesta C, 20/11/2026)
+    return apartados.numerar(f"""<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -618,6 +630,7 @@ def html(c, ahora=None):
   tr.cambia td {{ font-weight:600; }}
   table.coord {{ width:auto; min-width:420px; }}
   .croquis {{ display:block; width:100%; max-width:760px; margin:8px auto; background:var(--suave); border-radius:6px; }}
+  .grafico {{ display:block; width:100%; max-width:760px; margin:12px auto 16px; color:var(--texto); }}
   .etiqueta {{ font-size:12px; fill:var(--texto); paint-order:stroke; stroke:var(--fondo); stroke-width:3px; }}
   section {{ page-break-inside:avoid; }}
   footer {{ margin-top:32px; font-size:.85em; opacity:.75; border-top:1px solid var(--linea); padding-top:8px; }}
@@ -641,7 +654,7 @@ de centímetros no se aprecian en el croquis: están en las tablas.</p>
 <code>{escape(c.ruta_a)}</code> y <code>{escape(c.ruta_b)}</code>.</footer>
 </body>
 </html>
-"""
+""")
 
 
 def escribir(c, ruta=None, ahora=None):

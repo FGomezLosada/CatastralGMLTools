@@ -94,6 +94,31 @@ def exterior(geometria):
     return QgsGeometry.fromMultiPolylineXY(lineas) if len(lineas) > 1 else QgsGeometry.fromPolylineXY(lineas[0])
 
 
+def perfil(r, max_muestras=400):
+    """
+    Separación del contorno exterior de la RGGA respecto al perímetro catastral, recorriéndolo desde su primer vértice:
+    ([(distancia recorrida en m, separación en m)], longitud del contorno). Para el gráfico del informe.
+    """
+    if r is None or r.rgga is None or r.referencia is None:
+        return [], 0.0
+    perimetro = exterior(r.referencia)
+    linea = exterior(r.rgga)
+    partes = [QgsGeometry(g) for g in linea.asGeometryCollection()] if linea.isMultipart() else [linea]
+    longitud = sum(p.length() for p in partes)
+    if longitud <= 0:
+        return [], 0.0
+    paso = max(0.05, longitud / max_muestras)
+    muestras, recorrido = [], 0.0
+    for parte in partes:
+        largo, d = parte.length(), 0.0
+        while d <= largo + 1e-9:
+            punto = parte.interpolate(min(d, largo))
+            muestras.append((recorrido + min(d, largo), perimetro.distance(punto)))
+            d += paso
+        recorrido += largo
+    return muestras, longitud
+
+
 def propias(rgga, catastrales):
     """Las parcelas catastrales [(rc, geometría)] que son las de la RGGA: las que esta cubre en más de la mitad."""
     elegidas = []
@@ -257,7 +282,7 @@ def comprobar_gml(ruta, forzado=None, transformacion=None):
 
 
 def _m(valor, decimales=2):
-    return f"{valor:,.{decimales}f}".replace(',', ' ').replace('.', ',')
+    return f"{valor:,.{decimales}f}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
 def resumen(r):
@@ -278,7 +303,7 @@ def resumen(r):
         dx, dy = r.desplazamiento
         lineas.append(f"Con un desplazamiento de {_m(dx)} m en X y {_m(dy)} m en Y entraría en el margen: si la "
                       "cartografía catastral está desplazada, la Sede pide aplicar primero el desplazamiento (utilidad "
-                      "«2. Doble GML») y después el criterio")
+                      "«4. Ajustar») y después el criterio")
     lineas += [i.mensaje for i in r.incidencias]
     return lineas
 
@@ -314,5 +339,5 @@ def mensaje_validar(r):
     pista = ""
     if r.desplazamiento is not None:
         pista = (f"; con un desplazamiento de {_m(r.desplazamiento[0])} m en X y {_m(r.desplazamiento[1])} m en Y "
-                 "entraría (si la cartografía catastral está desplazada, Utilidades «2. Doble GML»)")
+                 "entraría (si la cartografía catastral está desplazada, Utilidades «4. Ajustar»)")
     return f"No cumpliría la identidad gráfica: {' y '.join(motivos)}{pista} ({norma}: {datos})"
