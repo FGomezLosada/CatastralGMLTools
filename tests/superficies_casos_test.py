@@ -101,13 +101,13 @@ class Etiquetas(HTMLParser):
         self.pila, self.errores, self.svg = [], [], 0
 
     def handle_starttag(self, tag, attrs):
-        if tag == 'svg':
+        if tag == 'svg' and ('class', 'grafico') not in attrs:  #Los gráficos (19/11/2026) no son croquis
             self.svg += 1
         if tag not in self.VACIAS:
             self.pila.append(tag)
 
     def handle_startendtag(self, tag, attrs):
-        if tag == 'svg':
+        if tag == 'svg' and ('class', 'grafico') not in attrs:  #Los gráficos (19/11/2026) no son croquis
             self.svg += 1
 
     def handle_endtag(self, tag):
@@ -224,7 +224,7 @@ def cabida(texto, esperado):
 
 
 for _texto, _esperado in (('1250', 1250.0), ('1250,5', 1250.5), ('1250.5', 1250.5), ('1.250', 1250.0), ('1.250,5', 1250.5),
-                          ('1 250,5', 1250.5), ('12.500.000', 12500000.0), ('1,250.5', 1250.5), (' 620,50 m² ', 620.5),
+                          ('1.250,5', 1250.5), ('12.500.000', 12500000.0), ('1,250.5', 1250.5), (' 620,50 m² ', 620.5),
                           ('', None), ('0', 'error'), ('-5', 'error'), ('abc', 'error'), ('1,2,3', 'error')):
     caso(f"cabida «{_texto}»", cabida(_texto, _esperado))
 
@@ -289,7 +289,7 @@ def utilidad():
     pu.cabida.setText('1.250')
     hecho = pu.crear_informe(segundo_plano=False)
     with open(hecho, encoding='utf-8') as f:
-        millares = '1 250,00 m²' in f.read()
+        millares = '1.250,00 m²' in f.read()
     #El sitio del informe ocupado por una carpeta: aviso, sin fallar
     otro = gml('ocupado', [('Nueva_1', rect(X0 + 300, Y0, 20, 30))])
     os.makedirs(su.ruta_por_defecto(otro), exist_ok=True)

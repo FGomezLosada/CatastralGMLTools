@@ -41,6 +41,7 @@ Cada batería recorre las categorías que le apliquen:
 | Parcela: dividir y unir seleccionadas | `division_casos_test.py` (9 formas × modos × valores × lados y vértices de pivote: 2106 divisiones; unión con rendijas, huecos y patios) | ✅ 03/11/2026 |
 | Parcela y Edificio por pasos (U-01/U-02/U-04/U-08): pasos, opciones avanzadas, «Unir parcelas» y «Dividir parcela ▸», solo las seleccionadas, capa temporal, vista del GML y cambios sin guardar | `parcela_pasos_test.py` (11 casos) | ✅ 29/10/2026 |
 | Edificio: GML de construcciones (ICUC) | `edificio_casos_test.py` (20 capas + sin referencia) | ✅ 19/10/2026 |
+| Gráficos SVG de los informes: reparto, cabida inscrita, vértices frente a ±1 cm, perfil de la identidad gráfica | `graficos_test.py` | ✅ 20/11/2026 |
 | Descargar: Catastro a una fecha (WMS con TIME), transparencia, sin repetir fechas; Validar: «Ver cómo era antes» | `catastro_fecha_test.py` (necesita internet) | ✅ 19/11/2026 |
 | Edificio: varios cuerpos de un mismo edificio (multirrecinto): «Mismo edificio», «Separar», aviso del resumen y de Validar, copia editable | `edificio_multirrecinto_test.py` (29 comprobaciones) | ✅ 19/11/2026 |
 | Descargar: por referencia y en el mapa | `descargar_casos_test.py` (22 casos + pestaña) | ✅ 19/10/2026: una RC inexistente decía «…no se ha encontrado la parcela X para el huso 25830» (el huso confundía) |

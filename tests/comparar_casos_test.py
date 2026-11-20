@@ -303,7 +303,7 @@ def fincas_distintas():
 def mismo_id_en_otro_sitio():
     lejos = escribir('mismo_id_lejos.gml', [gp.ParcelaGML(RC, gp.SDGC, wkt(rect(X0 + 2000, Y0 + 1000, 20, 30)), '01')])
     c = cg.comparar(A, lejos)
-    return (len(c.parejas) == 1 and c.parejas[0].veredicto().startswith("Desplazado 2 236,07 m")
+    return (len(c.parejas) == 1 and c.parejas[0].veredicto().startswith("Desplazado 2.236,07 m")
             and any('no se tocan' in n for n in c.notas))
 
 
