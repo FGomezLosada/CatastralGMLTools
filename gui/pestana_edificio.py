@@ -65,6 +65,7 @@ class PestanaEdificio(QWidget):
         self.abiertas = 0
         self.referencia_automatica = ''  #Última referencia propuesta (si el usuario no la cambia, sigue a la capa)
         self.grupos = []  #Tuplas de fids juntadas en un edificio («Mismo edificio»); la capa no cambia
+        self.antes_de_juntar = {}  #fid → (tipo, plantas, estado) escritos en la tabla antes de juntar, para «Separar»
         self.capa_grupos = None
         self.construir()
         self.capaCombo.setLayer(None)  #Se empieza sin capa: la de edificios casi nunca es la activa
@@ -349,7 +350,7 @@ class PestanaEdificio(QWidget):
         if lineas:  #En un DXF hay muchas entidades (textos, cotas…): cuentan solo las líneas cerradas
             self.demasiadas = False
         if capa is not self.capa_grupos:  #Los edificios juntados son de una capa: con otra se empieza de cero
-            self.grupos, self.capa_grupos = [], capa
+            self.grupos, self.capa_grupos, self.antes_de_juntar = [], capa, {}
         self.filas = [] if capa is None or self.demasiadas or self.de_parcelas else \
             ce.agrupar(ce.leer_capa(capa, self.soloSeleccion.isChecked(), self.campoPlantas.currentField()), self.grupos)
         if len(self.filas) > MAX_FILAS:
@@ -458,8 +459,21 @@ class PestanaEdificio(QWidget):
             self.dock.warn("Las piscinas no se juntan: cada piscina va aparte en el GML")
             return
         fids = tuple(fid for i in filas for fid in self.filas[i].todas)
+        #Lo escrito en la tabla (plantas, estado) se guarda para «Separar», y el edificio juntado lleva las plantas del
+        #cuerpo más alto (prueba a mano del 20/11/2026: con plantas 1 y 2 escritas en la tabla salía 1, la de la primera
+        #fila, y al separar la segunda perdía las suyas)
+        escritas = [self.tabla.item(i, COL_PLANTAS).text().strip() for i in filas if self.tabla.item(i, COL_PLANTAS)]
+        numeros = [int(p) for p in escritas if p.isdigit()]
+        for i in filas:
+            valores = (self.tipo_fila(i), self.tabla.item(i, COL_PLANTAS).text() if self.tabla.item(i, COL_PLANTAS) else '',
+                       self.estado_fila(i))
+            for fid in self.filas[i].todas:
+                self.antes_de_juntar.setdefault(fid, valores)
         self.grupos = [g for g in self.grupos if not set(g) & set(fids)] + [fids]
         self.recargar(conservar=True)
+        fila = next((i for i, f in enumerate(self.filas) if set(f.todas) == set(fids)), None)
+        if fila is not None and numeros:
+            self.tabla.item(fila, COL_PLANTAS).setText(str(max(numeros)))
         self.dock.notify(f"{len(filas)} construcciones juntadas en un edificio con varios cuerpos: en el GML irán como un "
                          "solo edificio (la capa no cambia). «Separar» lo deshace", Qgis.MessageLevel.Info, 10)
 
@@ -470,6 +484,14 @@ class PestanaEdificio(QWidget):
             return
         self.grupos = [g for g in self.grupos if not set(g) & quitar]
         self.recargar(conservar=True)
+        for i, fila in enumerate(self.filas):  #Cada cuerpo vuelve con lo que tenía escrito antes de juntarlo
+            valores = self.antes_de_juntar.pop(fila.fid, None) if fila.fid in quitar else None
+            if valores is None or self.tabla.item(i, COL_PLANTAS) is None:
+                continue
+            tipo, plantas, estado = valores
+            self.tabla.cellWidget(i, COL_TIPO).setCurrentIndex(0 if tipo == ge.EDIFICIO else 1)
+            self.tabla.item(i, COL_PLANTAS).setText(plantas)
+            self.tabla.cellWidget(i, COL_OBRA).setCurrentIndex(ge.ESTADOS.index(estado))
 
     def proponer_ids(self, *args):
         """Identificadores según el formato de la DGC a partir de la referencia de la parcela y de los tipos."""

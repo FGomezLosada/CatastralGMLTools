@@ -426,7 +426,7 @@ class BloqueAjuste(QWidget):
                                                    f"({os.path.basename(ruta)}, sin cambios), el ajustado y los parámetros "
                                                    "(Resoluciones conjuntas de 23/09/2020, apartado séptimo, y de "
                                                    "29/03/2021, apartado octavo)"]
-        #«Doble GML» (petición del 19/11/2026)
+        #«Doble GML»: nombre habitual del procedimiento (petición del 19/11/2026)
         dock.success(f"Doble GML listo. GML ajustado: {os.path.basename(destino)} · parámetros: {os.path.basename(parametros)}",
                      [("Validar", self.validar), ("Ver parámetros", self.abrir_parametros), ("Abrir carpeta", self.abrir_carpeta)],
                      notas=notas)

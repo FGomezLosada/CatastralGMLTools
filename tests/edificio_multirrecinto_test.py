@@ -170,6 +170,31 @@ try:
     juntas = ce.agrupar(filas, [(filas[1].fid, filas[0].fid)])
     comprobar("agrupar() deja el edificio juntado en el lugar del primero de la capa",
               len(juntas) == 2 and juntas[0].partes == 2 and juntas[1].tipo == ge.PISCINA, [(f.fid, f.partes) for f in juntas])
+
+    #Prueba a mano del 20/11/2026: plantas escritas en la tabla (la capa no las tiene): al juntar, las del más alto; al
+    #separar, cada cuerpo con las suyas
+    c2 = QgsVectorLayer("Polygon?crs=EPSG:25830&field=tipo:string(20)", "sin plantas", "memory")
+    entidades = []
+    for wkt in (rect(X0 + 2, Y0 + 2, 10, 8), rect(X0 + 16, Y0 + 2, 5, 4)):
+        f = QgsFeature(c2.fields())
+        f.setGeometry(QgsGeometry.fromWkt(wkt))
+        f.setAttributes(['edificio'])
+        entidades.append(f)
+    c2.dataProvider().addFeatures(entidades)
+    proyecto.addMapLayer(c2)
+    pe.capaCombo.setLayer(c2)
+    pe.tabla.item(0, pe_mod.COL_PLANTAS).setText('1')
+    pe.tabla.item(1, pe_mod.COL_PLANTAS).setText('2')
+    elegir(0, 1)
+    pe.mismo_edificio()
+    comprobar("plantas escritas en la tabla (1 y 2): el edificio juntado lleva 2",
+              len(pe.filas) == 1 and pe.tabla.item(0, pe_mod.COL_PLANTAS).text() == '2',
+              [pe.tabla.item(i, pe_mod.COL_PLANTAS).text() for i in range(pe.tabla.rowCount())])
+    elegir(0)
+    pe.separar()
+    comprobar("al separar, cada cuerpo recupera sus plantas (1 y 2)",
+              [pe.tabla.item(i, pe_mod.COL_PLANTAS).text() for i in range(pe.tabla.rowCount())] == ['1', '2'],
+              [pe.tabla.item(i, pe_mod.COL_PLANTAS).text() for i in range(pe.tabla.rowCount())])
 except Exception:  # noqa: BLE001
     resultados["sin excepciones"] = False
     detalles["excepción"] = traceback.format_exc()[-1500:]

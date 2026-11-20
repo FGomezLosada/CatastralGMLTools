@@ -136,6 +136,10 @@ Decisiones técnicas:
 | 31 | Detección de territorios con catastro propio (Navarra, Álava/Araba, Gipuzkoa, Bizkaia) con aviso antes de generar GML para la Sede de la DGC | Evitar ficheros que no sirven | ✅ |
 | 34 | Comparar dos GML (vengan de donde vengan): fichero, emparejado por id o geometría, superficies, desplazamiento de vértices, vértices añadidos o quitados, desplazamiento uniforme, redondeo de coordenadas (p. ej. geográficas con 6 decimales), iguales a efectos de la Sede (±1 cm); informe HTML y ver en el mapa | Consulta del grupo de QGIS en español (19/10/2026): GML inscrito que difiere centímetros del presentado | ✅ (`core/comparar_gml.py`, Utilidades «5.») |
 | 35 | «Mover lindero» entre dos colindantes manteniendo el contorno (paralelo al lindero actual o girando sobre un extremo; superficie final, gana o pierde; propone subsanación) | Rectificar linderos entre vecinos sin pasar por Unir y Dividir | Para la 1.1.0 (maqueta del 04/11/2026; hoy se hace con «Unir parcelas» + «Dividir», explicado en la ayuda) |
+| 36 | Varios cuerpos de un mismo edificio en un solo Building (multirrecinto): «Mismo edificio» y «Separar» en Edificio, aviso en el resumen y en Validar | Petición del 19/11/2026: dos cuerpos dibujados aparte salían como dos edificios y la Sede daba de alta dos | ✅ (`edificio_multirrecinto_test.py`) |
+| 37 | Utilidad 2 renombrada «Doble GML (cartografía desplazada o girada)», con las dos resoluciones | Petición del 19/11/2026 | ✅ |
+| 38 | Catastro a una fecha (WMS con TIME) en Descargar y «Ver cómo era antes» en Validar | Petición del 19/11/2026 (análisis de visores de catastro histórico; maqueta F) | ✅ (`core/catastro_fecha.py`, `catastro_fecha_test.py`) |
+| 39 | Línea discreta al pie del panel con enlace a la web de servicios (expediente profesional…), que se pueda ocultar; sin ofertas ni nada que tape el trabajo | Petición del 20/11/2026 (ejemplo: franja inferior de NextGIS QMS). Antes, comprobar las normas de plugins.qgis.org sobre contenido promocional | Pendiente: cuando exista la web |
 
 ---
 
