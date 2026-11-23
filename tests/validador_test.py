@@ -132,7 +132,11 @@ niveles = ([i.nivel for i in inf_sup.incidencias if i.codigo == 'SUP-DISTINTA'] 
            and not inf_sup.errores and '1 aviso' in va.resumen(inf_sup)
            and inf_id.estado('Nueva 1') == ERROR and inf_id.estado('1907401VK4810H') == 'correcta'
            and [i.nivel for i in va.validar(casos['ESBELTEZ']).incidencias if i.codigo == 'ESBELTEZ'] == [AVISO]
-           and '1 error' in va.resumen(inf_id))
+           and '1 error' in va.resumen(inf_id)
+           #Caso real del 23/11/2026 (E-30): la Sede validó en positivo un GML con gml:id distinto y 6 decimales
+           and [i.nivel for i in va.validar(casos['GMLID']).incidencias if i.codigo == 'GMLID'] == [INFO]
+           and [i.nivel for i in va.validar(casos['DECIMALES']).incidencias if i.codigo == 'DECIMALES'] == [INFO]
+           and all(i.nivel != AVISO for i in va.validar(casos['DECIMALES']).incidencias))
 edificio = va.validar(os.path.join(RAIZ, 'tests', 'data', 'gml', 'edificio_sintetico.gml'))
 edificio_ok = not edificio.errores
 

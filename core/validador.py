@@ -180,7 +180,10 @@ def validar_elemento(e, es_parcela, metrica=None):
             if r.foral:
                 inc.append(Incidencia(ERROR, 'RC-FORAL', r.mensaje, nombre))
     if e.gml_id and e.namespace and e.local_id and e.gml_id != f"{e.namespace}.{e.local_id}":
-        inc.append(Incidencia(AVISO, 'GMLID', f"gml:id «{e.gml_id}» no coincide con «{e.namespace}.{e.local_id}»", nombre))
+        #Solo información: la Sede identifica la parcela por inspireId y dio validación positiva a un GML con el gml:id
+        #distinto (caso real de segregación del 23/11/2026, DESARROLLO E-30)
+        inc.append(Incidencia(INFO, 'GMLID', f"gml:id «{e.gml_id}» no coincide con «{e.namespace}.{e.local_id}»: la Sede "
+                                             "usa el identificador (localId); «Reparar» los iguala", nombre))
 
     if not es_parcela and e.tipo == gl.EDIFICIO and e.plantas is None:  #Obligatorio en el esquema de edificio de la DGC
         inc.append(Incidencia(ERROR, 'BU-SIN-PLANTAS', "Falta el número de plantas sobre rasante "
@@ -229,8 +232,10 @@ def validar_elemento(e, es_parcela, metrica=None):
                 inc.append(Incidencia(ERROR, 'ANILLO-SENTIDO', f"El {que} va en sentido horario: los huecos van en sentido "
                                                                "antihorario", nombre))
     if e.decimales > MAX_DECIMALES and metrica is None:  #En grados, los decimales no son centímetros
-        inc.append(Incidencia(AVISO, 'DECIMALES', f"Coordenadas con {e.decimales} decimales: la Sede trabaja al centímetro "
-                                                  "(2 decimales)", nombre))
+        #Solo información: la Sede toma los dos primeros decimales (documento de validación de la DGC, E-16) y dio validación
+        #positiva a un GML con 6 (caso real del 23/11/2026, E-30)
+        inc.append(Incidencia(INFO, 'DECIMALES', f"Coordenadas con {e.decimales} decimales: la Sede usa solo los dos primeros "
+                                                 "(centímetro); «Reparar» los deja en 2", nombre))
     if not e.geometria.isGeosValid():
         detalle = geo.motivo_invalida(e.geometria)
         inc.append(Incidencia(ERROR, 'GEO-INVALIDA', f"Geometría no válida (autointersección o anillos que se tocan){detalle}",

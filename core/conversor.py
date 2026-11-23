@@ -49,6 +49,8 @@ CAMBIOS_30_40 = ("Esquema 3.0 → 4.0: raíz FeatureCollection (WFS 2.0), «memb
 #Lo que el conversor deja bien al reescribir (en Validar se ofrece «Reparar» si el GML 4.0 tiene alguno de estos)
 REPARABLES = {'CP-30', 'XLINK', 'RAIZ', 'GMLID', 'SRC-ELEMENTO', 'DIMENSION', 'GEO-ESTRUCTURA', 'ANILLO-ABIERTO',
               'ANILLO-COUNT', 'ANILLO-SENTIDO', 'ANILLO-REPETIDO', 'DECIMALES', 'SUP-DISTINTA', 'SUP-FALTA', 'REFPOINT'}
+#Solo información en Validar (la Sede los admite, E-30), pero «Reparar» sigue apareciendo para dejarlos limpios
+REPARABLES_INFO = {'GMLID', 'DECIMALES'}
 SUFIJO_30 = '_v4'
 SUFIJO_40 = '_reparado'
 

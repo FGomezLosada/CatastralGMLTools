@@ -59,6 +59,8 @@ Cada batería recorre las categorías que le apliquen:
 Las pruebas que ya hay (`*_test.py`) cubren el uso normal y los fallos encontrados hasta ahora; las baterías añaden
 los casos de la sección 2 que falten.
 
+- Caso real (23/11/2026, ficheros no guardados en el repositorio): segregación con `gml:id` distinto y 6 decimales que la Sede validó en positivo: GMLID y DECIMALES solo como información (`validador_test.py`).
+
 ## 4. Orden
 
 Primero lo que recibe ficheros o capas de cualquier origen (es donde más cosas raras entran), después lo que depende de

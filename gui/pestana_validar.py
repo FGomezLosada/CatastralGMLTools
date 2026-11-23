@@ -341,7 +341,8 @@ class PestanaValidar(QWidget):
             self.convertirBoton.show()
             return
         reparable = (r is not None and informe is not None and r.version == 'CP 4.0'
-                     and (any(i.codigo in cv.REPARABLES for i in informe.incidencias if i.nivel in (ERROR, AVISO))
+                     and (any(i.codigo in cv.REPARABLES for i in informe.incidencias
+                              if i.nivel in (ERROR, AVISO) or i.codigo in cv.REPARABLES_INFO)
                           or bool(cv.ajenos(r.datos))  #Datos que no son del esquema (p. ej. Clave_Obra): la Sede los rechaza
                           or cv.geograficas(r)))  #En grados (EPSG:4326): se pasa al huso de la zona
         if r is not None and r.version == 'CP 3.0' and r.elementos:
