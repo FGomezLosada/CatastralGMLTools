@@ -5,7 +5,7 @@
 > Licencia: GPL-2.0-or-later. Compatibilidad: QGIS 3.34+ y 4.x (Qt5/Qt6).
 > Herramienta **no oficial**: el resultado debe validarse siempre en la Sede Electrónica del Catastro.
 
-Datos técnicos y licencias de terceros: ver [`INVESTIGACION.md`](INVESTIGACION.md).
+Datos técnicos y licencias de terceros: en las notas internas de investigación (no se publican).
 
 ---
 

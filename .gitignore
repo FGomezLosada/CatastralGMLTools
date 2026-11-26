@@ -31,3 +31,8 @@ salida_probar.txt
 
 # Notas de trabajo con Claude: solo en el PC, no en el repositorio público
 CLAUDE.md
+
+# Notas internas de investigación y auditoría: solo en el PC, no en el repositorio público (26/11/2026)
+docs/INVESTIGACION.md
+docs/AUDITORIA.md
+docs/auditoria/

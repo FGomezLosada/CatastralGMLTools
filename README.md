@@ -16,7 +16,7 @@ Plugin de QGIS para preparar los ficheros GML que pide la Sede Electrónica del 
 - **Unir** parcelas seleccionadas y varios GML en uno (multiparcela), e **informe** HTML de la comprobación.
 - **Dividir** una parcela (partes iguales, porcentajes, superficies, cuotas o franjas, con linderos paralelos, perpendiculares o desde un vértice), **convertir** un GML del esquema 3.0 al 4.0 o repararlo, **informe de superficies y coordenadas** (linderos, superficies, vértices y lados) y **doble GML** para la cartografía catastral desplazada o girada (GML ajustado y parámetros de transformación de la Sede) y **comparar dos GML** (desplazamiento de vértices, superficies, redondeo; iguales a efectos de la Sede), **puntos de apoyo** para el editor parcelario de la Sede y **leer el informe de la Sede** (IVG o ICUC: resultado, parcelas, afectadas y GML presentado, sin leer los datos personales).
 
-- **Panel por pasos** (Parcela y Edificio: 1 capa → 2 operación → 3 revisar → 4 crear), con la ayuda integrada: flujo de trabajo de la referencia catastral a la Sede y capturas reales.
+- **Panel por pasos** (Parcela y Edificio: 1 capa → 2 operación → 3 revisar → 4 crear), con la ayuda integrada: flujo de trabajo de la referencia catastral a la Sede y capturas reales. La ayuda completa también se puede leer en la web: [manual de Catastral GML Tools](https://fgomezlosada.github.io/CatastralGMLTools/help/).
 
 <p align="center"><img src="help/img/parcela.png" width="420" alt="Pestaña Parcela por pasos"> <img src="help/img/validar.png" width="420" alt="Validar tras comparar con el Catastro"></p>
 
