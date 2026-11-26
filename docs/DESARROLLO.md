@@ -37,7 +37,7 @@ Datos técnicos y licencias de terceros: ver [`INVESTIGACION.md`](INVESTIGACION.
 ```
 CatastralGMLTools/                       (raíz del repositorio = carpeta del plugin)
 ├── __init__.py
-├── metadata.txt                         (descripción en inglés, supportsQt6=True)
+├── metadata.txt                         (descripción en inglés, qgisMaximumVersion=4.99)
 ├── catastral_gml_tools.py               (initGui/unload, botón, menú Vectorial, proveedor Processing)
 ├── catastral_gml_tools_dockwidget.py / _base.ui  (panel: Descargar · Parcela · Edificio · Validar · Utilidades)
 ├── icon.svg / icon.png

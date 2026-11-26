@@ -4,6 +4,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 
 ## [Sin publicar]
 
+## [1.1.0] - 2026-11-26
+
+Primera versión publicada en el repositorio oficial de complementos de QGIS (la 1.0.0 solo se publicó en GitHub).
+
 ### Añadido
 - **Gráficos en los informes** (petición del 19/11/2026, maqueta G aprobada con los cuatro): SVG dibujados por el propio plugin (`core/graficos.py`, sin librerías; se imprimen bien y al pasar el ratón dan el valor exacto). Informe de superficies: **reparto** de la superficie entre las parcelas (con dos o más, en los colores del croquis) y la superficie frente a las bandas de **±5 % y ±10 % de la cabida inscrita**. Comparar dos GML: **desplazamiento de cada vértice** frente a ±1 cm, en rojo los que la superan y cuántos son. Informe de Validar, identidad gráfica: **separación del contorno** respecto al perímetro catastral a lo largo de todo el contorno, con el margen y en rojo los tramos que lo superan. Prueba nueva `graficos_test.py`; las que contaban croquis (`<svg>`) ya no cuentan los gráficos.
 - **Apartados numerados e índice** en los tres informes HTML (petición del 20/11/2026, propuesta C elegida entre tres): número en una etiqueta del color del informe, título en mayúsculas con una línea gruesa debajo y, con tres apartados o más, un índice con enlaces al principio (`core/apartados.py`).
@@ -13,6 +17,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 
 ### Cambiado
 - **Validar**: «gml:id distinto del identificador» y «coordenadas con más de 2 decimales» pasan de aviso a **información**: la Sede usa el identificador (localId) y los dos primeros decimales, y dio validación positiva a un GML real con las dos cosas (23/11/2026). «Reparar» las sigue dejando limpias.
+- `metadata.txt` sin `supportsQt6`, que QGIS ya no reconoce: la compatibilidad con QGIS 4 la declara `qgisMaximumVersion=4.99`.
 - **Icono**: los vértices de la parcela pasan de ámbar a **rojo coral** (#e8590c), para que el icono tenga una imagen propia (petición del 20/11/2026).
 - Los informes HTML se leen bien en el **móvil** (el índice salta de línea y las tablas anchas se desplazan de lado sin ensanchar la página) y al pie llevan solo el **nombre del GML**, no su ruta completa (`C:\Users\…`), que no aporta en un informe que se entrega (prueba a mano del 20/11/2026).
 - Los informes HTML usan **punto de miles** (1.475,00), como el panel; antes, un espacio (prueba a mano del 20/11/2026). Los CSV no cambian.

@@ -1,22 +1,22 @@
-# Prueba final antes de publicar la 1.0.0
+# Prueba final antes de publicar la 1.1.0
 
 Recorrido completo a mano, con el **ZIP de la versión** instalado como lo instalará cualquiera, y con parcelas reales
-(urbana y rústica). Lo que falle se anota en «Incidencias» y se corrige antes de crear la etiqueta `v1.0.0`.
+(urbana y rústica). Lo que falle se anota en «Incidencias» y se corrige antes de crear la etiqueta `v1.1.0`.
 
 La prueba de verdad es el paso 6: **subir a la Sede los GML que crea el plugin** y ver que la Sede los acepta y dice lo
 mismo que el plugin.
 
 ## 0. Preparación (una vez)
 
-- [ ] QGIS 3.40: *Configuración → Perfiles de usuario → Nuevo perfil* «prueba_1.0.0» (sin el plugin de desarrollo).
-- [ ] En ese perfil: *Complementos → Instalar a partir de ZIP* → `catastral_gml_tools-1.0.0.zip`. Sale el panel y en
-      *Complementos → Instalados* pone versión 1.0.0, sin «experimental».
+- [ ] QGIS 3.40: *Configuración → Perfiles de usuario → Nuevo perfil* «prueba_1.1.0» (sin el plugin de desarrollo).
+- [ ] En ese perfil: *Complementos → Instalar a partir de ZIP* → `catastral_gml_tools-1.1.0.zip`. Sale el panel y en
+      *Complementos → Instalados* pone versión 1.1.0, sin «experimental».
 - [ ] Botón «?» del panel: la ayuda se abre y se ven las capturas.
 - [ ] Elegir las parcelas reales de la prueba (anotarlas en la tabla del final):
   - **U**: una urbana con construcción (para segregar y para el ICUC).
   - **R**: una rústica que linde con un camino (dominio público).
   - **A** y **B**: dos urbanas colindantes (para agregar).
-- [ ] Carpeta vacía para los ficheros de la prueba (p. ej. `pruebacat\1.0.0`).
+- [ ] Carpeta vacía para los ficheros de la prueba (p. ej. `pruebacat\1.1.0`).
 
 ## 1. Descargar
 

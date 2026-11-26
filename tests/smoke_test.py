@@ -89,7 +89,9 @@ for _n, _f in _originales.items():
     setattr(QMessageBox, _n, _f)
 
 checks = {
-    "metadata: supportsQt6, 3.34+, GPL y versión": general.get('supportsQt6') == 'True'
+    #supportsQt6 ya no lo reconoce QGIS (plugins.qgis.org, «Migrate your plugin to QGIS 4»): basta qgisMaximumVersion
+    "metadata: QGIS 3.34 a 4.99, sin supportsQt6 y versión": general.get('qgisMaximumVersion') == '4.99'
+        and 'supportsQt6' not in general
         and general.get('qgisMinimumVersion') == '3.34' and info.version() == general.get('version'),
     "LICENSE es la GPL v2": 'GNU GENERAL PUBLIC LICENSE' in licencia and 'Version 2' in licencia,
     "botón con icono propio": accion_ok,
