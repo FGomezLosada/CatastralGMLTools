@@ -6,7 +6,7 @@ description=Create, check and compare cadastral parcel and building GML files fo
 description[es]=Crear, comprobar y comparar los GML de parcela y de edificio para la Sede Electrónica del Catastro
 about=Prepare the GML files required by the Spanish Cadastre electronic office: parcel GML (INSPIRE CadastralParcels 4.0) for graphic validation reports and building GML for construction location reports (ICUC). Download a parcel by cadastral reference, create the GML step by step (segregation, division, aggregation, grouping), check it as the Sede does and compare it with the current cadastre. User interface and help in Spanish. NOT an official tool: always validate the result in the Sede Electrónica del Catastro. Cadastral data: Dirección General del Catastro.
 about[es]=Prepara los GML que pide la Sede Electrónica del Catastro: el de parcela (INSPIRE CadastralParcels 4.0) para el informe de validación gráfica y el de edificio para el informe de ubicación de las construcciones (ICUC). Descarga una parcela por su referencia catastral, crea el GML paso a paso (segregación, división, agregación, agrupación), lo comprueba como la Sede y lo compara con el Catastro vigente. NO es una herramienta oficial: valide siempre el resultado en la Sede Electrónica del Catastro. Datos catastrales: Dirección General del Catastro.
-version=1.1.0
+version=1.1.1
 author=Francisco Gómez Losada
 email=pgomezlosada@gmail.com
 
@@ -15,6 +15,7 @@ repository=https://github.com/FGomezLosada/CatastralGMLTools
 homepage=https://github.com/FGomezLosada/CatastralGMLTools
 
 changelog=
+    1.1.1 - Sin cambios de funcionamiento: las letras de control de la referencia catastral se escriben de otra forma para que el escáner de seguridad del repositorio no las tome por una clave.
     1.1.0 - Gráficos en los informes (reparto, cabida, vértices, perfil) con apartados numerados e índice, legibles en el móvil; Catastro a una fecha (parcelario histórico) y «Ver cómo era antes» en Validar; un edificio con varios cuerpos (multirrecinto); utilidad «Doble GML»; punto de miles; gml:id distinto y más de 2 decimales pasan a información, como los admite la Sede; icono propio.
     1.0.0 - Primera versión estable. Panel por pasos (Parcela y Edificio) con opciones avanzadas plegadas; unir y dividir parcelas; identidad gráfica (simulación) en la comparación con el Catastro; ajuste a la cartografía desplazada o girada; comparar dos GML; parcela desde coordenadas; puntos de apoyo; leer el informe de la Sede (IVG o ICUC); informe de superficies y coordenadas; conversor 3.0 a 4.0; País Vasco y Navarra solo para ver; ayuda con flujo de trabajo y capturas reales.
     0.2.0 - GML de parcela y de edificio, asistente de alteraciones, descarga por referencia, validación como la Sede, comparación con el Catastro, multiparcela, informe HTML y auditoría completa (fiabilidad, normativa y robustez).

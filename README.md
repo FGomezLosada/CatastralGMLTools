@@ -20,7 +20,7 @@ Plugin de QGIS para preparar los ficheros GML que pide la Sede Electrónica del 
 
 <p align="center"><img src="help/img/parcela.png" width="420" alt="Pestaña Parcela por pasos"> <img src="help/img/validar.png" width="420" alt="Validar tras comparar con el Catastro"></p>
 
-> Estado: **versión 1.1.0** (estable). Ver [CHANGELOG](CHANGELOG.md) y [docs/DESARROLLO.md](docs/DESARROLLO.md).
+> Estado: **versión 1.1.1** (estable). Ver [CHANGELOG](CHANGELOG.md) y [docs/DESARROLLO.md](docs/DESARROLLO.md).
 
 ### Requisitos
 QGIS 3.34 o posterior, incluido QGIS 4 (Qt6). Sin dependencias externas.
@@ -53,7 +53,7 @@ QGIS plugin to prepare the GML files required by the Spanish Cadastre electronic
 - **Split** a parcel and **convert** a parcel GML from schema 3.0 to 4.0 (or repair a 4.0 one).
 - **Merge** selected parcels and several GML files, and save an HTML check report.
 
-> Status: **version 1.1.0** (stable).
+> Status: **version 1.1.1** (stable).
 
 Requires QGIS 3.34 or later, including QGIS 4 (Qt6). Covers the territory managed by the Spanish Directorate General for Cadastre; Navarre and the Basque Country have their own cadastres. **Not an official tool**: always validate the result in the Sede Electrónica del Catastro. Cadastral data: Dirección General del Catastro. User interface in Spanish. Licence: GPL-2.0-or-later.
 

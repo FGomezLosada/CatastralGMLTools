@@ -48,7 +48,31 @@ for nombre_ui in [n for n in os.listdir(RAIZ) if n.endswith('.ui')]:
         if not any(p.get('name') == 'sizeHint' for p in spacer.findall('property')):
             espaciadores_sin_tamano.append(f"{nombre_ui}:{spacer.get('name')}")
 
+# Cadenas que el escáner de secretos de plugins.qgis.org (detect-secrets, Base64HighEntropyString, límite 4,5) toma
+#por claves: bloquean la versión (1.1.0 bloqueada el 26/11/2026 por las letras de control de la RC)
+import ast  # noqa: E402
+import math  # noqa: E402
+import re  # noqa: E402
+from collections import Counter  # noqa: E402
+
+BASE64 = re.compile(r'[A-Za-z0-9+/\-_=]{12,}')
+
+
+def entropia(cadena):
+    return -sum(n / len(cadena) * math.log2(n / len(cadena)) for n in Counter(cadena).values())
+
+
+sospechosas = []
+with zipfile.ZipFile(destino) as z:
+    for nombre in [n for n in z.namelist() if n.endswith('.py')]:
+        for nodo in ast.walk(ast.parse(z.read(nombre).decode('utf-8'))):
+            if isinstance(nodo, ast.Constant) and isinstance(nodo.value, str):
+                for trozo in BASE64.findall(nodo.value):
+                    if entropia(trozo) > 4.5:
+                        sospechosas.append(f"{nombre}:{nodo.lineno}:{trozo[:12]}…")
+
 checks = {
+    "sin cadenas que el escáner de secretos tome por claves (entropía > 4,5)": not sospechosas,
     "espaciadores de los .ui con sizeHint (compatibles con QGIS 4)": not espaciadores_sin_tamano,
     "ZIP con el nombre y la versión": os.path.isfile(destino),
     "una sola carpeta catastral_gml_tools/": carpetas == {'catastral_gml_tools'},
@@ -62,7 +86,7 @@ print("QGIS", Qgis.version(), "· empaquetado")
 for nombre, ok in checks.items():
     print(("  OK   " if ok else "  FALLO") + "  " + nombre)
 if not all(checks.values()):
-    print("Detalles:", {'carpetas': carpetas, 'prohibidos': prohibidos, 'espaciadores': espaciadores_sin_tamano, 'faltan':
+    print("Detalles:", {'carpetas': carpetas, 'prohibidos': prohibidos, 'espaciadores': espaciadores_sin_tamano, 'secretos': sospechosas, 'faltan':
                         [n for n in necesarios if f"catastral_gml_tools/{n}" not in nombres]})
 print("RESULTADO:", "TODO CORRECTO" if all(checks.values()) else "HAY FALLOS")
 print("=" * 60)

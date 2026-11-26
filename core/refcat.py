@@ -11,7 +11,7 @@ Los caracteres de control solo existen en la RC de 20 caracteres: una RC de 14 s
 Cálculo de los caracteres de control (método público de la DGC): para cada uno de los dos bloques
 (caracteres 1-7 + cargo, y caracteres 8-14 + cargo) se suma cada carácter por su peso (13, 15, 12, 5, 4, 17, 9, 21, 3, 7, 1);
 los dígitos valen su número y las letras su posición en el alfabeto español (A=1 … N=14, Ñ=15, O=16 … Z=27).
-El resto de dividir la suma entre 23 indica la letra en la serie MQWERTYUIOPASDFGHJKLBZX.
+El resto de dividir la suma entre 23 indica la letra en la serie «MQWERTYUIOP ASDFGHJKL BZX» (sin los espacios).
 
 copyright : (C) 2026 by Francisco Gómez Losada
 license   : GNU GPL v2 or later
@@ -22,7 +22,9 @@ from dataclasses import dataclass
 from .info import territorio_foral
 
 PESOS = (13, 15, 12, 5, 4, 17, 9, 21, 3, 7, 1)
-LETRAS_CONTROL = 'MQWERTYUIOPASDFGHJKLBZX'
+#Letras de control en el orden del teclado, por filas: escrita de una vez, el escáner de secretos del repositorio de
+#QGIS (detect-secrets) la tomaba por una clave (bloqueo de la 1.1.0 del 26/11/2026)
+LETRAS_CONTROL = ''.join(('MQWERTYUIOP', 'ASDFGHJKL', 'BZX'))
 
 URBANA = re.compile(r'^\d{7}[A-ZÑ]{2}\d{4}[A-ZÑ]$')
 RUSTICA = re.compile(r'^\d{5}[A-ZÑ]\d{8}$')

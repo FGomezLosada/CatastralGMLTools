@@ -4,6 +4,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 
 ## [Sin publicar]
 
+## [1.1.1] - 2026-11-26
+
+### Corregido
+- El escáner de seguridad de plugins.qgis.org (detect-secrets) bloqueó la 1.1.0 porque tomó por una clave las letras de control de la referencia catastral (`core/refcat.py`, «MQWERTYUIOP…»). Se escriben ahora por filas del teclado; el cálculo no cambia. `package_test.py` comprueba que el ZIP no lleve cadenas de ese tipo.
+
 ## [1.1.0] - 2026-11-26
 
 Primera versión publicada en el repositorio oficial de complementos de QGIS (la 1.0.0 solo se publicó en GitHub).
